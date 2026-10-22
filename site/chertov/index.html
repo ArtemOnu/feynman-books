@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Задачник Чертова</title>
+<link rel="stylesheet" href="lib/app.css">
+<style>
+  .cover { max-width: 820px; margin: 0 auto; padding: 60px 16px; }
+  .cover h1 { font: 500 clamp(36px, 7vw, 64px)/1.05 var(--book); margin: 0 0 12px; }
+  .cover h1 i { color: var(--task); }
+  .cover .lede { color: var(--dim); font-size: 19px; margin: 0 0 30px; }
+  .cover h2 { font: 600 13px var(--ui); letter-spacing: .14em; text-transform: uppercase; color: var(--quiz); margin: 30px 0 10px; }
+  .sec { display: flex; align-items: center; gap: 16px; padding: 16px 20px; margin: 10px 0; border-radius: 16px; background: var(--panel);
+         border: 1.5px solid var(--edge); border-left: 6px solid var(--task); color: var(--chalk); text-decoration: none; }
+  .sec:hover { border-color: var(--task); }
+  .sec b { font: 500 30px var(--book); color: var(--task); min-width: 50px; }
+  .sec small { display: block; color: var(--dim); }
+  .sec .p { margin-left: auto; color: var(--good); font-size: 14px; white-space: nowrap; }
+  .soon { opacity: .45; pointer-events: none; border-left-color: var(--edge); }
+</style>
+</head>
+<body>
+<main class="cover">
+  <h1>Задачник <i>Чертова</i></h1>
+  <p class="lede">А. Г. Чертов, А. А. Воробьёв. Задачник по физике. Каждая задача — с рисунком, проверкой ответа, подсказками и разбором решения.</p>
+  <h2>Глава 1. Физические основы механики</h2>
+  <a class="sec" href="s01/" data-key="chertov:progress:s01" data-n="61"><b>§ 1</b><span>Кинематика<small>4 примера · 61 задача</small></span><span class="p"></span></a>
+  <a class="sec soon"><b>§ 2</b><span>Динамика материальной точки и поступательного движения<small>скоро</small></span></a>
+  <a class="sec soon"><b>§ 3</b><span>Динамика вращательного движения<small>скоро</small></span></a>
+  <a class="sec soon"><b>§ 4</b><span>Силы в механике<small>скоро</small></span></a>
+  <a class="sec soon"><b>§ 5</b><span>Релятивистская механика<small>скоро</small></span></a>
+  <a class="sec soon"><b>§ 6</b><span>Механические колебания<small>скоро</small></span></a>
+  <a class="sec soon"><b>§ 7</b><span>Волны в упругой среде. Акустика<small>скоро</small></span></a>
+  <p style="margin-top:40px"><a href="../">← ко всем книгам</a></p>
+</main>
+<script>
+document.querySelectorAll('a[data-key]').forEach(a => {
+  try { const s = JSON.parse(localStorage.getItem(a.dataset.key) || '{}');
+    const n = Object.entries(s).filter(([k, v]) => /^\d/.test(k) && ['solved', 'helped'].includes(v?.status)).length;
+    if (n) a.querySelector('.p').textContent = `решено ${n} из ${a.dataset.n}`; } catch {}
+});
+</script>
+</body>
+</html>

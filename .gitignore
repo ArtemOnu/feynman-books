@@ -1,3 +1,4 @@
 *.pdf
 books/*/pages/
 .claude/
+books/chertov/pages_text.md
