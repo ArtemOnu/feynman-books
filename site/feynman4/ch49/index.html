@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Собственные колебания</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 49, title: 'Собственные колебания', minutes: 7, language: 'ru', audio: false, next: '../ch50/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const bump = u => Math.exp(-u * u);
+const strD = (x1, x2, y0, fy, n = 160) => { let d = ''; for (let k = 0; k <= n; k++) { const x = x1 + (x2 - x1) * k / n; d += (k ? 'L' : 'M') + x.toFixed(1) + ' ' + (y0 - fy(x)).toFixed(1); } return d; };
+function pins(p, x1, x2, y) { for (const x of [x1, x2]) mk('circle', { cx: x, cy: y, r: 8, fill: COL.chalk }, p); }
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Собственные колебания', (m, D) => introCard(m, D, 'Звук', 49, 'Собственные колебания', 'Почему струна звучит на своих частотах')],
+
+  ['reflect', 'Отражение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Отражение от закреплённого конца', .2);
+    mk('rect', { x: 1300, y: 240, width: 30, height: 360, fill: '#3a5047', stroke: COL.chalk, 'stroke-width': 2 }, p);
+    const s = path(p, '', { stroke: COL.task, 'stroke-width': 4, fill: 'none' });
+    const im = path(p, '', { stroke: COL.bad, 'stroke-width': 3, fill: 'none', 'stroke-dasharray': '8 6' }); put(im, { o: 0 }); show(im, m('image'));
+    const ta = m('pulse'), tb = m('back'), W = 1300, x0 = 300, c = (W - x0) / Math.max(1, tb - ta);
+    prog(q => {
+      const t = q * D, u = Math.max(0, t - ta), xc = x0 + c * u, xi = 2 * W - xc;
+      s.setAttribute('d', strD(200, W, 420, x => 120 * (bump((x - xc) / 60) - bump((x - xi) / 60))));
+      im.setAttribute('d', xi > W - 60 ? strD(W, Math.min(1560, W + 260), 420, x => -120 * bump((x - xi) / 60)) : '');
+    }, 0, D, lin);
+    txt(p, 'на стене смещение = 0', 1315, 660, m('pulse', 2), { size: 26, fill: COL.dim, anchor: 'middle' });
+    txt(p, 'перевёрнутое «зеркальное» отражение', 800, 200, m('image', 1), { size: 28, fill: COL.bad, anchor: 'middle' });
+  }],
+
+  ['standing', 'Стоячие волны', (m, D) => {
+    const p = panel(0);
+    head(p, 'Струна, закреплённая с двух концов', .2);
+    const X1 = 160, X2 = 1060, ys = [250, 420, 590], ts = [.3, m('modes', 1.5), m('modes', 3)];
+    const S3 = ys.map((y, i) => {
+      const g = G(p, { o: 0 }); show(g, ts[i]); pins(g, X1, X2, y);
+      T(g, `n = ${i + 1}`, { x: X1 - 30, y: y + 8, size: 26, fill: COL.dim, anchor: 'end', font: MATH });
+      return path(g, '', { stroke: [COL.task, COL.good, COL.whole][i], 'stroke-width': 4, fill: 'none' });
+    });
+    prog(q => { const t = q * D; S3.forEach((e, i) => { const n = i + 1; e.setAttribute('d', strD(X1, X2, ys[i], x => 60 * Math.sin(n * Math.PI * (x - X1) / (X2 - X1)) * Math.cos(2.4 * n * t))); }); }, 0, D, lin);
+    eq(p, 'L = n λ / 2', 1180, 330, m('cond'), { size: 42 });
+    eq(p, 'ωₙ = n π c / L', 1180, 460, m('freq'), { size: 42, fill: COL.task });
+    txt(p, 'кратны основной', 1180, 520, m('freq', 2), { size: 26, fill: COL.dim });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1120, y: 560, w: 460, cls: 'side' }, [{
+    id: 'c-n3', prompt: ['Основная частота струны 110 Гц. Частота третьей моды?'],
+    build: blanks([{ parts: [{ box: '330' }, ' Гц'], why: 'ωₙ = n·ω₁: 3·110.', hint: 'Частоты кратны основной.' }]),
+  }], done) }],
+
+  ['membrane', 'Мембрана', (m, D) => {
+    const p = panel(0);
+    head(p, 'Прямоугольная мембрана', .2);
+    const X0 = 200, Y0 = 200, A = 660, B = 440, n = 3, mm = 2, cells = [];
+    for (let i = 0; i < n; i++) for (let j = 0; j < mm; j++) {
+      const c = mk('rect', { x: X0 + i * A / n, y: Y0 + j * B / mm, width: A / n, height: B / mm, fill: (i + j) % 2 ? COL.good : COL.task }, p);
+      put(c, { o: 0 }); cells.push(c);
+    }
+    path(p, `M${X0} ${Y0}h${A}v${B}h${-A}Z`, { stroke: COL.chalk, 'stroke-width': 3, fill: 'none' });
+    const nl = G(p, { o: 0 }); show(nl, m('lines'));
+    for (let i = 1; i < n; i++) path(nl, `M${X0 + i * A / n} ${Y0}v${B}`, { stroke: COL.chalk, 'stroke-width': 2, 'stroke-dasharray': '8 6' });
+    path(nl, `M${X0} ${Y0 + B / 2}h${A}`, { stroke: COL.chalk, 'stroke-width': 2, 'stroke-dasharray': '8 6' });
+    const t0 = m('rect');
+    prog(q => { const t = q * D, a = t < t0 ? 0 : .55 * Math.abs(Math.cos(3 * t)) * smooth(t0, t0 + 1, t); cells.forEach(c => put(c, { o: a })); }, 0, D, lin);
+    T(p, 'a', { x: X0 + A / 2, y: Y0 + B + 40, size: 28, fill: COL.dim, font: MATH, anchor: 'middle' });
+    T(p, 'b', { x: X0 - 30, y: Y0 + B / 2 + 8, size: 28, fill: COL.dim, font: MATH });
+    txt(p, 'мода n = 3, m = 2', X0 + A / 2, Y0 - 20, m('rect', 1), { size: 26, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'ω² = π²c² (n²/a² + m²/b²)', 940, 340, m('nm'), { size: 34, fill: COL.task });
+    txt(p, 'частоты не кратны — звук негармоничен', 940, 440, m('lines', 4), { size: 26, fill: COL.dim });
+  }],
+
+  ['coupled', 'Связанные маятники', (m, D) => {
+    const p = panel(0);
+    head(p, 'Два маятника и пружина', .2);
+    path(p, 'M420 150H1180', { stroke: COL.chalk, 'stroke-width': 5 });
+    const P1 = [600, 150], P2 = [1000, 150], Lr = 380, w = 2.2, w2 = 2.5, dw = (w2 - w) / 2, wm = (w + w2) / 2, A = .25;
+    const r1 = path(p, '', { stroke: COL.dim, 'stroke-width': 3 }), r2 = path(p, '', { stroke: COL.dim, 'stroke-width': 3 });
+    const sp = path(p, '', { stroke: COL.good, 'stroke-width': 3, fill: 'none' });
+    const b1 = atom(p, 'O'), b2 = atom(p, 'N');
+    const t1 = m('m1'), t2 = m('m2'), t3 = m('slosh');
+    prog(q => {
+      const t = q * D;
+      let a1 = 0, a2 = 0;
+      if (t >= t1 && t < t2) { a1 = a2 = A * Math.sin(w * (t - t1)); }
+      else if (t >= t2 && t < t3) { a1 = A * Math.sin(w2 * (t - t2)); a2 = -a1; }
+      else if (t >= t3) { const u = t - t3; a1 = A * Math.cos(dw * u) * Math.sin(wm * u); a2 = -A * Math.sin(dw * u) * Math.cos(wm * u); }
+      const e1 = [P1[0] + Lr * Math.sin(a1), P1[1] + Lr * Math.cos(a1)], e2 = [P2[0] + Lr * Math.sin(a2), P2[1] + Lr * Math.cos(a2)];
+      r1.setAttribute('d', `M${P1[0]} ${P1[1]}L${e1[0]} ${e1[1]}`); r2.setAttribute('d', `M${P2[0]} ${P2[1]}L${e2[0]} ${e2[1]}`);
+      put(b1, { x: e1[0], y: e1[1] }); put(b2, { x: e2[0], y: e2[1] });
+      const ya = P1[1] + 220, s1 = P1[0] + 220 * Math.sin(a1), s2 = P2[0] + 220 * Math.sin(a2); let d = `M${s1} ${ya}`;
+      for (let k = 1; k <= 12; k++) d += `L${s1 + (s2 - s1) * k / 12} ${ya + (k % 2 ? -10 : 10) * (k < 12 ? 1 : 0)}`;
+      sp.setAttribute('d', d);
+    }, 0, D, lin);
+    txt(p, 'мода 1: в фазе, ω₁', 800, 640, m('m1'), { size: 28, fill: COL.task, anchor: 'middle' });
+    txt(p, 'мода 2: навстречу, ω₂ > ω₁', 800, 680, m('m2'), { size: 28, fill: COL.good, anchor: 'middle' });
+    txt(p, 'толчок одного — биения: энергия перетекает', 800, 720 - 0, m('slosh'), { size: 28, fill: COL.chalk, anchor: 'middle' });
+  }],
+
+  ['linear', 'Линейные системы', (m) => {
+    const p = panel(0);
+    head(p, 'Общий закон', .2);
+    eq(p, 'x(t) = Σ Aₙ cos(ωₙt + φₙ)', 800, 360, m('sum'), { size: 54, anchor: 'middle', fill: COL.task });
+    txt(p, 'число мод = число степеней свободы', 800, 460, m('sum', 4), { size: 32, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-mem', prompt: ['Квадратная мембрана (a = b). Во сколько раз частота моды (2, 1) больше основной (1, 1)?'],
+    build: choice([['√(5/2) ≈ 1,58'], ['2'], ['3/2']], 0, 'ω ∝ √(n² + m²): √5 / √2.', [null, 'Кратность — у струны, не у мембраны.', 'Складываются квадраты: √(4 + 1).']),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Отражение от закреплённого конца — перевёрнутое.', 'w1'], ['Струна: L = nλ/2, ωₙ = nω₁.', 'w2'],
+      ['Мембрана: частоты не кратны.', 'w3'], ['Движение линейной системы — сумма мод.', 'w4']]);
+  }],
+
+  ['final1', 'Практика', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-string', prompt: ['Струна длиной 0,5 м, скорость волн в ней 200 м/с. Основная частота (в герцах)?'],
+    build: blanks([{ parts: ['f₁ = ', { box: '200' }, ' Гц'], why: 'λ = 2L = 1 м; f = c/λ = 200 Гц.', hint: 'Основная мода: L = λ/2.' }]),
+  }, {
+    id: 'p-coupled', prompt: ['Связанные маятники: частоты мод 2,0 и 2,2 рад/с. Толкнули один. Через какое время энергия впервые целиком перейдёт ко второму?'],
+    build: choice([['≈ 15,7 с'], ['≈ 3,1 с'], ['≈ 31,4 с']], 0, 'Перекачка за t = π/(ω₂ − ω₁) = π/0,2 ≈ 15,7 с.', [null, 'Это π/1: возьмите разность частот 0,2.', 'Это полный цикл туда и обратно.']),
+  }], done, 'Практика по главе   1 из 1') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

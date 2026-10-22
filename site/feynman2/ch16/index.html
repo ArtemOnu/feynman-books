@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Релятивистская энергия и импульс</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 16, title: 'Релятивистская энергия и импульс', minutes: 14, language: 'ru', audio: false, next: '../ch17/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const LIGHT = COL.int, A_ = COL.whole, B_ = COL.task;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+function ballEl(p, colr, r, { x = 0, y = 0, o = 1 } = {}) { const g = G(p, { x, y, o }); mk('circle', { r, fill: colr, stroke: COL.board, 'stroke-width': 2 }, g); return g; }
+function person(p, colr, { x = 0, y = 0, s = 1, o = 1 } = {}) {
+  const g = G(p, { x, y, s, o });
+  mk('circle', { cy: -70, r: 16, fill: colr }, g);
+  path(g, 'M0 -54V-10M0 -10L-16 30M0 -10L16 30M0 -40L-22 -20M0 -40L22 -20', { stroke: colr, 'stroke-width': 6 });
+  return g;
+}
+const addV = (u, v) => (u + v) / (1 + u * v);
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Релятивистская энергия и импульс', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Относительность · Глава 16', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Релятивистская энергия и импульс', { x: 800, y: 440, size: 72, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Что утверждает принцип относительности — и что из него следует', 800, 560, m('sub'), { size: 32, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['phil', '«Всё относительно»?', (m, D) => {
+    const p = panel(0);
+    head(p, '«Всё относительно»?', .2);
+    const tu = m('uniform');
+    const sh = G(p, { x: 400, y: 330, o: 0 }); show(sh, tu);
+    mk('rect', { x: -200, y: -110, width: 400, height: 220, rx: 30, fill: 'rgba(236,232,220,.05)', stroke: COL.chalk, 'stroke-width': 3 }, sh);
+    mk('rect', { x: -160, y: -70, width: 50, height: 50, fill: '#55665f' }, sh);
+    T(sh, '?', { x: 60, y: 20, size: 80, fill: COL.dim, anchor: 'middle', weight: 700 });
+    T(p, 'равномерное движение изнутри не обнаружить', { x: 400, y: 500, size: 24, fill: COL.dim, anchor: 'middle' });
+    put(p.lastChild, { o: 0 }); show(p.lastChild, tu + 1);
+    const tsp = m('spin');
+    const room = G(p, { x: 1150, y: 330, o: 0 }); show(room, tsp);
+    mk('circle', { r: 150, fill: 'rgba(236,232,220,.05)', stroke: COL.chalk, 'stroke-width': 3 }, room);
+    const inner = G(room);
+    path(inner, 'M0 -150V150M-150 0H150', { stroke: COL.faint, 'stroke-width': 2 });
+    const balls = [0, 1, 2, 3, 4, 5].map(k => mk('circle', { r: 10, fill: COL.task }, room));
+    prog(q => { const t = q * D, s = Math.max(0, t - tsp); put(inner, { r: s * 60 }); balls.forEach((b, k) => { const a = k * 1.047 + s, r = 20 + Math.min(118, 30 * s * s); b.setAttribute('cx', r * Math.cos(a)); b.setAttribute('cy', r * Math.sin(a)); }); }, 0, D, lin);
+    T(p, 'вращение — видно: всё к стенкам', { x: 1150, y: 530, size: 24, fill: COL.task, anchor: 'middle' });
+    put(p.lastChild, { o: 0 }); show(p.lastChild, tsp + 2);
+    txt(p, 'что измеримо — решает опыт, а не рассуждение', 800, 650, m('exp'), { size: 28, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['twins', 'Парадокс близнецов', (m, D) => {
+    const p = panel(0);
+    head(p, 'Парадокс близнецов', .2);
+    const tg = m('go'), ttn = m('turn'), ty = m('young');
+    path(p, 'M100 620H1500', { stroke: '#6fae6a', 'stroke-width': 5 });
+    const pe = person(p, A_, { x: 220, y: 590 }); T(p, 'Петер', { x: 220, y: 660, size: 24, fill: A_, anchor: 'middle' });
+    const rk = G(p, { x: 360, y: 420, o: 0 }); show(rk, tg);
+    path(rk, 'M-50 -18H40L70 0L40 18H-50Z', { fill: B_ });
+    const pl = T(p, 'Пауль', { size: 22, fill: B_, anchor: 'middle', o: 0 }); show(pl, tg);
+    prog(q => { const t = q * D, s = t - tg, L = 900, T1 = ttn - tg;
+      let x = 360; if (s > 0) x = s < T1 ? 360 + L * s / T1 : Math.max(360, 360 + L - L * (s - T1) / 5);
+      put(rk, { x, r: s > T1 && s < T1 + 1 ? 180 * (s - T1) : s > T1 ? 180 : 0 }); put(pl, { x, y: 380 }); }, 0, D, lin);
+    const clocks = (x, y, rate, colr, lab) => { const g = G(p, { x, y }); mk('circle', { r: 46, fill: 'none', stroke: colr, 'stroke-width': 3 }, g); const h = path(g, 'M0 0V-36', { stroke: colr, 'stroke-width': 4 }); T(g, lab, { y: 76, size: 22, fill: colr, anchor: 'middle' }); prog(q => put(h, { r: q * D * 40 * rate }), 0, D, lin); return g; };
+    clocks(1200, 220, 1, A_, 'часы Петера'); clocks(1380, 220, .6, B_, 'часы Пауля');
+    txt(p, '«а с точки зрения Пауля движется Петер!»', 400, 210, m('sym'), { size: 26, fill: COL.dim });
+    txt(p, 'разворот: ускорение испытал Пауль', 400, 270, ttn + .5, { size: 26, fill: COL.bad });
+    txt(p, 'он и окажется моложе', 400, 320, ty, { size: 30, fill: COL.task, weight: 600 });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 700, y: 420, w: 760, cls: 'side' }, [{
+    id: 'c-twins', prompt: ['Почему ситуация близнецов несимметрична?'],
+    build: choice([['ускорение при развороте испытал только Пауль'], ['Пауль летел дальше'], ['часы Петера неточные']], 0,
+      'Кто испытал ускорение (вещи покатились к стенке), тот и путешествовал — его часы отстанут.',
+      [null, 'Расстояние зависит от системы отсчёта — оно не делает различия.', 'Дело не в часах: все процессы у Пауля шли медленнее.']),
+  }], done) }],
+
+  ['add', 'Сложение скоростей', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сложение скоростей', .2);
+    eq(p, 'v = (u + v′) / (1 + u v′ / c²)', 800, 220, m('formula'), { size: 44, fill: COL.task, anchor: 'middle' });
+    const X = b => 160 + b * 1200, Y = 420;
+    const ax = G(p, { o: 0 }); show(ax, m('naive'));
+    path(ax, `M${X(0)} ${Y}H${X(1.05)}`, { stroke: COL.dim, 'stroke-width': 2 });
+    [0, .5, 1].forEach(b => { path(ax, `M${X(b)} ${Y - 10}v20`, { stroke: COL.dim, 'stroke-width': 2 }); T(ax, b === 1 ? 'c' : b ? 'c/2' : '0', { x: X(b), y: Y + 40, size: 24, fill: b === 1 ? LIGHT : COL.dim, anchor: 'middle', font: MATH }); });
+    const ship = G(p, { o: 0 }); show(ship, m('naive')); path(ship, `M${X(0)} ${Y - 50}H${X(.5)}`, { stroke: A_, 'stroke-width': 8 }); T(ship, 'ракета  u = c/2', { x: X(.25), y: Y - 66, size: 24, fill: A_, anchor: 'middle' });
+    const naive = G(p, { o: 0 }); show(naive, m('naive', 1)); hide(naive, m('half'));
+    path(naive, `M${X(.5)} ${Y - 50}H${X(1)}`, { stroke: COL.bad, 'stroke-width': 8, 'stroke-dasharray': '10 8' }); T(naive, '+ c/2 = c ?', { x: X(.75), y: Y - 66, size: 24, fill: COL.bad, anchor: 'middle', font: MATH });
+    const real = G(p, { o: 0 }); show(real, m('half'));
+    path(real, `M${X(.5)} ${Y - 50}H${X(.8)}`, { stroke: B_, 'stroke-width': 8 }); T(real, 'итог 4c/5', { x: X(.8), y: Y - 66, size: 26, fill: B_, anchor: 'middle', font: MATH });
+    eq(p, '(c/2 + c/2) / (1 + 1/4) = 4c/5', 800, 560, m('half', .5), { size: 34, anchor: 'middle', fill: B_ });
+    eq(p, '(u + c) / (1 + u/c) = c', 800, 650, m('light'), { size: 34, anchor: 'middle', fill: LIGHT });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 960, y: 560, w: 600, cls: 'side' }, [{
+    id: 'c-add', prompt: ['Корабль летит со скоростью 0,6c, внутри вперёд выпущен снаряд со скоростью 0,6c. Скорость снаряда для Земли?'],
+    build: choice([['≈ 0,88c'], ['1,2c'], ['0,6c']], 0,
+      '(0,6 + 0,6)/(1 + 0,36) = 1,2/1,36 ≈ 0,88c.',
+      [null, 'Так по Галилею; знаменатель 1 + uv/c² не даёт превысить c.', 'Скорости всё же складываются, только с поправкой.']),
+  }], done) }],
+
+  ['side', 'Поперечная скорость', (m, D) => {
+    const p = panel(0);
+    head(p, 'Поперечная скорость в движущихся часах', .2);
+    const tc = m('clock'), Y0 = 640, H = 340;
+    const box = G(p, { o: 0 }); show(box, tc);
+    const walls = G(box); path(walls, `M-40 ${Y0 - H}H40M-40 ${Y0}H40`, { stroke: COL.chalk, 'stroke-width': 6 });
+    const lt = path(p, '', { stroke: LIGHT, 'stroke-width': 3, 'stroke-dasharray': '8 6' }), pt = path(p, '', { stroke: B_, 'stroke-width': 3 });
+    prog(q => {
+      const t = q * D, s = Math.max(0, t - tc), x0 = 200, vx = 65, per = 2.4;
+      put(walls, { x: x0 + vx * Math.min(s, 11) });
+      let a = '', b = '';
+      for (let k = 0; k <= Math.min(s, 11) * 25; k++) { const ss = k / 25, xx = x0 + vx * ss, f = (ss % per) / per, fp = (ss % (3 * per)) / (3 * per);
+        a += (a ? 'L' : 'M') + xx.toFixed(1) + ' ' + (Y0 - H * (f < .5 ? 2 * f : 2 - 2 * f)).toFixed(1);
+        b += (b ? 'L' : 'M') + xx.toFixed(1) + ' ' + (Y0 - H * (fp < .5 ? 2 * fp : 2 - 2 * fp)).toFixed(1); }
+      lt.setAttribute('d', a); pt.setAttribute('d', b);
+    }, 0, D, lin);
+    T(p, 'свет', { x: 210, y: 270, size: 24, fill: LIGHT }); T(p, 'частица (1/3 скорости света)', { x: 210, y: 690, size: 24, fill: B_ });
+    eq(p, 'v_y = v′_y √(1 − u²/c²)', 1200, 300, m('slow'), { size: 34, fill: COL.task, anchor: 'middle' });
+    txt(p, 'совпадения одни для всех', 1200, 360, m('slow', 1), { size: 24, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['collide', 'Масса растёт: столкновение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Почему масса растёт со скоростью', .2);
+    const ts = m('sym'), tc = m('car');
+    const C1 = [330, 420];
+    const sy = G(p, { o: 0 }); show(sy, ts);
+    T(sy, 'симметричный упругий удар', { x: C1[0], y: 220, size: 22, fill: COL.dim, anchor: 'middle' });
+    const b1 = ballEl(p, A_, 14), b2 = ballEl(p, B_, 14);
+    [b1, b2].forEach(b => { put(b, { o: 0 }); show(b, ts); });
+    const C2 = [1050, 430];
+    const cr = G(p, { o: 0 }); show(cr, tc);
+    T(cr, 'из автомобиля, едущего с частицей 1', { x: C2[0], y: 220, size: 22, fill: COL.dim, anchor: 'middle' });
+    const c1 = ballEl(p, A_, 14), c2 = ballEl(p, B_, 14);
+    [c1, c2].forEach(b => { put(b, { o: 0 }); show(b, tc); });
+    const tr1 = path(p, '', { stroke: A_, 'stroke-width': 2, 'stroke-dasharray': '5 6' }), tr2 = path(p, '', { stroke: B_, 'stroke-width': 2, 'stroke-dasharray': '5 6' });
+    prog(q => {
+      const t = q * D, s = ((t - ts) % 5) - 2.5, k = 60, a = .5;
+      // symmetric frame: velocities (±k, ±k*a)
+      put(b1, { x: C1[0] - k * Math.abs(s) * (s < 0 ? 1 : -1) * 0 - k * s, y: C1[1] + k * a * Math.abs(s) });
+      put(b2, { x: C1[0] + k * s, y: C1[1] - k * a * Math.abs(s) });
+      const s2 = ((t - tc) % 5) - 2.5;
+      put(c1, { x: C2[0], y: C2[1] + 40 * Math.abs(s2) });
+      put(c2, { x: C2[0] + 160 * s2, y: C2[1] - 22 * Math.abs(s2) });
+      tr1.setAttribute('d', t > tc ? `M${C2[0]} ${C2[1] + 100}V${C2[1]}` : ''); tr2.setAttribute('d', t > tc ? `M${C2[0] - 400} ${C2[1] - 55}L${C2[0]} ${C2[1]}L${C2[0] + 400} ${C2[1] - 55}` : '');
+    }, 0, D, lin);
+    const tb = m('balance');
+    eq(p, '2 m_w w = 2 m_v w √(1 − u²/c²)', 800, 640, tb, { size: 32, anchor: 'middle' });
+    eq(p, 'm_v / m_w = 1 / √(1 − u²/c²)  ⇒  m = m₀ / √(1 − v²/c²)', 800, 710, m('mass'), { size: 32, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['inelastic', 'Неупругий удар', (m, D) => {
+    const p = panel(0);
+    head(p, 'Слипание: энергия становится массой', .2);
+    const ts = m('stick');
+    const a = ballEl(p, A_, 26, { x: 300, y: 380, o: 0 }), b = ballEl(p, B_, 26, { x: 1300, y: 380, o: 0 });
+    show(a, ts); show(b, ts);
+    tw(a, { x: 774 }, ts + .3, 2.2, lin); tw(b, { x: 826 }, ts + .3, 2.2, lin);
+    const M_ = ballEl(p, COL.good, 40, { x: 800, y: 380, o: 0, s: .5 }); tw(M_, { o: 1, s: 1 }, ts + 2.5, .4, back); hide(a, ts + 2.5, .2); hide(b, ts + 2.5, .2);
+    T(p, 'm_w, w', { x: 300, y: 330, size: 26, fill: A_, anchor: 'middle', font: MATH }); T(p, 'm_w, −w', { x: 1300, y: 330, size: 26, fill: B_, anchor: 'middle', font: MATH });
+    subify(p.lastChild); subify(p.lastChild.previousSibling);
+    txt(p, 'M (покоится)', 800, 460, ts + 3, { size: 26, fill: COL.good, anchor: 'middle' });
+    eq(p, 'M = 2 m_w > 2 m₀', 800, 580, m('m'), { size: 44, anchor: 'middle', fill: COL.task });
+    eq(p, '(M − 2m₀) c² = кинетическая энергия до удара', 800, 660, m('heavier'), { size: 30, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 110, w: 560, cls: 'side' }, [{
+    id: 'c-stick', prompt: ['Два тела с массой покоя m₀ сталкиваются со скоростями ±0,6c и слипаются. Какова масса покоя слипшегося тела?'],
+    build: blanks([{ parts: ['M = ', { box: '2,5' }, ' m₀'], why: 'm_w = m₀/0,8 = 1,25 m₀; M = 2 · 1,25 m₀ = 2,5 m₀.', hint: 'M = 2 m_w, где m_w = m₀/√(1 − 0,36).' }]),
+  }], done) }],
+
+  ['fission', 'Деление', (m, D) => {
+    const p = panel(0);
+    head(p, 'Распад и энергия деления', .2);
+    const tsp = m('split'), tst = m('stop');
+    const M_ = ballEl(p, COL.good, 50, { x: 800, y: 360 });
+    hide(M_, tsp + .3, .2);
+    const f1 = ballEl(p, A_, 34, { x: 800, y: 360, o: 0 }), f2 = ballEl(p, B_, 34, { x: 800, y: 360, o: 0 });
+    show(f1, tsp + .3, .2); show(f2, tsp + .3, .2);
+    prog(q => { const t = q * D, s = Math.max(0, t - tsp - .3), d = 380 * (1 - Math.exp(-s / 1.5)); put(f1, { x: 800 - d }); put(f2, { x: 800 + d }); }, 0, D, lin);
+    const heat = G(p, { o: 0 }); show(heat, tst);
+    [420, 1180].forEach(x => { for (let k = 0; k < 5; k++) path(heat, `M${x - 40 + k * 20} 300c-10 -20 10 -30 0 -50`, { stroke: COL.bad, 'stroke-width': 3 }); });
+    eq(p, 'E = (M − 2m₀) c²', 800, 560, tst + 1, { size: 44, anchor: 'middle', fill: COL.task });
+    txt(p, 'уран: массы ядра и осколков известны → энергия деления', 800, 640, m('uranium'), { size: 26, anchor: 'middle' });
+  }],
+
+  ['relations', 'E, p и m', (m, D) => {
+    const p = panel(0);
+    head(p, 'Энергия, импульс, масса', .2);
+    eq(p, 'E² − p²c² = m₀²c⁴', 400, 240, m('pyth'), { size: 46, fill: COL.task, anchor: 'middle' });
+    const O = [220, 640];
+    const tri = G(p, { o: 0 }); show(tri, m('pyth', 1));
+    const pc = 300, mc = 220;
+    path(tri, `M${O[0]} ${O[1]}H${O[0] + pc}V${O[1] - mc}Z`, { fill: 'rgba(240,180,90,.1)', stroke: COL.dim, 'stroke-width': 2 });
+    T(tri, 'pc', { x: O[0] + pc / 2, y: O[1] + 36, size: 28, fill: COL.whole, anchor: 'middle', font: MATH });
+    T(tri, 'm₀c²', { x: O[0] + pc + 14, y: O[1] - mc / 2, size: 28, fill: COL.good, font: MATH });
+    T(tri, 'E', { x: O[0] + pc / 2 - 30, y: O[1] - mc / 2 - 10, size: 30, fill: COL.task, font: MATH });
+    eq(p, 'pc = E v / c', 1100, 240, m('pc'), { size: 44, anchor: 'middle' });
+    eq(p, 'свет: m₀ = 0  ⇒  E = pc,  v = c', 1100, 340, m('photon'), { size: 34, anchor: 'middle', fill: LIGHT });
+    const ph = G(p, { o: 0 }); show(ph, m('photon', .5));
+    let d = 'M900 520'; for (let x = 0; x <= 360; x += 3) d += `L${900 + x} ${520 + 14 * Math.sin(x / 10)}`;
+    path(ph, d, { stroke: LIGHT, 'stroke-width': 3 }); vec(ph, 1260, 520, 1300, 520, LIGHT, { w: 3, head: 14 });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 820, y: 580, w: 740, cls: 'side' }, [{
+    id: 'c-ep', prompt: ['Энергия частицы E = 5 единиц, импульс pc = 4 единицы. Чему равна m₀c²?'],
+    build: blanks([{ parts: ['m₀c² = ', { box: '3' }], why: '√(25 − 16) = 3 — египетский треугольник.', hint: '(m₀c²)² = E² − (pc)².' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Равномерное движение не обнаружить; вращение — можно.', 'w1'],
+      ['v = (u + v′)/(1 + uv′/c²); c не превзойти.', 'w2'],
+      ['Симметрия удара ⇒ m = m₀/√(1 − v²/c²).', 'w3'],
+      ['E² − p²c² = m₀²c⁴; энергия обладает массой.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 160, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 160, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 220, size: 34, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-add1', prompt: ['u = 0,8c, v′ = 0,5c (в ту же сторону). Найдите v (в долях c).'],
+    build: blanks([{ parts: ['v = ', { box: '13/14' }, ' c'], why: '1,3/(1 + 0,4) = 1,3/1,4 = 13/14 ≈ 0,93c.', hint: 'v = (u + v′)/(1 + uv′/c²).' }]),
+  }, {
+    id: 'p-add2', prompt: ['Из ракеты (0,9c) назад испущен свет. Его скорость для Земли?'],
+    build: choice([['c'], ['0,1c'], ['1,9c']], 0, '(−c + 0,9c)/(1 − 0,9) = −0,1c/0,1 = −c: свет летит со скоростью c.', [null, 'Так по Галилею.', 'Скорость света не превышается.']),
+  }, {
+    id: 'p-small', prompt: ['Поезд 30 м/с, пассажир идёт вперёд 2 м/с. Нужна ли формула Эйнштейна?'],
+    build: choice([['нет: uv/c² ≈ 7·10⁻¹⁶ — поправка ничтожна'], ['да: иначе ошибка 1 %'], ['да: скорости складывать нельзя']], 0,
+      '30 · 2 / (9·10¹⁶) ≈ 6,7·10⁻¹⁶ — практически 32 м/с.', [null, 'Поправка в миллиарды раз меньше 1 %.', 'При малых скоростях простое сложение верно с огромной точностью.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-gamma', prompt: ['Кинетическая энергия частицы равна её энергии покоя. Во сколько раз масса больше массы покоя?'],
+    build: blanks([{ parts: ['в ', { box: '2' }, ' раза'], why: 'E = m₀c² + T = 2m₀c² = mc² ⇒ m = 2m₀.', hint: 'Полная энергия mc² = m₀c² + T.' }]),
+  }, {
+    id: 'p-chem', prompt: ['Почему изменение массы при сгорании угля практически не заметно?'],
+    build: choice([['энергия реакции мала: Δm = E/c² крошечно'], ['масса при химии не меняется вовсе'], ['весы не учитывают кислород']], 0,
+      'Химические энергии — электронвольты на атом, а энергия покоя — гигаэлектронвольты: доля ~10⁻¹⁰.', [null, 'Меняется, по E = mc², но ничтожно.', 'Дело не в учёте веществ.']),
+  }, {
+    id: 'p-photon', prompt: ['Фотон с энергией E. Чему равен его импульс?'],
+    build: choice([['E / c'], ['E / c²'], ['0']], 0, 'm₀ = 0: E² = p²c² ⇒ p = E/c.', [null, 'Это масса, а не импульс.', 'Фотон несёт импульс — свет давит.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

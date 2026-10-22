@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Храповик и собачка</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 46, title: 'Храповик и собачка', minutes: 8, language: 'ru', audio: false, next: '../ch47/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const HOT = '#f07a6a', COLD = '#86c9e8';
+// The machine: vanes in a gas box, an axle, a saw-tooth wheel and a pawl. Returns the moving parts.
+function machine(p, gasCol = COL.dim, ratchetCol = COL.dim) {
+  const g = G(p);
+  path(g, 'M120 250H520V590H120Z', { stroke: gasCol, 'stroke-width': 3, fill: 'none' });
+  const vanes = G(g, { x: 320, y: 420 });
+  for (let k = 0; k < 4; k++) mk('rect', { x: -6, y: -110, width: 12, height: 110, rx: 3, fill: COL.chalk, transform: `rotate(${k * 90})` }, vanes);
+  path(g, 'M320 420H1000', { stroke: COL.chalk, 'stroke-width': 6 });
+  const wheel = G(g, { x: 1000, y: 420 });
+  let d = ''; const N = 14, R = 120;
+  for (let k = 0; k < N; k++) {
+    const a = k / N * 2 * Math.PI, b = (k + 1) / N * 2 * Math.PI;
+    d += (k ? 'L' : 'M') + (R * Math.cos(a)).toFixed(1) + ' ' + (R * Math.sin(a)).toFixed(1) + 'L' + ((R - 30) * Math.cos(b)).toFixed(1) + ' ' + ((R - 30) * Math.sin(b)).toFixed(1);
+  }
+  path(wheel, d + 'Z', { stroke: COL.task, 'stroke-width': 3.5, fill: '#2b3a34' });
+  mk('circle', { r: 12, fill: COL.chalk }, wheel);
+  const pawl = G(g, { x: 1100, y: 230 });
+  path(pawl, 'M0 0L-88 82', { stroke: COL.good, 'stroke-width': 7 });
+  mk('circle', { r: 10, fill: COL.good }, pawl);
+  path(g, 'M1100 230L1160 180', { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '5 5' });
+  const R2 = rng(2), box = [140, 270, 500, 570], it = gas(g, 14, box, 3, { el: 'N', s: .6, speed: [200, 340] });
+  it.forEach(a => put(a.el, gasAt(a, 0, box)));
+  T(g, 'газ', { x: 140, y: 240, size: 24, fill: gasCol });
+  return { g, vanes, wheel, pawl, it, box, R2 };
+}
+const jit = (t, s) => Math.sin(1.7 * t + s) + .6 * Math.sin(3.1 * t + 2 * s) + .4 * Math.sin(6.3 * t + 3 * s);
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Храповик и собачка', (m, D) => introCard(m, D, 'Теплота', 46, 'Храповик и собачка', 'Можно ли заставить тепловую дрожь работать?')],
+
+  ['ratchet', 'Устройство', (m, D) => {
+    const p = panel(0);
+    head(p, 'Храповик, собачка и лопасти', .2);
+    const M_ = machine(p); put(M_.g, { o: 0 }); show(M_.g, .2);
+    motion(M_.it, (a, t) => gasAt(a, t, M_.box), 0, D);
+    const t1 = m('idea');
+    prog(q => { const t = q * D, th = 6 * jit(t * 2, 1) + 25 * smooth(t1, t1 + 6, t); put(M_.vanes, { r: th }); put(M_.wheel, { r: th }); put(M_.pawl, { r: -4 * Math.abs(Math.sin(t * 6)) }); }, 0, D, lin);
+    txt(p, 'храповик', 1000, 600, m('gear'), { size: 26, fill: COL.task, anchor: 'middle' });
+    txt(p, 'собачка', 1180, 300, m('gear', 2), { size: 26, fill: COL.good });
+    txt(p, 'лопасти', 320, 640, m('vanes'), { size: 26, fill: COL.chalk, anchor: 'middle' });
+    txt(p, 'работа из тепла одного газа?', 800, 720 - 20, m('idea', 4), { size: 30, fill: COL.bad, anchor: 'middle' });
+  }],
+
+  ['pawl', 'Собачка дрожит', (m, D) => {
+    const p = panel(0);
+    head(p, 'Собачка тоже дрожит', .2);
+    const M_ = machine(p); put(M_.g, { o: 0 }); show(M_.g, .2);
+    motion(M_.it, (a, t) => gasAt(a, t, M_.box), 0, D);
+    const t1 = m('jiggle');
+    prog(q => { const t = q * D, th = 8 * jit(t * 2, 4); put(M_.vanes, { r: th }); put(M_.wheel, { r: th }); put(M_.pawl, { r: -14 * smooth(t1, t1 + 1, t) * Math.abs(jit(t * 3, 2)) / 2 }); }, 0, D, lin);
+    eq(p, 'вперёд ∝ e^{−ε/kT}', 1200, 560, m('rates'), { size: 32, fill: COL.good });
+    eq(p, 'назад ∝ e^{−ε/kT}', 1200, 620, m('rates', 4), { size: 32, fill: COL.bad });
+    txt(p, 'равные T — поровну, колесо только дрожит', 800, 700, m('none'), { size: 28, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['engine', 'Тепловая машина', (m, D) => {
+    const p = panel(0);
+    head(p, 'Разные температуры', .2);
+    const M_ = machine(p, HOT, COLD); put(M_.g, { o: 0 }); show(M_.g, .2);
+    motion(M_.it, (a, t) => gasAt(a, t * 1.5, M_.box), 0, D);
+    T(M_.g, 'T₁', { x: 500, y: 240, size: 30, fill: HOT, font: MATH, anchor: 'end' });
+    T(M_.g, 'T₂', { x: 1130, y: 600, size: 30, fill: COLD, font: MATH });
+    const t1 = m('runs');
+    const wt = G(p, { x: 760, y: 560 }); mk('rect', { x: -30, y: 0, width: 60, height: 50, rx: 5, fill: '#3a5047', stroke: COL.chalk, 'stroke-width': 2 }, wt);
+    const rope = path(p, 'M760 430V560', { stroke: COL.dim, 'stroke-width': 2 });
+    prog(q => { const t = q * D, th = 6 * jit(t * 2, 1) + 120 * smooth(t1, D, t); put(M_.vanes, { r: th }); put(M_.wheel, { r: th }); put(M_.pawl, { r: -3 * Math.abs(Math.sin(t * 5)) });
+      const y = 560 - 80 * smooth(t1, D, t); put(wt, { y }); rope.setAttribute('d', `M760 430V${y}`); }, 0, D, lin);
+    eq(p, 'η ≤ 1 − T₂/T₁', 1200, 160, m('carnot'), { size: 40, fill: COL.task });
+    txt(p, 'горячий храповик — вращение назад', 1180, 700, m('back'), { size: 26, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-same', prompt: ['Лопасти и храповик при одной температуре. Что делает колесо?'],
+    build: choice([['дрожит, в среднем не вращается'], ['вращается вперёд и поднимает груз'], ['вращается назад']], 0, 'Вероятности шагов вперёд и назад одинаковы: e^(−ε/kT).', [null, 'Это был бы вечный двигатель второго рода.', 'Назад — только если храповик горячее лопастей.']),
+  }], done) }],
+
+  ['reverse', 'Обратимость', (m, D) => {
+    const p = panel(0);
+    head(p, 'Обратимость и необратимость', .2);
+    const c = G(p, { o: 0 }); show(c, m('film'));
+    const a1 = atom(c, 'N', { s: .9 }), a2 = atom(c, 'O', { s: .9 });
+    const tf = m('film');
+    prog(q => { const t = (q * D - tf) % 4, u = t < 0 ? 0 : t; const s = u < 2 ? u / 2 : (u - 2) / 2;
+      put(a1, u < 2 ? { x: 180 + 170 * s, y: 300 + 100 * s } : { x: 350 + 170 * s, y: 400 - 120 * s });
+      put(a2, u < 2 ? { x: 520 - 130 * s, y: 450 - 30 * s } : { x: 390 - 170 * s, y: 420 + 120 * s }); }, 0, D, lin);
+    T(c, 'вперёд или назад — не отличить', { x: 380, y: 620, size: 24, fill: COL.dim, anchor: 'middle' });
+    const ink = G(p, { o: 0 }); show(ink, m('ink'));
+    path(ink, 'M860 200H1460V580H860Z', { stroke: WATER, 'stroke-width': 3, fill: 'none' });
+    const R = rng(9), dr = Array.from({ length: 60 }, () => ({ el: mk('circle', { r: 7, fill: '#bba8ee' }, ink), x0: 1160 + (R() - .5) * 40, y0: 390 + (R() - .5) * 40, x1: 880 + R() * 560, y1: 220 + R() * 340 }));
+    const ti = m('ink', .5);
+    motion(dr, (d, t) => { const s = 1 - Math.exp(-Math.max(0, t - ti) / 3); return { x: d.x0 + (d.x1 - d.x0) * s, y: d.y0 + (d.y1 - d.y0) * s }; }, 0, D);
+    dr.forEach(d => put(d.el, { x: d.x0, y: d.y0 }));
+    T(ink, 'капля чернил расплывается', { x: 1160, y: 620, size: 24, fill: COL.dim, anchor: 'middle' });
+    txt(p, 'расплывшееся состояние — огромное число способов', 800, 700, m('why', 3), { size: 28, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['entropy', 'Энтропия', (m) => {
+    const p = panel(0);
+    head(p, 'Порядок и энтропия', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M140 220H740V560H140Z', { stroke: COL.chalk, 'stroke-width': 3, fill: 'none' });
+    path(g, 'M440 220V560', { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '8 6' });
+    const R = rng(5);
+    for (let i = 0; i < 10; i++) atom(g, 'He', { x: 170 + R() * 240, y: 250 + R() * 280, s: 1.2 });
+    T(g, 'все N — слева', { x: 440, y: 600, size: 24, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'S = k ln W', 1100, 260, m('def'), { size: 50, anchor: 'middle', fill: COL.task });
+    eq(p, 'W(слева) / W(везде) = 1/2ᴺ', 1100, 360, m('half', 3), { size: 34, anchor: 'middle' });
+    eq(p, 'ΔS = N k ln 2', 1100, 460, m('ln'), { size: 44, anchor: 'middle', fill: COL.good });
+    txt(p, 'беспорядок вероятнее порядка', 1100, 560, m('arrow'), { size: 28, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 60, y: 140, w: 720, cls: 'side' }, [{
+    id: 'c-W', prompt: ['В ящике 3 молекулы. Во сколько раз число способов «все в любом месте» больше, чем «все слева»?'],
+    build: blanks([{ parts: ['в ', { box: '8' }, ' раз'], why: '2³ = 8.', hint: 'Каждая молекула — две половины.' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Одна T — храповик не вертится.', 'w1'], ['Разные T — машина, η ≤ 1 − T₂/T₁.', 'w2'],
+      ['Механика обратима; беспорядок вероятнее.', 'w3'], ['S = k ln W.', 'w4']]);
+  }],
+
+  ['final1', 'Практика', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-ln2', prompt: ['Моль газа (N = 6×10²³) изотермически расширился вдвое. ΔS = Nk ln 2 ≈ ? Дж/К (k = 1,38×10⁻²³ Дж/К)'],
+    build: choice([['≈ 5,8 Дж/К'], ['≈ 0,7 Дж/К'], ['≈ 8,3 Дж/К']], 0, 'Nk = R ≈ 8,3; 8,3 · 0,69 ≈ 5,8.', ['Это ln 2 без множителя Nk = R.', null, 'Это R; не забудьте ln 2 ≈ 0,69.']),
+  }, {
+    id: 'p-hot', prompt: ['Храповик горячее лопастей. Что произойдёт?'],
+    build: choice([['колесо будет вращаться назад'], ['колесо будет вращаться вперёд'], ['ничего — колесо стоит']], 0, 'Теперь чаще подскакивает собачка, и колесо проскальзывает назад.', [null, 'Вперёд — когда горячее лопасти.', 'При разных T машина работает.']),
+  }], done, 'Практика по главе   1 из 1') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

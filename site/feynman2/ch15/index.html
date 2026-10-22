@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Специальная теория относительности</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 15, title: 'Специальная теория относительности', minutes: 14, language: 'ru', audio: false, next: '../ch16/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const LIGHT = COL.int, JOE = COL.whole, MICK = COL.task;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+const gamma = b => 1 / Math.sqrt(1 - b * b);
+function ship(p, { x = 0, y = 0, w = 300, o = 1, colr = MICK } = {}) {
+  const g = G(p, { x, y, o });
+  path(g, `M${-w / 2} -30H${w / 2 - 40}Q${w / 2 + 20} 0 ${w / 2 - 40} 30H${-w / 2}Z`, { fill: 'rgba(240,180,90,.12)', stroke: colr, 'stroke-width': 3 });
+  path(g, `M${-w / 2} -30L${-w / 2 - 30} -50V50L${-w / 2} 30`, { fill: 'none', stroke: colr, 'stroke-width': 3 });
+  return g;
+}
+function axesXY(p, x, y, L, colr, lab) {
+  const g = G(p);
+  vec(g, x, y, x + L, y, colr, { w: 2.5, head: 12 }); vec(g, x, y, x, y - L * .6, colr, { w: 2.5, head: 12 });
+  T(g, lab, { x: x + 10, y: y - L * .6 - 10, size: 26, fill: colr });
+  return g;
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Специальная теория относительности', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Относительность · Глава 15', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Специальная теория относительности', { x: 800, y: 440, size: 72, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Ошибка в законах Ньютона — найдена и исправлена', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['mass', 'Масса растёт со скоростью', (m) => {
+    const p = panel(0);
+    head(p, 'Масса и скорость', .2);
+    eq(p, 'm = m₀ / √(1 − v²/c²)', 1100, 220, m('formula'), { size: 44, fill: COL.task, anchor: 'middle' });
+    const X = b => 160 + b * 700, Y = g => 660 - (g - 1) * 110;
+    const ax = G(p, { o: 0 }); show(ax, m('curve') - .3);
+    path(ax, `M${X(0)} ${Y(5)}V${Y(1) + 40}M${X(0)} ${Y(1)}H${X(1.05)}`, { stroke: COL.dim, 'stroke-width': 2 });
+    path(ax, `M${X(1)} ${Y(5)}V${Y(1)}`, { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '8 8' });
+    T(ax, 'v / c', { x: X(1.05), y: Y(1) + 34, size: 24, fill: COL.dim, font: MATH }); T(ax, 'm / m₀', { x: X(0) + 10, y: Y(5) - 10, size: 24, fill: COL.dim, font: MATH });
+    [1, 2, 3, 4].forEach(g => T(ax, String(g), { x: X(0) - 14, y: Y(g) + 8, size: 22, fill: COL.dim, anchor: 'end', font: MATH }));
+    T(ax, '1', { x: X(1), y: Y(1) + 34, size: 22, fill: COL.dim, anchor: 'middle', font: MATH });
+    let d = ''; for (let b = 0; b <= .9795; b += .005) d += (d ? 'L' : 'M') + X(b).toFixed(1) + ' ' + Y(gamma(b)).toFixed(1);
+    draw(path(p, d, { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), m('curve'), 2.5);
+    txt(p, 'спутник, 8 км/с:  m/m₀ − 1 ≈ 3,6·10⁻¹⁰', 980, 360, m('curve', 1.5), { size: 28, fill: COL.whole, font: MATH });
+    txt(p, '(у Фейнмана: «не более одной двухмиллиардной»)', 980, 400, m('curve', 2.5), { size: 20, fill: COL.faint });
+    txt(p, 'у скорости света — без предела', 980, 480, m('c'), { size: 28, fill: COL.bad });
+  }],
+
+  ['galileo', 'Принцип относительности', (m, D) => {
+    const p = panel(0);
+    head(p, 'Принцип относительности Галилея', .2);
+    const ts = m('ship');
+    const sh = ship(p, { x: 400, y: 260, o: 0 }); show(sh, ts);
+    const bl = mk('circle', { r: 9, fill: COL.chalk }, sh);
+    prog(q => { const t = q * D, ph = (t % 1) ; put(sh, { x: 340 + 8 * t }); bl.setAttribute('cx', -40); bl.setAttribute('cy', 20 - 40 * 4 * ph * (1 - ph)); }, 0, D, lin);
+    txt(p, 'внутри — всё как в покое', 400, 340, ts + 1, { size: 26, fill: COL.dim, anchor: 'middle' });
+    const tf = m('frames'), y0 = 690, u = 60;
+    const J = axesXY(p, 160, y0, 300, JOE, 'Джо'); put(J, { o: 0 }); show(J, tf);
+    const Mk = axesXY(p, 160, y0 - 4, 300, MICK, 'Мик'); put(Mk, { o: 0 }); show(Mk, tf);
+    const Pt = mk('circle', { cx: 1100, cy: 560, r: 9, fill: COL.chalk }, p); put(Pt, { o: 0 }); show(Pt, tf);
+    const ut = path(p, '', { stroke: MICK, 'stroke-width': 3 }), lab = T(p, '', { size: 24, fill: MICK, anchor: 'middle', font: MATH });
+    prog(q => { const t = q * D, s = Math.max(0, t - tf - .5); const dx = Math.min(420, u * s * 1.4); put(Mk, { x: dx }); ut.setAttribute('d', s > 0 ? `M160 ${y0 + 30}H${160 + dx}` : ''); put(lab, { x: 160 + dx / 2, y: y0 + 60 }); lab.textContent = s > 0 ? 'ut' : ''; }, 0, D, lin);
+    eq(p, 'x′ = x − ut,  y′ = y,  z′ = z,  t′ = t', 820, 470, tf + 2, { size: 32 });
+    txt(p, 'законы Ньютона не меняются', 820, 530, tf + 3.5, { size: 26, fill: COL.good });
+  }],
+
+  ['light', 'Скорость света', (m, D) => {
+    const p = panel(0);
+    head(p, 'Свет не слушается Галилея', .2);
+    eq(p, 'по Максвеллу свет всегда бежит со скоростью c = 300 000 км/с', 120, 200, m('c'), { size: 30, fill: LIGHT });
+    const tc = m('car');
+    const car = G(p, { x: 300, y: 430, o: 0 }); show(car, tc);
+    mk('rect', { x: -70, y: -30, width: 140, height: 44, rx: 10, fill: MICK }, car); mk('circle', { cx: -40, cy: 16, r: 14, fill: COL.dim }, car); mk('circle', { cx: 40, cy: 16, r: 14, fill: COL.dim }, car);
+    const beam = path(p, '', { stroke: LIGHT, 'stroke-width': 4 });
+    prog(q => { const t = q * D, s = Math.max(0, t - tc); const cx = 300 + Math.min(500, 60 * s); put(car, { x: cx }); beam.setAttribute('d', s > 0 ? `M${cx + 70} 418H${Math.min(1480, cx + 70 + 260 * s)}` : ''); }, 0, D, lin);
+    eq(p, 'Галилей: dx′/dt = dx/dt − u = c − u ?', 120, 560, tc + 1.5, { size: 32 });
+    txt(p, '100 000 км/с машина + свет → «200 000 км/с»?', 120, 610, tc + 3, { size: 24, fill: COL.dim });
+    txt(p, 'все опыты: скорость Земли не обнаружена', 120, 690, m('none'), { size: 30, fill: COL.bad, weight: 600 });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 820, y: 460, w: 740, cls: 'side' }, [{
+    id: 'c-light', prompt: ['Автомобиль едет со скоростью 0,5 c, фары светят вперёд. С какой скоростью свет уходит от машины, если измерить его в машине?'],
+    build: choice([['c'], ['0,5 c'], ['1,5 c']], 0,
+      'Скорость света одинакова во всех равномерно движущихся системах — в этом суть принципа относительности Эйнштейна.',
+      [null, 'Так было бы по Галилею; опыт это опроверг.', 'Скорости так не складываются — и c не превышается.']),
+  }], done) }],
+
+  ['mm', 'Опыт Майкельсона — Морли', (m, D) => {
+    const p = panel(0);
+    head(p, 'Опыт Майкельсона — Морли (1887)', .2);
+    const B = [520, 470], L = 300;
+    const g = G(p, { o: 0 }); show(g, .3);
+    path(g, `M${B[0] - 26} ${B[1] + 26}L${B[0] + 26} ${B[1] - 26}`, { stroke: COL.chalk, 'stroke-width': 6 });
+    path(g, `M${B[0] - 40} ${B[1] - L}H${B[0] + 40}`, { stroke: COL.chalk, 'stroke-width': 6 }); T(g, 'C', { x: B[0] + 50, y: B[1] - L + 8, size: 26, fill: COL.dim });
+    path(g, `M${B[0] + L} ${B[1] - 40}V${B[1] + 40}`, { stroke: COL.chalk, 'stroke-width': 6 }); T(g, 'E', { x: B[0] + L + 14, y: B[1] - 46, size: 26, fill: COL.dim });
+    T(g, 'источник', { x: 150, y: B[1] - 14, size: 22, fill: COL.dim }); T(g, 'B', { x: B[0] - 50, y: B[1] - 30, size: 26, fill: COL.dim });
+    const ts = m('split');
+    const b1 = path(p, '', { stroke: LIGHT, 'stroke-width': 3 }), b2 = path(p, '', { stroke: COL.good, 'stroke-width': 3 }), b0 = path(p, '', { stroke: LIGHT, 'stroke-width': 3 });
+    prog(q => {
+      const t = q * D, s = Math.max(0, t - ts) * 220;
+      b0.setAttribute('d', t > ts - 1 ? `M160 ${B[1]}H${B[0]}` : '');
+      const go = (len) => Math.min(s, 2 * L) ;
+      const a = go();
+      b1.setAttribute('d', t > ts ? (a <= L ? `M${B[0]} ${B[1]}H${B[0] + a}` : `M${B[0]} ${B[1]}H${B[0] + L}M${B[0] + L} ${B[1] + 6}H${B[0] + 2 * L - a}`) : '');
+      b2.setAttribute('d', t > ts ? (a <= L ? `M${B[0]} ${B[1]}V${B[1] - a}` : `M${B[0]} ${B[1]}V${B[1] - L}M${B[0] + 6} ${B[1] - L}V${B[1] - 2 * L + a}`) : '');
+    }, 0, D, lin);
+    const wind = G(p, { o: 0 }); show(wind, m('along') - .5);
+    vec(wind, 160, 220, 360, 220, COL.dim, { w: 3 }); T(wind, 'движение Земли u ≈ 30 км/с', { x: 160, y: 200, size: 22, fill: COL.dim });
+    eq(p, 'вдоль:  t₁ + t₂ = (2L/c) / (1 − u²/c²)', 900, 280, m('along'), { size: 30, fill: LIGHT });
+    eq(p, 'поперёк:  2t₃ = (2L/c) / √(1 − u²/c²)', 900, 360, m('across'), { size: 30, fill: COL.good });
+    txt(p, 'ожидали сдвиг полос — сдвига нет', 900, 460, m('result'), { size: 30, fill: COL.bad, weight: 600 });
+  }],
+
+  ['contract', 'Сокращение Лоренца', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сокращение длины', .2);
+    const ts = m('shrink');
+    const rod = G(p, { x: 500, y: 330 });
+    mk('rect', { x: -250, y: -24, width: 500, height: 48, rx: 8, fill: COL.whole }, rod);
+    T(p, 'L₀ в покое', { x: 500, y: 260, size: 26, fill: COL.dim, anchor: 'middle', font: MATH });
+    const r2 = G(p, { x: 500, y: 520, o: 0 }); show(r2, ts);
+    const rr = mk('rect', { x: -250, y: -24, width: 500, height: 48, rx: 8, fill: COL.task }, r2);
+    prog(q => { const t = q * D, b = .8 * smooth(ts + .5, ts + 3, t), w = 500 * Math.sqrt(1 - b * b); rr.setAttribute('x', -w / 2); rr.setAttribute('width', w); }, 0, D, lin);
+    vec(p, 760, 520, 900, 520, COL.task, { w: 3 });
+    T(p, 'u = 0,8c → L = 0,6 L₀', { x: 500, y: 600, size: 26, fill: COL.task, anchor: 'middle', font: MATH });
+    eq(p, 'L∥ = L₀ √(1 − u²/c²)', 1000, 330, ts + 1, { size: 38, fill: COL.task });
+    txt(p, 'тогда оба плеча прибора дают одно время', 1000, 420, m('equal'), { size: 26, fill: COL.good });
+    txt(p, 'Пуанкаре: абсолютное движение', 1000, 500, m('poincare'), { size: 28, fill: COL.chalk });
+    txt(p, 'обнаружить невозможно — это закон', 1000, 540, m('poincare'), { size: 28, fill: COL.chalk });
+  }],
+
+  ['clock', 'Световые часы', (m, D) => {
+    const p = panel(0);
+    head(p, 'Световые часы', .2);
+    const H = 300, Y0 = 620, tm = m('move');
+    const clockAt = (x, t0) => { const g = G(p, { x, y: 0, o: 0 }); show(g, t0); path(g, `M-40 ${Y0 - H}H40M-40 ${Y0}H40`, { stroke: COL.chalk, 'stroke-width': 6 }); path(g, `M0 ${Y0}V${Y0 - H}`, { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '4 6' }); return g; };
+    const c1 = clockAt(260, m('mirrors'));
+    T(p, 'покоятся', { x: 260, y: Y0 + 50, size: 24, fill: COL.dim, anchor: 'middle' });
+    const ph1 = mk('circle', { r: 9, fill: LIGHT }, p);
+    const c2 = clockAt(600, tm);
+    const ph2 = mk('circle', { r: 9, fill: LIGHT }, p), trail = path(p, '', { stroke: LIGHT, 'stroke-width': 2.5 });
+    const cnt1 = T(p, '', { x: 260, y: 200, size: 26, fill: JOE, anchor: 'middle' }), cnt2 = T(p, '', { x: 820, y: 200, size: 26, fill: MICK, anchor: 'middle' });
+    const per = 1.6, u = .6, per2 = per / Math.sqrt(1 - u * u), vx = u * (2 * H / per2) / 1;   // px/s horizontally
+    prog(q => {
+      const t = q * D, s1 = Math.max(0, t - m('mirrors')), f1 = (s1 % per) / per;
+      ph1.setAttribute('cx', 260); ph1.setAttribute('cy', Y0 - H * (f1 < .5 ? 2 * f1 : 2 - 2 * f1)); put(ph1, { o: t > m('mirrors') ? 1 : 0 });
+      cnt1.textContent = t > m('mirrors') ? `тиков: ${Math.floor(s1 / per)}` : '';
+      const s2 = Math.max(0, t - tm), x = 560 + Math.min(340, vx * .25 * s2), f2 = (s2 % per2) / per2;
+      put(c2, { x: x - 600 + 600 }); c2.setAttribute('transform', `translate(${x} 0)`);
+      ph2.setAttribute('cx', x); ph2.setAttribute('cy', Y0 - H * (f2 < .5 ? 2 * f2 : 2 - 2 * f2)); put(ph2, { o: t > tm ? 1 : 0 });
+      let d = ''; const n = Math.min(700, Math.floor(s2 / .02));
+      for (let k = 0; k <= n; k++) { const ss = k * .02, xx = 560 + Math.min(340, vx * .25 * ss), ff = (ss % per2) / per2; d += (d ? 'L' : 'M') + xx.toFixed(1) + ' ' + (Y0 - H * (ff < .5 ? 2 * ff : 2 - 2 * ff)).toFixed(1); }
+      trail.setAttribute('d', t > tm ? d : ''); cnt2.textContent = t > tm ? `тиков: ${Math.floor(s2 / per2)}` : '';
+    }, 0, D, lin);
+    eq(p, 'Δt = Δt₀ / √(1 − u²/c²)', 1060, 300, m('slow'), { size: 36, fill: COL.task });
+    txt(p, 'путь света длиннее — тики реже', 1060, 360, m('slow', 1), { size: 24, fill: COL.dim });
+    txt(p, 'любые часы отстают так же', 1060, 420, m('all'), { size: 26, fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1040, y: 470, w: 520, cls: 'side' }, [{
+    id: 'c-dilate', prompt: ['Часы летят со скоростью 0,6c. Сколько секунд пройдёт по нашим часам, пока на них пройдёт 4 с?'],
+    build: blanks([{ parts: [{ box: '5' }, ' с'], why: '√(1 − 0,36) = 0,8; 4 / 0,8 = 5 с.', hint: 'Δt = Δt₀ / √(1 − u²/c²).' }]),
+  }], done) }],
+
+  ['muon', 'Мюоны', (m, D) => {
+    const p = panel(0);
+    head(p, 'Мюоны из космоса', .2);
+    path(p, 'M120 690H900', { stroke: '#6fae6a', 'stroke-width': 6 });
+    T(p, 'Земля', { x: 120, y: 730, size: 22, fill: COL.dim });
+    const tl = m('life'), tsk = m('sky'), ta = m('arrive');
+    path(p, 'M160 180V690M150 180H170', { stroke: COL.dim, 'stroke-width': 2 }); T(p, '10 км', { x: 140, y: 190, size: 22, fill: COL.dim, anchor: 'end' });
+    const top = 180, bot = 690, k = (bot - top) / 10;
+    const g600 = G(p, { o: 0 }); show(g600, tl);
+    path(g600, `M300 ${top}V${top + .66 * k}`, { stroke: COL.bad, 'stroke-width': 6 }); T(g600, 'c · 2,2 мкс ≈ 660 м', { x: 320, y: top + 30, size: 24, fill: COL.bad });
+    const mu = mk('circle', { r: 10, fill: COL.task }, p); put(mu, { o: 0 });
+    prog(q => { const t = q * D, s = clamp01((t - ta) / 3); mu.setAttribute('cx', 620); mu.setAttribute('cy', top + (bot - top) * s); put(mu, { o: t > tsk ? 1 : 0 }); }, 0, D, lin);
+    txt(p, 'рождаются на высоте ~10 км', 660, top + 10, tsk, { size: 24, fill: COL.task });
+    eq(p, 'τ = 2,2 мкс / √(1 − 0,81) ≈ 5,0 мкс', 980, 400, ta + 2, { size: 30, fill: COL.good });
+    txt(p, 'при v = 0,9c живёт в 2,3 раза дольше', 980, 450, ta + 3, { size: 24, fill: COL.dim });
+  }],
+
+  ['lorentz', 'Преобразование Лоренца', (m) => {
+    const p = panel(0);
+    head(p, 'Преобразование Лоренца', .2);
+    eq(p, "x′ = (x − ut) / √(1 − u²/c²)", 800, 260, m('eqs'), { size: 44, anchor: 'middle', fill: COL.task });
+    eq(p, "y′ = y,   z′ = z", 800, 340, m('eqs', 1), { size: 40, anchor: 'middle' });
+    eq(p, "t′ = (t − ux/c²) / √(1 − u²/c²)", 800, 420, m('eqs', 2), { size: 44, anchor: 'middle', fill: COL.task });
+    txt(p, 'u ≪ c: корень ≈ 1, ux/c² ≈ 0 → Галилей', 800, 560, m('small'), { size: 30, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['simult', 'Одновременность', (m, D) => {
+    const p = panel(0);
+    head(p, 'Одновременность относительна', .2);
+    const ts = m('ship'), th = m('his'), to = m('ours');
+    const y1 = 300, y2 = 560, W = 600, c = 160;
+    const s1 = ship(p, { x: 600, y: y1, w: W, o: 0 }); show(s1, ts);
+    txt(p, 'в корабле', 120, y1 - 70, ts, { size: 24, fill: COL.dim });
+    const L1 = path(p, '', { stroke: LIGHT, 'stroke-width': 5 });
+    const s2 = ship(p, { x: 600, y: y2, w: W, o: 0 }); show(s2, to);
+    txt(p, 'с Земли (корабль летит →)', 120, y2 - 70, to, { size: 24, fill: COL.dim });
+    const L2 = path(p, '', { stroke: LIGHT, 'stroke-width': 5 });
+    const f1 = G(p), f2 = G(p);
+    const u = 25;
+    prog(q => {
+      const t = q * D, a = Math.max(0, t - th), r = Math.min(W / 2, c * a);
+      L1.setAttribute('d', t > th ? `M${600 - r} ${y1}H${600 + r}` : '');
+      f1.replaceChildren(); if (r >= W / 2) { mk('circle', { cx: 300, cy: y1, r: 16, fill: COL.good }, f1); mk('circle', { cx: 900, cy: y1, r: 16, fill: COL.good }, f1); }
+      const b = Math.min(Math.max(0, t - to), (W / 2) / (c - u)), sx = u * b; put(s2, { x: 600 + sx });
+      const back = Math.min(c * b, (W / 2) / (c + u) * c), front = Math.min(c * b, (W / 2) / (c - u) * c);
+      L2.setAttribute('d', t > to ? `M${600 - back} ${y2}H${600 + front}` : '');
+      f2.replaceChildren(); if (t > to && c * b >= (W / 2) / (c + u) * c) mk('circle', { cx: 600 - back, cy: y2, r: 16, fill: COL.good }, f2); if (t > to && c * b >= (W / 2) / (c - u) * c) mk('circle', { cx: 600 + front, cy: y2, r: 16, fill: COL.bad }, f2);
+    }, 0, D, lin);
+    txt(p, 'одновременно', 1100, y1 + 10, th + 2.5, { size: 26, fill: COL.good });
+    txt(p, 'корма — раньше, нос — позже', 600, y2 + 80, to + 4.5, { size: 26, fill: COL.bad, anchor: 'middle' });
+    eq(p, "t′₂ − t′₁ = u(x₁ − x₂)/c² / √(1 − u²/c²)", 800, 720, to + 6, { size: 28, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 160, w: 1000, cls: 'side' }, [{
+    id: 'c-simul', prompt: ['Два события одновременны в системе Мика и произошли в разных местах. Одновременны ли они для Джо, относительно которого Мик движется?'],
+    build: choice([['нет, если места разнесены вдоль движения'], ['да, всегда'], ['да, если часы точные']], 0,
+      'Член ux/c² в t′ даёт разные моменты для разных x: одновременность удалённых событий относительна.',
+      [null, 'Это верно только по Галилею.', 'Дело не в качестве часов — так устроены пространство и время.']),
+  }], done) }],
+
+  ['fourvec', 'Четырёхвекторы', (m, D) => {
+    const p = panel(0);
+    head(p, 'Похоже на поворот', .2);
+    const O = [420, 450];
+    const tr = m('rot');
+    const g = G(p, { o: 0 }); show(g, tr);
+    vec(g, O[0] - 250, O[1], O[0] + 250, O[1], COL.dim, { w: 2 }); vec(g, O[0], O[1] + 250, O[0], O[1] - 250, COL.dim, { w: 2 });
+    T(g, 'x', { x: O[0] + 260, y: O[1] + 8, size: 26, fill: COL.dim, font: MATH }); T(g, 'ct', { x: O[0] + 10, y: O[1] - 260, size: 26, fill: COL.dim, font: MATH });
+    const xp = path(p, '', { stroke: MICK, 'stroke-width': 3 }), tp = path(p, '', { stroke: MICK, 'stroke-width': 3 });
+    const cone = path(p, `M${O[0] - 240} ${O[1] + 240}L${O[0] + 240} ${O[1] - 240}`, { stroke: LIGHT, 'stroke-width': 2, 'stroke-dasharray': '6 8' }); put(cone, { o: 0 }); show(cone, tr);
+    prog(q => { const t = q * D, b = .5 * smooth(tr + .5, tr + 3, t), a = Math.atan(b);
+      xp.setAttribute('d', `M${O[0] - 230 * Math.cos(a)} ${O[1] + 230 * Math.sin(a)}L${O[0] + 230 * Math.cos(a)} ${O[1] - 230 * Math.sin(a)}`);
+      tp.setAttribute('d', `M${O[0] - 230 * Math.sin(a)} ${O[1] + 230 * Math.cos(a)}L${O[0] + 230 * Math.sin(a)} ${O[1] - 230 * Math.cos(a)}`); put(xp, { o: t > tr ? 1 : 0 }); put(tp, { o: t > tr ? 1 : 0 }); }, 0, D, lin);
+    T(p, 'x′, ct′ — «сложились» к лучу света', { x: O[0], y: O[1] + 290, size: 22, fill: MICK, anchor: 'middle' });
+    eq(p, 'поворот: x′ = x cos θ + y sin θ', 860, 260, tr + .5, { size: 30, fill: COL.dim });
+    eq(p, "x′² + y′² + z′² − c²t′² =", 860, 380, m('inv'), { size: 34, fill: COL.task });
+    eq(p, "x² + y² + z² − c²t²", 900, 440, m('inv', .5), { size: 34, fill: COL.task });
+    txt(p, 'четырёхвектор: (ct, x, y, z)', 860, 540, m('inv', 2), { size: 28, fill: COL.good });
+  }],
+
+  ['dyn', 'Релятивистская динамика', (m, D) => {
+    const p = panel(0);
+    head(p, 'Постоянная сила', .2);
+    eq(p, 'p = m₀v / √(1 − v²/c²),   F = dp/dt', 120, 210, m('p'), { size: 32 });
+    const X = t => 160 + t * 150, Y = v => 640 - v * 300;
+    const tf = m('force');
+    const ax = G(p, { o: 0 }); show(ax, tf);
+    path(ax, `M${X(0)} ${Y(1.6)}V${Y(0)}H${X(4.6)}`, { stroke: COL.dim, 'stroke-width': 2 });
+    path(ax, `M${X(0)} ${Y(1)}H${X(4.6)}`, { stroke: LIGHT, 'stroke-width': 2, 'stroke-dasharray': '8 8' });
+    T(ax, 'c', { x: X(0) - 14, y: Y(1) + 8, size: 26, fill: LIGHT, anchor: 'end', font: MATH }); T(ax, 'v', { x: X(0) + 8, y: Y(1.6) - 6, size: 26, fill: COL.dim, font: MATH }); T(ax, 't', { x: X(4.6) + 10, y: Y(0) + 8, size: 26, fill: COL.dim, font: MATH });
+    let d1 = '', d2 = '';
+    for (let t = 0; t <= 4.5; t += .05) { if (t * .45 <= 1.55) d1 += (d1 ? 'L' : 'M') + X(t).toFixed(1) + ' ' + Y(t * .45).toFixed(1); const pp = t * .45; d2 += (d2 ? 'L' : 'M') + X(t).toFixed(1) + ' ' + Y(pp / Math.sqrt(1 + pp * pp)).toFixed(1); }
+    draw(path(p, d1, { stroke: COL.bad, 'stroke-width': 3, 'stroke-dasharray': '6 6' }, { d: 0 }), tf + .3, 1.5);
+    draw(path(p, d2, { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), tf + 1, 2);
+    txt(p, 'Ньютон', X(3.4), Y(1.55) + 30, tf + 1.5, { size: 24, fill: COL.bad });
+    txt(p, 'Эйнштейн', X(3.6), Y(.86) + 40, tf + 2.5, { size: 24, fill: COL.task });
+    const ts = m('sync');
+    eq(p, 'синхротрон: m = 2000 m₀', 960, 330, ts, { size: 30 });
+    eq(p, '1 − v²/c² = 1/(4·10⁶),  1 − v/c ≈ 1/(8·10⁶)', 960, 390, ts + 1.5, { size: 26 });
+    eq(p, 'на 200 м свет впереди на ≈ 0,025 мм', 960, 450, ts + 3, { size: 28, fill: COL.good });
+    txt(p, '(у Фейнмана: «1/30 мм»)', 960, 490, ts + 3.5, { size: 20, fill: COL.faint });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 960, y: 560, w: 600, cls: 'side' }, [{
+    id: 'c-mass', prompt: ['При какой скорости масса тела вдвое больше массы покоя?'],
+    build: choice([['v ≈ 0,87 c'], ['v = 0,5 c'], ['v = c / √2 ≈ 0,71 c']], 0,
+      '√(1 − v²/c²) = 1/2 ⇒ v²/c² = 3/4 ⇒ v = (√3/2) c ≈ 0,87 c.',
+      [null, 'При 0,5c масса больше всего в 1,15 раза.', 'Это при √(1 − v²/c²) = 1/√2, масса больше в 1,41 раза.']),
+  }], done) }],
+
+  ['emc2', 'E = mc²', (m) => {
+    const p = panel(0);
+    head(p, 'Масса и энергия', .2);
+    eq(p, 'm = m₀ (1 − v²/c²)^(−1/2) ≈ m₀ + ½ m₀ v² / c² + …', 800, 230, m('series'), { size: 34, anchor: 'middle' });
+    const hl = G(p, { o: 0 }); show(hl, m('ke'));
+    mk('rect', { x: 870, y: 190, width: 280, height: 56, rx: 12, fill: 'none', stroke: COL.task, 'stroke-width': 3 }, hl);
+    T(hl, 'кинетическая энергия / c²', { x: 1010, y: 290, size: 24, fill: COL.task, anchor: 'middle' });
+    eq(p, 'E = m c²', 800, 420, m('e'), { size: 80, fill: COL.good, anchor: 'middle' });
+    eq(p, 'mc² = m₀c² + ½ m₀v² + …', 800, 500, m('e', 1.5), { size: 32, anchor: 'middle' });
+    eq(p, '20 000 т тротила ≈ 8,4·10¹³ Дж  →  Δm = E/c² ≈ 1 г', 800, 620, m('bomb'), { size: 32, fill: COL.bad, anchor: 'middle' });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Законы одинаковы во всех инерциальных системах, c — одна.', 'w1'],
+      ['Длина сокращается, время замедляется: √(1 − u²/c²).', 'w2'],
+      ['Одновременность относительна; Лоренц — «поворот».', 'w3'],
+      ['m = m₀/√(1 − v²/c²),  E = mc².', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 160, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 160, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 220, size: 34, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-rod', prompt: ['Метровая линейка летит вдоль своей длины со скоростью 0,8c. Какой длины она для нас?'],
+    build: blanks([{ parts: ['L = ', { box: '0,6' }, ' м'], why: '√(1 − 0,64) = 0,6; 1 м · 0,6 = 0,6 м.', hint: 'L = L₀ √(1 − u²/c²).' }]),
+  }, {
+    id: 'p-muon', prompt: ['Мюон (τ₀ = 2,2 мкс) летит со скоростью 0,6c. Сколько он живёт по часам Земли?'],
+    build: blanks([{ parts: ['τ = ', { box: '2,75' }, ' мкс'], why: '2,2 / 0,8 = 2,75 мкс.', hint: '√(1 − 0,36) = 0,8.' }]),
+  }, {
+    id: 'p-across', prompt: ['Линейка летит со скоростью 0,8c, но расположена поперёк движения. Её длина для нас?'],
+    build: choice([['1 м — поперечные размеры не меняются'], ['0,6 м'], ['1,67 м']], 0,
+      'Сокращаются только размеры вдоль движения: y′ = y, z′ = z.',
+      [null, 'Это сокращение вдоль движения; поперёк размеры те же.', 'Длины не растут — только сокращаются вдоль движения.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-rest', prompt: ['Энергия покоя 1 г вещества (c = 3·10⁸ м/с)?'],
+    build: choice([['9·10¹³ Дж'], ['9·10¹⁶ Дж'], ['3·10⁵ Дж'], ['9·10¹⁰ Дж']], 0,
+      'E = mc² = 10⁻³ кг · 9·10¹⁶ м²/с² = 9·10¹³ Дж — примерно 20 000 т тротила.',
+      [null, 'Это для 1 кг; 1 г = 10⁻³ кг.', 'Скорость нужно возвести в квадрат.', 'Проверьте степень: 10⁻³ · 10¹⁶ = 10¹³.']),
+  }, {
+    id: 'p-gas', prompt: ['Газ нагрели — средняя кинетическая энергия молекул выросла. Что с массой газа?'],
+    build: choice([['чуть выросла: Δm = ΔE/c²'], ['не изменилась'], ['уменьшилась']], 0,
+      'Масса растёт вместе с энергией: Δm = Δ(кин. энергия)/c², хотя и ничтожно.',
+      [null, 'По Эйнштейну энергия имеет массу — прирост крошечный, но есть.', 'Энергия добавилась — масса тоже.']),
+  }, {
+    id: 'p-light', prompt: ['Электрон ускоряют постоянной силой очень долго. Что будет с его скоростью?'],
+    build: choice([['приближается к c, но не превышает её'], ['растёт без предела'], ['станет больше c']], 0,
+      'Растёт импульс; скорость подходит к c, а инерция (масса) неограниченно растёт.',
+      [null, 'Так по Ньютону; опыт с синхротронами показывает иное.', 'Скорость тел не превышает скорости света.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

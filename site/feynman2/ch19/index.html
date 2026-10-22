@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Центр масс; момент инерции</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 19, title: 'Центр масс; момент инерции', minutes: 14, language: 'ru', audio: false, next: '../ch20/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const CM = COL.bad;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+function ballEl(p, colr, r, { x = 0, y = 0, o = 1 } = {}) { const g = G(p, { x, y, o }); mk('circle', { r, fill: colr, stroke: COL.board, 'stroke-width': 2 }, g); return g; }
+function cmMark(p, x, y, t0) { const g = G(p, { x, y, o: 0 }); show(g, t0); mk('circle', { r: 12, fill: 'none', stroke: CM, 'stroke-width': 3 }, g); path(g, 'M-18 0H18M0 -18V18', { stroke: CM, 'stroke-width': 2 }); return g; }
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Центр масс; момент инерции', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Вращение · Глава 19', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Центр масс; момент инерции', { x: 800, y: 440, size: 80, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Особая точка тела и его «вращательная масса»', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['avg', 'Среднее положение', (m) => {
+    const p = panel(0);
+    head(p, 'Центр масс — взвешенное среднее', .2);
+    const Y = 300;
+    path(p, 'M120 330H780', { stroke: COL.dim, 'stroke-width': 2 });
+    [200, 300, 500].forEach((x, i) => { const b = ballEl(p, COL.whole, 22, { x, y: Y, o: 0 }); show(b, m('equal', i * .3)); });
+    cmMark(p, 333, Y + 70, m('equal', 1.2));
+    T(p, '(200 + 300 + 500)/3 ≈ 333', { x: 333, y: Y + 130, size: 22, fill: CM, anchor: 'middle', font: MATH });
+    const d = G(p, { o: 0 }); show(d, m('double'));
+    ballEl(d, COL.task, 30, { x: 650, y: Y }); T(d, '2m', { x: 650, y: Y + 8, size: 20, fill: COL.board, anchor: 'middle', weight: 700 });
+    txt(p, 'тяжёлый кусочек считаем дважды', 450, 520, m('double', .5), { size: 24, fill: COL.task, anchor: 'middle' });
+    const tp = m('parts');
+    const L = G(p, { o: 0 }); show(L, tp);
+    path(L, 'M900 200L1060 200L1180 400L1060 420Z', { fill: 'rgba(134,201,232,.25)', stroke: COL.whole, 'stroke-width': 3 });
+    mk('rect', { x: 1140, y: 420, width: 320, height: 70, fill: 'rgba(240,180,90,.25)', stroke: COL.task, 'stroke-width': 3 }, L);
+    T(L, 'A', { x: 1000, y: 260, size: 28, fill: COL.whole }); T(L, 'B', { x: 1420, y: 470, size: 28, fill: COL.task });
+    mk('circle', { cx: 1050, cy: 310, r: 7, fill: COL.whole }, L); mk('circle', { cx: 1300, cy: 455, r: 7, fill: COL.task }, L);
+    path(L, 'M1050 310L1300 455', { stroke: CM, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    cmMark(p, 1140, 362, tp + 1.5);
+    const tr = m('ring');
+    const rg = G(p, { o: 0 }); show(rg, tr);
+    mk('circle', { cx: 1180, cy: 640, r: 70, fill: 'none', stroke: COL.chalk, 'stroke-width': 10 }, rg);
+    cmMark(p, 1180, 640, tr + .5);
+    T(p, 'обруч: центр масс — в пустоте', { x: 950, y: 650, size: 22, fill: COL.dim, anchor: 'end' });
+    put(p.lastChild, { o: 0 }); show(p.lastChild, tr + .5);
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 580, w: 700, cls: 'side' }, [{
+    id: 'c-cm', prompt: ['Массы 1, 2 и 1 кг в точках x = 0, 1, 4 м. Где центр масс?'],
+    build: blanks([{ parts: ['x = ', { box: '1,5' }, ' м'], why: '(0 + 2 + 4)/4 = 1,5 м.', hint: 'X = Σmᵢxᵢ / Σmᵢ.' }]),
+  }], done) }],
+
+  ['newton', 'Законы Ньютона в большом', (m, D) => {
+    const p = panel(0);
+    head(p, 'Законы, воспроизводящие себя', .2);
+    const ts = m('scale');
+    const R = rng(3), ball = G(p, { x: 400, y: 420, o: 0 }); show(ball, ts);
+    for (let k = 0; k < 160; k++) { const r = 120 * Math.sqrt(R()), a = R() * 6.28; mk('circle', { cx: r * Math.cos(a), cy: r * Math.sin(a), r: 4, fill: COL.whole, opacity: .7 }, ball); }
+    cmMark(ball, 0, 0, ts + .5);
+    prog(q => { const t = q * D, s = Math.max(0, t - ts - 1); put(ball, { x: 300 + Math.min(420, 120 * s), y: 420 - 200 * Math.sin(Math.min(Math.PI, s * .7)), r: 40 * s }); }, 0, D, lin);
+    eq(p, 'F = M a(ЦМ)', 1200, 260, ts + 2, { size: 40, fill: COL.task, anchor: 'middle' });
+    txt(p, 'атомы — квантовая механика,', 1200, 400, m('atoms'), { size: 26, anchor: 'middle' });
+    txt(p, 'их огромные коллективы — Ньютон', 1200, 440, m('atoms'), { size: 26, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['balance', 'Центр тяжести', (m, D) => {
+    const p = panel(0);
+    head(p, 'Центр тяжести', .2);
+    const shape = 'M-140 -80L120 -110L160 60L-60 120L-170 40Z';
+    const cmP = [-18, 4];
+    const hang = (cx, pin, t0, ang) => {
+      const g = G(p, { x: cx, y: 300, o: 0 }); show(g, t0);
+      const b = G(g, { r: 0 }); path(b, shape, { fill: 'rgba(232,160,200,.25)', stroke: COL.rat, 'stroke-width': 3 });
+      mk('circle', { cx: pin[0], cy: pin[1], r: 7, fill: COL.chalk }, b);
+      const line = path(b, `M${pin[0]} ${pin[1]}L${pin[0] + (cmP[0] - pin[0]) * 3} ${pin[1] + (cmP[1] - pin[1]) * 3}`, { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+      cmMark(b, cmP[0], cmP[1], t0 + 2);
+      b.setAttribute('transform', `rotate(${ang} ${pin[0]} ${pin[1]})`);
+      return g;
+    };
+    const a1 = Math.atan2(cmP[0] - (-140), cmP[1] - (-80)) * 180 / Math.PI;
+    hang(400, [-140, -80], m('hang'), a1);
+    const a2 = Math.atan2(cmP[0] - 120, cmP[1] - (-110)) * 180 / Math.PI;
+    hang(1100, [120, -110], m('two'), a2);
+    txt(p, 'ЦМ — под точкой подвеса', 400, 640, m('hang', 1), { size: 24, fill: COL.dim, anchor: 'middle' });
+    txt(p, 'вертикали пересекаются в ЦМ', 1100, 640, m('two', 1), { size: 24, fill: COL.dim, anchor: 'middle' });
+    txt(p, 'опора в ЦМ — равновесие в любом положении', 800, 720, m('any'), { size: 28, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['pappus', 'Теорема Паппа', (m, D) => {
+    const p = panel(0);
+    head(p, 'Теорема Паппа', .2);
+    const ts = m('spin'), O = [380, 620], H = 320, Dd = 240;
+    const ax = path(p, `M${O[0]} ${O[1] + 20}V${O[1] - H - 30}`, { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '8 6' });
+    const tri = G(p, { x: O[0], y: O[1] });
+    const tp = mk('path', { d: '', fill: 'rgba(134,201,232,.3)', stroke: COL.whole, 'stroke-width': 3 }, tri);
+    const cm = mk('circle', { r: 8, fill: CM }, tri);
+    const cone = path(p, `M${O[0] - Dd} ${O[1]}L${O[0]} ${O[1] - H}L${O[0] + Dd} ${O[1]}`, { stroke: COL.task, 'stroke-width': 2 }); put(cone, { o: 0 });
+    const base = mk('ellipse', { cx: O[0], cy: O[1], rx: Dd, ry: 40, fill: 'none', stroke: COL.task, 'stroke-width': 2 }, p); put(base, { o: 0 });
+    const circ = mk('ellipse', { cx: O[0], cy: O[1] - H / 3, rx: Dd / 3, ry: 14, fill: 'none', stroke: CM, 'stroke-width': 2, 'stroke-dasharray': '4 4' }, p); put(circ, { o: 0 });
+    prog(q => { const t = q * D, a = Math.max(0, t - ts) * 2; const c = Math.cos(a);
+      tp.setAttribute('d', `M0 0H${Dd * c}L0 ${-H}Z`); cm.setAttribute('cx', Dd / 3 * c); cm.setAttribute('cy', -H / 3);
+      put(cone, { o: clamp01((t - ts - 2) / 1) }); put(base, { o: clamp01((t - ts - 2) / 1) }); put(circ, { o: clamp01((t - ts - 2) / 1) }); }, 0, D, lin);
+    T(p, 'H', { x: O[0] - 24, y: O[1] - H / 2, size: 26, fill: COL.dim, font: MATH }); T(p, 'D', { x: O[0] + Dd / 2, y: O[1] + 66, size: 26, fill: COL.dim, font: MATH });
+    eq(p, 'V = S · 2πx', 1050, 230, ts + 1, { size: 42, fill: COL.task });
+    eq(p, '2πx · ½HD = ⅓πD²H  ⇒  x = D/3', 1050, 330, m('tri'), { size: 30 });
+    eq(p, 'полукруг: 2πx · ½πr² = 4πr³/3', 1050, 440, m('semi'), { size: 30 });
+    eq(p, 'x = 4r/3π ≈ 0,42 r', 1050, 500, m('semi', 1), { size: 34, fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1040, y: 560, w: 520, cls: 'side' }, [{
+    id: 'c-pappus', prompt: ['Прямоугольный треугольник с катетом-основанием D = 6 см. На каком расстоянии от вертикального катета его центр масс?'],
+    build: blanks([{ parts: ['x = ', { box: '2' }, ' см'], why: 'x = D/3 = 2 см.', hint: 'Теорема Паппа даёт x = D/3.' }]),
+  }], done) }],
+
+  ['rod', 'Момент инерции стержня', (m, D) => {
+    const p = panel(0);
+    head(p, 'Стержень: за конец и за середину', .2);
+    const L = 420;
+    const r1 = G(p, { x: 240, y: 360 }); path(r1, `M0 0H${L}`, { stroke: COL.whole, 'stroke-width': 10 });
+    mk('circle', { cx: 240, cy: 360, r: 10, fill: COL.bad }, p);
+    const r2 = G(p, { x: 1150, y: 360 }); path(r2, `M${-L / 2} 0H${L / 2}`, { stroke: COL.task, 'stroke-width': 10 }); put(r2, { o: 0 }); show(r2, m('mid'));
+    mk('circle', { cx: 1150, cy: 360, r: 10, fill: COL.bad }, p);
+    prog(q => { const t = q * D; put(r1, { r: -20 * Math.max(0, t - m('end')) ** 1.6 }); put(r2, { r: -80 * Math.max(0, t - m('mid')) ** 1.6 }); }, 0, D, lin);
+    eq(p, 'I = ∫ x² dm = ML²/3', 450, 640, m('end'), { size: 34, anchor: 'middle', fill: COL.whole });
+    eq(p, 'I = ML²/12', 1150, 640, m('mid'), { size: 34, anchor: 'middle', fill: COL.task });
+    txt(p, 'та же сила — в 4 раза большее ускорение', 800, 720, m('mid', 2), { size: 26, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['parallel', 'Перенос оси', (m) => {
+    const p = panel(0);
+    head(p, 'Теорема о параллельном переносе оси', .2);
+    eq(p, 'I = I(ЦМ) + M d²', 800, 240, m('formula'), { size: 50, anchor: 'middle', fill: COL.task });
+    const g = G(p, { o: 0 }); show(g, m('formula', 1));
+    path(g, 'M500 420H1100', { stroke: COL.whole, 'stroke-width': 10 });
+    mk('circle', { cx: 500, cy: 420, r: 10, fill: COL.bad }, g); mk('circle', { cx: 800, cy: 420, r: 10, fill: CM }, g);
+    path(g, 'M500 460H800M500 450v20M800 450v20', { stroke: COL.dim, 'stroke-width': 2 }); T(g, 'd = L/2', { x: 650, y: 495, size: 24, fill: COL.dim, anchor: 'middle', font: MATH });
+    eq(p, 'ML²/12 + M(L/2)² = ML²/3  ✓', 800, 600, m('check'), { size: 34, anchor: 'middle', fill: COL.good });
+    eq(p, 'плоская фигура: I_z = I_x + I_y', 800, 690, m('perp'), { size: 30, anchor: 'middle' });
+  }],
+
+  ['table', 'Таблица моментов', (m) => {
+    const p = panel(0);
+    head(p, 'Моменты инерции простых тел', .2);
+    const row = (y, t0, draw_, name, f) => { const g = G(p, { o: 0 }); show(g, t0); draw_(g, 260, y); T(g, name, { x: 480, y: y + 10, size: 28 }); subify(T(g, f, { x: 1300, y: y + 10, size: 34, fill: COL.task, font: MATH, anchor: 'end' })); };
+    row(220, .3, (g, x, y) => path(g, `M${x - 90} ${y}H${x + 90}`, { stroke: COL.whole, 'stroke-width': 10 }), 'стержень, ось через центр', 'ML²/12');
+    row(340, m('cyl'), (g, x, y) => { mk('ellipse', { cx: x, cy: y, rx: 70, ry: 24, fill: 'rgba(134,201,232,.3)', stroke: COL.whole, 'stroke-width': 3 }, g); }, 'сплошной цилиндр (диск)', 'Mr²/2');
+    row(460, m('sphere'), (g, x, y) => ballEl(g, COL.whole, 50, { x, y }), 'шар', '2Mr²/5');
+    row(580, m('ring'), (g, x, y) => mk('circle', { cx: x, cy: y, r: 50, fill: 'none', stroke: COL.whole, 'stroke-width': 8 }, g), 'тонкое кольцо', 'Mr²');
+  }],
+
+  ['q3', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 160, w: 1000, cls: 'side' }, [{
+    id: 'c-par', prompt: ['Диск массы M и радиуса r вращают вокруг оси, перпендикулярной ему и проходящей через край. Момент инерции (в Mr²)?'],
+    build: blanks([{ parts: ['I = ', { box: '3/2' }, ' Mr²'], why: 'Mr²/2 + Mr² = 3Mr²/2.', hint: 'I = I(ЦМ) + Md², d = r.' }]),
+  }], done) }],
+
+  ['ke', 'Энергия вращения', (m, D) => {
+    const p = panel(0);
+    head(p, 'Кинетическая энергия вращения', .2);
+    eq(p, 'T = Σ ½ mᵢ (ωrᵢ)² = ½ I ω²', 800, 200, m('sum'), { size: 38, anchor: 'middle', fill: COL.task });
+    const tr = m('race');
+    const A = [180, 290], B = [1300, 640], ang = Math.atan2(B[1] - A[1], B[0] - A[0]), Ls = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    path(p, `M${A[0]} ${A[1]}L${B[0]} ${B[1]}L${A[0]} ${B[1]}Z`, { fill: 'rgba(236,232,220,.04)', stroke: COL.dim, 'stroke-width': 2 });
+    const bodies = [['шар', 2 / 5, COL.good, 1], ['цилиндр', 1 / 2, COL.whole, 0], ['обруч', 1, COL.task, 2]].map(([n, k, c, lane]) => {
+      const g = G(p, { o: 0 }); show(g, tr);
+      if (k === 1) mk('circle', { r: 26, fill: 'none', stroke: c, 'stroke-width': 7 }, g); else mk('circle', { r: 26, fill: c }, g);
+      path(g, 'M0 0H24', { stroke: COL.board, 'stroke-width': 3 });
+      const lab = T(p, n, { size: 22, fill: c, anchor: 'middle', o: 0 }); show(lab, tr);
+      return { g, k, lab, lane };
+    });
+    const sEnd = Math.sqrt((Ls - 30) / (60 / 1.4));   // the ball reaches the bottom; the race freezes there
+    prog(q => { const t = q * D, s = Math.min(sEnd, Math.max(0, t - tr)); bodies.forEach(b => { const a = 1 / (1 + b.k), d = Math.min(Ls - 30, 60 * a * s * s);
+      const x = A[0] + d * Math.cos(ang) + 26 * Math.sin(ang), y = A[1] + d * Math.sin(ang) - 26 * Math.cos(ang) - b.lane * 0;
+      put(b.g, { x, y, r: d / 26 * 57 }); put(b.lab, { x, y: y - 44 }); }); }, 0, D, lin);
+    txt(p, 'v² = 2gh / (1 + I/Mr²)', 1050, 360, m('win'), { size: 30, fill: COL.chalk, font: MATH });
+    txt(p, 'шар → цилиндр → обруч', 1050, 420, m('win', 1), { size: 30, fill: COL.good, weight: 600 });
+  }],
+
+  ['skater', 'Откуда энергия у фигуристки', (m) => {
+    const p = panel(0);
+    head(p, 'Фигуристка: L сохраняется, а энергия растёт', .2);
+    eq(p, 'T = ½ I ω² = ½ L ω', 800, 260, m('e'), { size: 44, anchor: 'middle', fill: COL.task });
+    eq(p, 'L = const, ω ↑  ⇒  T ↑', 800, 350, m('e', 1.5), { size: 36, anchor: 'middle' });
+    const g = G(p, { x: 800, y: 560, o: 0 }); show(g, m('work'));
+    mk('circle', { r: 36, fill: COL.task }, g);
+    path(g, 'M30 0H200', { stroke: COL.task, 'stroke-width': 8 }); mk('circle', { cx: 210, r: 20, fill: '#55665f' }, g);
+    vec(g, 240, 0, 330, 0, COL.bad, { w: 4 }); T(g, 'центробежная', { x: 290, y: -20, size: 22, fill: COL.bad, anchor: 'middle' });
+    vec(g, 190, 40, 100, 40, COL.good, { w: 4 }); T(g, 'тянем руку', { x: 150, y: 76, size: 22, fill: COL.good, anchor: 'middle' });
+    T(g, 'работа против центробежной силы → энергия', { x: 0, y: 140, size: 26, fill: COL.chalk, anchor: 'middle' });
+  }],
+
+  ['coriolis', 'Сила Кориолиса', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сила Кориолиса', .2);
+    const C = [450, 450], R = 260;
+    const disk = G(p, { x: C[0], y: C[1] });
+    mk('circle', { r: R, fill: 'rgba(240,180,90,.06)', stroke: COL.task, 'stroke-width': 3 }, disk);
+    path(disk, `M${-R} 0H${R}`, { stroke: COL.task, 'stroke-width': 2, 'stroke-dasharray': '8 8' });
+    const mass = G(disk); mk('circle', { r: 14, fill: COL.whole }, mass);
+    const fC = G(disk);
+    const tm = m('move'), tj = m('joe'), w = .5;
+    const jt = path(p, '', { stroke: COL.whole, 'stroke-width': 2, 'stroke-dasharray': '4 6' });
+    prog(q => {
+      const t = q * D, s = Math.max(0, t - tm), r = Math.min(R - 20, 40 * s);
+      put(disk, { r: -w * t * 57 }); put(mass, { x: r });
+      fC.replaceChildren(); if (t > m('push')) vec(fC, r, 0, r, -70, COL.bad, { w: 3, head: 12 });
+      if (t > tj) { let d = ''; for (let u = 0; u <= s; u += .05) { const rr = Math.min(R - 20, 40 * u), a = w * (tm + u); d += (d ? 'L' : 'M') + (C[0] + rr * Math.cos(a)).toFixed(1) + ' ' + (C[1] - rr * Math.sin(a)).toFixed(1); } jt.setAttribute('d', d); } else jt.setAttribute('d', '');
+    }, 0, D, lin);
+    eq(p, 'L = m ω r²  растёт', 1000, 260, m('move', 1), { size: 32 });
+    eq(p, 'τ = dL/dt = 2mωr v_r', 1000, 330, m('push'), { size: 32 });
+    eq(p, 'F_K = 2 m ω v', 1000, 410, m('push', 1), { size: 40, fill: COL.bad });
+    txt(p, 'Джо: масса летит прямо, а карусель поворачивается', 960, 500, tj, { size: 24, fill: COL.whole });
+    txt(p, 'на Земле — закручивает циклоны', 1000, 560, m('earth'), { size: 26, fill: COL.good });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 920, y: 600, w: 640, cls: 'side' }, [{
+    id: 'c-roll', prompt: ['Сплошной цилиндр и обруч одной массы и радиуса скатываются с одной горки. У кого внизу больше скорость?'],
+    build: choice([['у цилиндра'], ['у обруча'], ['одинаково']], 0,
+      'У цилиндра I меньше (Mr²/2 против Mr²), меньше энергии уходит во вращение.',
+      [null, 'У обруча вся масса на краю — больше энергии во вращении.', 'Энергия делится по-разному между вращением и поступательным движением.']),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['ЦМ — взвешенное среднее; для частей — их центры.', 'w1'],
+      ['Папп: объём = площадь × путь центра масс.', 'w2'],
+      ['I(стержень) = ML²/12; перенос оси: + Md².', 'w3'],
+      ['T = ½Iω²; во вращении есть сила Кориолиса.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-cm2', prompt: ['Гантель: 2 кг и 6 кг на концах стержня 1 м (стержень лёгкий). Насколько ЦМ удалён от груза 2 кг?'],
+    build: blanks([{ parts: [{ box: '0,75' }, ' м'], why: '6 · 1 / 8 = 0,75 м.', hint: 'X = Σmx/M, начало — у груза 2 кг.' }]),
+  }, {
+    id: 'p-semi', prompt: ['Центр масс однородного полукруга радиусом 3π см находится от прямого края на расстоянии…'],
+    build: blanks([{ parts: [{ box: '4' }, ' см'], why: '4r/3π = 4 · 3π/3π = 4 см.', hint: 'x = 4r/3π.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-rodI', prompt: ['Стержень 3 кг длиной 2 м вращается вокруг конца. I = ?'],
+    build: blanks([{ parts: ['I = ', { box: '4' }, ' кг·м²'], why: 'ML²/3 = 3 · 4 / 3 = 4.', hint: 'I = ML²/3.' }]),
+  }, {
+    id: 'p-Ekin', prompt: ['Маховик с I = 2 кг·м² вращается с ω = 10 рад/с. Его кинетическая энергия?'],
+    build: blanks([{ parts: ['T = ', { box: '100' }, ' Дж'], why: '½ · 2 · 100 = 100 Дж.', hint: 'T = ½Iω².' }]),
+  }, {
+    id: 'p-cor', prompt: ['Сила Кориолиса на тело, движущееся вдоль оси вращения карусели (по радиусу, через центр), …'],
+    build: choice([['есть, и не зависит от расстояния до оси: 2mωv'], ['равна нулю на оси'], ['направлена к центру']], 0,
+      'F_K = 2mωv не зависит от r — она есть даже на самой оси.',
+      [null, 'В отличие от центробежной, сила Кориолиса от r не зависит.', 'Она поперечна скорости, а не радиальна.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Гармонический осциллятор</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 21, title: 'Гармонический осциллятор', minutes: 12, language: 'ru', audio: false, next: '../ch22/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const KE = COL.task, PE = COL.whole;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+function springPath(x0, y0, y1, n = 14, w = 18) { let d = `M${x0} ${y0}`; for (let k = 1; k < n; k++) d += `L${x0 + (k % 2 ? w : -w)} ${y0 + (y1 - y0) * k / n}`; return d + `L${x0} ${y1}`; }
+// A vertical spring-mass at x hanging from y0; returns set(xDisp) (px, positive = up).
+function springMass(p, x, y0, rest, colr = COL.task) {
+  path(p, `M${x - 50} ${y0}H${x + 50}`, { stroke: COL.dim, 'stroke-width': 6 });
+  const sp = path(p, '', { stroke: COL.chalk, 'stroke-width': 3 });
+  const m = G(p); mk('rect', { x: -32, y: 0, width: 64, height: 50, rx: 6, fill: colr }, m); T(m, 'm', { y: 33, size: 26, fill: COL.board, anchor: 'middle', font: MATH, weight: 700 });
+  return d => { const y = y0 + rest - d; sp.setAttribute('d', springPath(x, y0, y)); put(m, { x, y }); return y; };
+}
+// A time graph.
+function tgraph(p, x0, y0, w, h, t0, lab = 'x') {
+  const g = G(p, { o: 0 }); show(g, t0);
+  path(g, `M${x0} ${y0 - h}V${y0 + h}M${x0} ${y0}H${x0 + w}`, { stroke: COL.dim, 'stroke-width': 2 });
+  T(g, 't', { x: x0 + w + 10, y: y0 + 8, size: 24, fill: COL.dim, font: MATH }); T(g, lab, { x: x0 + 10, y: y0 - h - 6, size: 24, fill: COL.dim, font: MATH });
+  return g;
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Гармонический осциллятор', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Колебания · Глава 21', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Гармонический осциллятор', { x: 800, y: 440, size: 84, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Одно уравнение — для пружины, маятника, цепи, звука и света', 800, 560, m('sub'), { size: 32, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['everywhere', 'Везде одно уравнение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Колебания повсюду', .2);
+    const tl = m('list');
+    const items = ['пружина', 'маятник', 'цепь LC', 'камертон', 'электрон в атоме'];
+    const set = items.map((s, i) => {
+      const x = 200 + i * 290, g = G(p, { o: 0 }); show(g, tl + i * .6);
+      T(g, s, { x, y: 600, size: 26, fill: COL.chalk, anchor: 'middle' });
+      const d = path(g, '', { stroke: [COL.task, COL.whole, COL.good, COL.rat, COL.int][i], 'stroke-width': 3 });
+      return { x, d };
+    });
+    prog(q => { const t = q * D; set.forEach((it, i) => { let d = ''; for (let k = 0; k <= 60; k++) { const u = k / 60; d += (d ? 'L' : 'M') + (it.x - 110 + 220 * u).toFixed(1) + ' ' + (400 + 70 * Math.cos(6.28 * 2 * u - t * (2 + i * .3))).toFixed(1); } it.d.setAttribute('d', d); }); }, 0, D, lin);
+    eq(p, 'aₙ dⁿx/dtⁿ + … + a₁ dx/dt + a₀ x = f(t)', 800, 220, m('lin'), { size: 36, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['spring', 'Грузик на пружине', (m, D) => {
+    const p = panel(0);
+    head(p, 'Грузик на пружине', .2);
+    const set = springMass(p, 280, 130, 280);
+    path(p, 'M200 460H360', { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '6 6' }); T(p, '0', { x: 380, y: 468, size: 22, fill: COL.good, font: MATH });
+    const ts = m('solve');
+    prog(q => { const t = q * D; set(t < m('force') ? 120 : 120 * Math.cos(1.6 * (t - m('force')))); }, 0, D, lin);
+    eq(p, 'm d²x/dt² = −k x', 1000, 220, m('force'), { size: 40, fill: COL.task });
+    eq(p, 'k/m = 1:  d²x/dt² = −x  ⇒  x = cos t', 1000, 300, ts, { size: 32 });
+    const g = tgraph(p, 560, 560, 820, 130, ts);
+    let d = ''; for (let k = 0; k <= 200; k++) { const t = k / 200 * 7; d += (d ? 'L' : 'M') + (560 + t * 115).toFixed(1) + ' ' + (560 - 120 * Math.cos(t)).toFixed(1); }
+    draw(path(p, d, { stroke: COL.task, 'stroke-width': 3 }, { d: 0 }), ts + .5, 2);
+    const tn = m('num');
+    const mk_ = G(p, { o: 0 }); show(mk_, tn); mk('circle', { cx: 560 + 1.5708 * 115, cy: 560, r: 8, fill: COL.good }, mk_);
+    T(mk_, 'π/2 = 1,5708', { x: 560 + 1.5708 * 115, y: 600, size: 24, fill: COL.good, anchor: 'middle', font: MATH });
+    txt(p, 'численно (т. 1, гл. 9): 1,570', 1000, 380, tn + 1, { size: 26, fill: COL.dim });
+  }],
+
+  ['omega', 'Частота и период', (m, D) => {
+    const p = panel(0);
+    head(p, 'Частота и период', .2);
+    eq(p, 'x = cos ω₀t,   ω₀² = k/m', 800, 210, m('scale'), { size: 40, fill: COL.task, anchor: 'middle' });
+    eq(p, 't₀ = 2π/ω₀ = 2π √(m/k)', 800, 290, m('period'), { size: 40, anchor: 'middle' });
+    const th = m('heavy');
+    const s1 = springMass(p, 400, 360, 160, COL.task), s2 = springMass(p, 800, 360, 160, COL.rat);
+    const s3 = springMass(p, 1200, 360, 160, COL.whole);
+    const lab = (x, s) => { const e = T(p, s, { x, y: 700, size: 24, fill: COL.dim, anchor: 'middle', o: 0 }); return e; };
+    const L1 = lab(400, 'm, k'), L2 = lab(800, '4m, k  — период ×2'), L3 = lab(1200, 'm, k — амплитуда ×2');
+    show(L1, th); show(L2, th + 1); show(L3, m('amp'));
+    prog(q => { const t = q * D, w = 2.4; s1.call ? 0 : 0;
+      s1(t > th ? 60 * Math.cos(w * (t - th)) : 60); s2(t > th + 1 ? 60 * Math.cos(w / 2 * (t - th - 1)) : 60); s3(t > m('amp') ? 100 * Math.cos(w * (t - m('amp'))) : 50); }, 0, D, lin);
+  }],
+
+  ['q1', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 160, w: 1000, cls: 'side' }, [{
+    id: 'c-period', prompt: ['Массу грузика увеличили в 9 раз. Как изменился период колебаний?'],
+    build: blanks([{ parts: ['вырос в ', { box: '3' }, ' раза'], why: 't₀ ∝ √m: √9 = 3.', hint: 't₀ = 2π√(m/k).' }]),
+  }], done) }],
+
+  ['phase', 'Амплитуда и фаза', (m, D) => {
+    const p = panel(0);
+    head(p, 'Общее решение', .2);
+    eq(p, 'x = a cos(ω₀t + Δ) = A cos ω₀t + B sin ω₀t', 800, 210, .4, { size: 36, fill: COL.task, anchor: 'middle' });
+    tgraph(p, 200, 480, 1200, 180, .3);
+    const c1 = path(p, '', { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' }), c2 = path(p, '', { stroke: COL.task, 'stroke-width': 4 });
+    prog(q => { const t = q * D, a = t > m('a') ? 150 : 110, dl = t > m('delta') ? .9 * smooth(m('delta'), m('delta') + 1.5, t) : 0;
+      let d1 = '', d2 = ''; for (let k = 0; k <= 240; k++) { const u = k / 240 * 12; d1 += (d1 ? 'L' : 'M') + (200 + u * 100) + ' ' + (480 - 110 * Math.cos(u)).toFixed(1); d2 += (d2 ? 'L' : 'M') + (200 + u * 100) + ' ' + (480 - a * Math.cos(u + dl)).toFixed(1); }
+      c1.setAttribute('d', d1); c2.setAttribute('d', d2); }, 0, D, lin);
+    txt(p, 'a — амплитуда', 220, 720, m('a'), { size: 28, fill: COL.task });
+    txt(p, 'Δ — сдвиг фазы', 620, 720, m('delta'), { size: 28, fill: COL.task });
+    txt(p, 'две постоянные — уравнение 2-го порядка', 1000, 720, m('ab'), { size: 26, fill: COL.good });
+  }],
+
+  ['circle', 'Движение по окружности', (m, D) => {
+    const p = panel(0);
+    head(p, 'Проекция равномерного вращения', .2);
+    const C = [400, 430], R = 180;
+    mk('circle', { cx: C[0], cy: C[1], r: R, fill: 'none', stroke: COL.whole, 'stroke-width': 3 }, p);
+    path(p, `M${C[0] - R - 30} ${C[1]}H${C[0] + R + 30}`, { stroke: COL.faint, 'stroke-width': 1.5 });
+    const pt = mk('circle', { r: 12, fill: COL.whole }, p), rad = path(p, '', { stroke: COL.whole, 'stroke-width': 2 });
+    const ts = m('shadow');
+    const sp = path(p, '', { stroke: COL.chalk, 'stroke-width': 3 }), mass = G(p); mk('rect', { x: -26, y: -20, width: 52, height: 40, rx: 6, fill: COL.task }, mass);
+    path(p, `M${900 - 40} 160H${900 + 40}`, { stroke: COL.dim, 'stroke-width': 6 });
+    const link = path(p, '', { stroke: COL.int, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    put(link, { o: 0 }); show(link, ts);
+    const gr = path(p, '', { stroke: COL.task, 'stroke-width': 3 });
+    prog(q => { const t = q * D, a = 1.4 * t, x = C[0] + R * Math.cos(a), y = C[1] - R * Math.sin(a);
+      pt.setAttribute('cx', x); pt.setAttribute('cy', y); rad.setAttribute('d', `M${C[0]} ${C[1]}L${x} ${y}`);
+      sp.setAttribute('d', springPath(900, 160, y - 20, 12, 14)); put(mass, { x: 900, y });
+      link.setAttribute('d', `M${x} ${y}H${900}`);
+      let d = ''; for (let k = 0; k <= 120; k++) { const u = t - k * .03; if (u < 0) break; d += (d ? 'L' : 'M') + (1000 + k * 4) + ' ' + (C[1] - R * Math.sin(1.4 * u)).toFixed(1); } gr.setAttribute('d', d); }, 0, D, lin);
+    T(p, 'y(t)', { x: 1000, y: 210, size: 24, fill: COL.task, font: MATH });
+    txt(p, 'тень точки и грузик движутся вместе', 900, 700, ts, { size: 26, fill: COL.int, anchor: 'middle' });
+    eq(p, 'a_y = −ω₀² y', C[0], 700, m('proj', 1), { size: 34, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 560, y: 560, w: 640, cls: 'side' }, [{
+    id: 'c-proj', prompt: ['Точка обходит круг радиусом 5 см за 2 с. Каковы амплитуда и период колебаний её проекции?'],
+    build: blanks([{ parts: ['a = ', { box: '5' }, ' см,  t₀ = ', { box: '2' }, ' с'], why: 'Амплитуда — радиус, период — время оборота.', hint: 'Проекция повторяет оборот.' }]),
+  }], done) }],
+
+  ['init', 'Начальные условия', (m, D) => {
+    const p = panel(0);
+    head(p, 'Начальные условия', .2);
+    eq(p, 'x(0) = x₀,  v(0) = v₀', 800, 210, m('x0'), { size: 38, anchor: 'middle' });
+    eq(p, 'A = x₀,   B = v₀/ω₀', 800, 290, m('ab'), { size: 40, anchor: 'middle', fill: COL.task });
+    const td = m('demo');
+    tgraph(p, 200, 520, 560, 150, td);
+    tgraph(p, 880, 520, 560, 150, td);
+    let a = '', b = ''; for (let k = 0; k <= 160; k++) { const u = k / 160 * 9; a += (a ? 'L' : 'M') + (200 + u * 60) + ' ' + (520 - 130 * Math.cos(u)).toFixed(1); b += (b ? 'L' : 'M') + (880 + u * 60) + ' ' + (520 - 130 * Math.sin(u)).toFixed(1); }
+    draw(path(p, a, { stroke: COL.task, 'stroke-width': 3 }, { d: 0 }), td + .3, 1.5); draw(path(p, b, { stroke: COL.whole, 'stroke-width': 3 }, { d: 0 }), td + 1.5, 1.5);
+    txt(p, 'оттянули и отпустили: cos', 480, 720, td + .5, { size: 26, fill: COL.task, anchor: 'middle' });
+    txt(p, 'толкнули из равновесия: sin', 1160, 720, td + 1.7, { size: 26, fill: COL.whole, anchor: 'middle' });
+  }],
+
+  ['energy', 'Энергия', (m, D) => {
+    const p = panel(0);
+    head(p, 'Энергия осциллятора', .2);
+    const set = springMass(p, 260, 140, 260);
+    const H = 300, base = 640;
+    const bars = G(p, { o: 0 }); show(bars, m('u'));
+    const pe = mk('rect', { x: 560, y: base, width: 140, height: 0, fill: PE }, bars), ke = mk('rect', { x: 560, y: base, width: 140, height: 0, fill: KE }, bars);
+    path(bars, `M540 ${base - H}H720`, { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    T(bars, 'U = ½kx²', { x: 740, y: base - 30, size: 26, fill: PE, font: MATH }); T(bars, 'T = ½mv²', { x: 740, y: base - H + 30, size: 26, fill: KE, font: MATH });
+    prog(q => { const t = q * D, ph = 2 * t, c = Math.cos(ph); set(110 * c); const u = c * c; pe.setAttribute('height', H * u); pe.setAttribute('y', base - H * u); ke.setAttribute('height', H * (1 - u)); ke.setAttribute('y', base - H); }, 0, D, lin);
+    eq(p, 'T + U = ½ m ω₀² a²', 1000, 260, m('sum'), { size: 38, fill: COL.good });
+    txt(p, 'в среднем: ⟨T⟩ = ⟨U⟩ = ½ E', 1000, 340, m('avg'), { size: 28, fill: COL.dim });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 960, y: 420, w: 600, cls: 'side' }, [{
+    id: 'c-en', prompt: ['Амплитуду колебаний увеличили втрое. Во сколько раз выросла энергия?'],
+    build: blanks([{ parts: ['в ', { box: '9' }, ' раз'], why: 'E ∝ a²: 3² = 9.', hint: 'E = ½mω₀²a².' }]),
+  }], done) }],
+
+  ['forced', 'Вынужденные колебания', (m, D) => {
+    const p = panel(0);
+    head(p, 'Под действием внешней силы F₀ cos ωt', .2);
+    eq(p, 'm ẍ = −kx + F₀ cos ωt', 1050, 200, .4, { size: 34 });
+    eq(p, 'x = C cos ωt,   C = F₀ / m(ω₀² − ω²)', 1050, 280, m('c'), { size: 32, fill: COL.task });
+    const s1 = springMass(p, 300, 150, 240), s2 = springMass(p, 680, 150, 240, COL.rat);
+    const hand1 = mk('circle', { r: 10, fill: COL.int }, p), hand2 = mk('circle', { r: 10, fill: COL.int }, p);
+    prog(q => { const t = q * D;
+      const tl = m('low'), th = m('high');
+      const w1 = .8, w0 = 2.5, w2 = 6;
+      const C1 = 1 / (w0 * w0 - w1 * w1), C2 = 1 / (w0 * w0 - w2 * w2);
+      s1(t > tl ? 400 * C1 * Math.cos(w1 * (t - tl)) : 0); hand1.setAttribute('cx', 380); hand1.setAttribute('cy', 390 - 70 * Math.cos(w1 * Math.max(0, t - tl)));
+      s2(t > th ? 400 * C2 * Math.cos(w2 * (t - th)) * 5 : 0); hand2.setAttribute('cx', 760); hand2.setAttribute('cy', 390 - 70 * Math.cos(w2 * Math.max(0, t - th)));
+      put(hand1, { o: t > tl ? 1 : 0 }); put(hand2, { o: t > th ? 1 : 0 }); }, 0, D, lin);
+    txt(p, 'ω ≪ ω₀: следует за силой', 300, 640, m('low'), { size: 24, fill: COL.task, anchor: 'middle' });
+    txt(p, 'ω ≫ ω₀: в противофазе, едва движется', 680, 690, m('high'), { size: 24, fill: COL.rat, anchor: 'middle' });
+    txt(p, '(синий кружок — фаза силы)', 490, 740, m('low', .5), { size: 20, fill: COL.int, anchor: 'middle' });
+  }],
+
+  ['resonance', 'Резонанс', (m) => {
+    const p = panel(0);
+    head(p, 'Резонанс', .2);
+    const X = r => 200 + r * 400, Y = c => 640 - c * 90;
+    const g = G(p, { o: 0 }); show(g, .3);
+    path(g, `M${X(0)} ${Y(5.5)}V${Y(0)}H${X(2.5)}`, { stroke: COL.dim, 'stroke-width': 2 });
+    path(g, `M${X(1)} ${Y(5.5)}V${Y(0)}`, { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    T(g, 'ω / ω₀', { x: X(2.5), y: Y(0) + 34, size: 24, fill: COL.dim, font: MATH, anchor: 'end' }); T(g, '|C|', { x: X(0) + 10, y: Y(5.5) - 6, size: 24, fill: COL.dim, font: MATH }); T(g, '1', { x: X(1), y: Y(0) + 32, size: 22, fill: COL.dim, font: MATH, anchor: 'middle' });
+    let d1 = '', d2 = ''; for (let r = 0; r <= 2.5; r += .005) { const c = Math.min(5.4, 1 / Math.abs(1 - r * r)); if (r < .975) d1 += (d1 ? 'L' : 'M') + X(r).toFixed(1) + ' ' + Y(c).toFixed(1); if (r > 1.02) d2 += (d2 ? 'L' : 'M') + X(r).toFixed(1) + ' ' + Y(c).toFixed(1); }
+    draw(path(p, d1, { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), m('peak'), 1.2); draw(path(p, d2, { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), m('peak', 1), 1);
+    txt(p, 'качели: толкать в такт', 1200, 300, m('swing'), { size: 30, fill: COL.good });
+    let d3 = ''; for (let r = 0; r <= 2.5; r += .005) { const c = 1 / Math.sqrt((1 - r * r) ** 2 + (.25 * r) ** 2); d3 += (d3 ? 'L' : 'M') + X(r).toFixed(1) + ' ' + Y(Math.min(5.4, c)).toFixed(1); }
+    draw(path(p, d3, { stroke: COL.good, 'stroke-width': 3, 'stroke-dasharray': '8 6' }, { d: 0 }), m('friction'), 1.5);
+    txt(p, 'с трением — конечный пик', 1200, 380, m('friction', .5), { size: 26, fill: COL.good });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1080, y: 470, w: 480, cls: 'side' }, [{
+    id: 'c-forced', prompt: ['Силу колеблют вдвое чаще собственной частоты (ω = 2ω₀). Во сколько раз амплитуда меньше статического отклонения F₀/k?'],
+    build: blanks([{ parts: ['в ', { box: '3' }, ' раза'], why: '|C| = F₀/(m|ω₀² − 4ω₀²|) = F₀/(3k).', hint: 'mω₀² = k.' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['m ẍ = −kx ⇒ x = a cos(ω₀t + Δ).', 'w1'],
+      ['ω₀ = √(k/m) — не зависит от амплитуды.', 'w2'],
+      ['a и Δ — из начальных условий; это проекция вращения.', 'w3'],
+      ['C = F₀/m(ω₀² − ω²): у ω ≈ ω₀ — резонанс.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 160, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 160, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 220, size: 34, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-w', prompt: ['k = 200 Н/м, m = 2 кг. Найдите ω₀.'],
+    build: blanks([{ parts: ['ω₀ = ', { box: '10' }, ' рад/с'], why: '√(200/2) = 10.', hint: 'ω₀ = √(k/m).' }]),
+  }, {
+    id: 'p-k', prompt: ['Пружину заменили вчетверо более жёсткой. Как изменился период?'],
+    build: blanks([{ parts: ['уменьшился в ', { box: '2' }, ' раза'], why: 't₀ ∝ 1/√k.', hint: 't₀ = 2π√(m/k).' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-init', prompt: ['x₀ = 3 см, v₀ = 8 см/с, ω₀ = 2 рад/с. Найдите амплитуду a = √(A² + B²).'],
+    build: blanks([{ parts: ['a = ', { box: '5' }, ' см'], why: 'A = 3, B = 8/2 = 4, a = √(9 + 16) = 5 см.', hint: 'A = x₀, B = v₀/ω₀.' }]),
+  }, {
+    id: 'p-sign', prompt: ['Сила с частотой ω > ω₀. Как грузик движется относительно силы?'],
+    build: choice([['в противофазе'], ['в фазе'], ['опережает на четверть периода']], 0,
+      'C = F₀/m(ω₀² − ω²) < 0 при ω > ω₀ — знак минус означает противофазу.',
+      [null, 'В фазе — при ω < ω₀.', 'Без трения сдвиг либо 0, либо π.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

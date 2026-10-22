@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Физика и другие науки</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 3, title: 'Физика и другие науки', minutes: 12, language: 'ru', audio: false, next: '../ch04/' };
+
+/* ---------- chapter drawing helpers ---------- */
+function pill(p, str, x, y, { w = 230, colr = COL.chalk, o = 0, dash } = {}) {
+  const g = G(p, { x, y, o });
+  mk('rect', { x: -w / 2, y: -30, width: w, height: 60, rx: 30, fill: 'rgba(10,16,14,.6)', stroke: colr, 'stroke-width': 2.5, ...(dash ? { 'stroke-dasharray': '8 8' } : {}) }, g);
+  T(g, str, { y: 9, size: 26, fill: colr, anchor: 'middle', weight: 600 });
+  return g;
+}
+const BASE = { 'А': COL.bad, 'Т': COL.int, 'Г': COL.good, 'Ц': COL.whole };
+const PAIR = { 'А': 'Т', 'Т': 'А', 'Г': 'Ц', 'Ц': 'Г' };
+const NM = l => 700 + (l - 400) * 2.5;   // wavelength (nm) → x on the spectrum strip
+function spectrumStrip(p, y, h, lines, { dark = false, o = 0 } = {}) {
+  const g = G(p, { o });
+  if (dark) mk('rect', { x: NM(400), y, width: NM(700) - NM(400), height: h, fill: 'url(#rainbow3)' }, g);
+  else mk('rect', { x: NM(400), y, width: NM(700) - NM(400), height: h, fill: '#0c1210', stroke: COL.faint }, g);
+  for (const l of lines) mk('rect', { x: NM(l) - 2, y, width: 4, height: h, fill: dark ? '#111' : wl(l) }, g);
+  return g;
+}
+function wl(l) {   // a rough colour for a wavelength
+  const stops = [[400, [140, 90, 230]], [450, [80, 120, 255]], [490, [60, 200, 220]], [530, [90, 220, 110]], [580, [245, 230, 80]], [610, [250, 150, 60]], [700, [230, 60, 60]]];
+  let i = stops.findIndex(s => s[0] >= l); if (i <= 0) i = 1;
+  const [a, ca] = stops[i - 1], [b, cb] = stops[i], q = clamp01((l - a) / (b - a));
+  return `rgb(${ca.map((c, k) => Math.round(c + (cb[k] - c) * q)).join(',')})`;
+}
+(function () {
+  const defs = document.querySelector('#stage defs');
+  const lg = mk('linearGradient', { id: 'rainbow3' }, defs);
+  for (let l = 400; l <= 700; l += 25) mk('stop', { offset: (l - 400) / 300, 'stop-color': wl(l) }, lg);
+})();
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Физика и другие науки', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Картина мира · Глава 3', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Физика и другие науки', { x: 800, y: 440, size: 84, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Самая фундаментальная наука — и её соседи', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['hub', 'Науки вокруг физики', (m) => {
+    const p = panel(0);
+    head(p, 'Физика и её соседи', .2);
+    const C = [800, 410];
+    const core = G(p, { x: C[0], y: C[1], o: 0 }); show(core, .3);
+    mk('circle', { r: 92, fill: 'rgba(240,180,90,.15)', stroke: COL.task, 'stroke-width': 3 }, core);
+    T(core, 'физика', { y: 11, size: 34, fill: COL.task, anchor: 'middle', weight: 600 });
+    const N = [['химия', 800, 150, COL.whole], ['биология', 1180, 290, COL.good], ['астрономия', 1090, 640, COL.int], ['геология', 510, 640, COL.nat], ['психология', 420, 290, COL.rat]];
+    N.forEach(([s, x, y, c], i) => {
+      const t0 = m('spokes', i * .5);
+      const dx = x - C[0], dy = y - C[1], L = Math.hypot(dx, dy);
+      draw(path(p, `M${C[0] + dx / L * 96} ${C[1] + dy / L * 96}L${x - dx / L * 40} ${y - dy / L * 40}`, { stroke: c, 'stroke-width': 3 }, { d: 0 }), t0, .5);
+      const g = pill(p, s, x, y, { colr: c }); tw(g, { o: 1 }, t0 + .3, .5);
+    });
+    const mth = pill(p, 'математика', 1360, 140, { colr: COL.dim, dash: true, w: 240 }); tw(mth, { o: 1 }, m('math'), .5);
+    txt(p, 'мерило — не опыт', 1360, 210, m('math', .5), { size: 24, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['chem', 'Химия', (m, D) => {
+    const p = panel(0);
+    head(p, 'Химия: правила и игра', .2);
+    const rows = [['H', '', '', '', '', '', '', 'He'], ['Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne'], ['Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar'], ['K', 'Ca', '', '', '', '', '', '']];
+    const tab = G(p, { o: 0 }); show(tab, m('table'));
+    rows.forEach((r, j) => r.forEach((s, i) => {
+      if (!s) return;
+      const x = 120 + i * 64, y = 150 + j * 64, hl = i === 0 && j > 0;
+      mk('rect', { x, y, width: 58, height: 58, rx: 6, fill: hl ? 'rgba(134,201,232,.2)' : 'rgba(10,16,14,.45)', stroke: hl ? COL.whole : COL.faint, 'stroke-width': 2 }, tab);
+      T(tab, s, { x: x + 29, y: y + 39, size: 26, fill: hl ? COL.whole : COL.chalk, anchor: 'middle', font: MATH, weight: 600 });
+    }));
+    txt(p, 'Li, Na, K — один столбец, похожие свойства', 120, 440, m('table', 1.5), { size: 24, fill: COL.whole });
+    txt(p, 'причина — число внешних электронов (квантовая механика)', 120, 480, m('table', 3), { size: 24, fill: COL.task });
+    txt(p, 'знать правила ≠ уметь играть', 120, 560, m('rules'), { size: 32, weight: 600 });
+    // statistical mechanics: one molecule's path is hopeless, averages are smooth
+    const box = [900, 160, 1460, 470];
+    const sb = G(p, { o: 0 }); show(sb, m('stat'));
+    mk('rect', { x: box[0] - 10, y: box[1] - 10, width: box[2] - box[0] + 20, height: box[3] - box[1] + 20, rx: 10, fill: 'none', stroke: COL.dim, 'stroke-width': 3 }, sb);
+    const it = gas(sb, 36, box, 5, { s: .55, speed: [200, 380] });
+    const me = it[0]; me.el.remove(); me.el = atom(sb, 'He', { s: .7 });
+    const trail = path(sb, '', { stroke: COL.int, 'stroke-width': 2, opacity: .7 });
+    const ts = m('stat');
+    // the tracked molecule zig-zags: re-aim it every 0.35 s (a stand-in for collisions)
+    const R = rng(77), pts = [[1180, 315]];
+    for (let k = 1; k < 140; k++) { const a = R() * 6.283, s = 50 + R() * 40; const [x, y] = pts[k - 1]; pts.push([Math.max(box[0], Math.min(box[2], x + Math.cos(a) * s)), Math.max(box[1], Math.min(box[3], y + Math.sin(a) * s))]); }
+    const posAt = t => { const u = Math.max(0, t) / .35, i = Math.min(pts.length - 2, Math.floor(u)), f = u - i; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f, i]; };
+    prog(q => {
+      const t = q * D, s = t - ts;
+      for (const o of it.slice(1)) put(o.el, gasAt(o, t, box));
+      const [x, y, i] = posAt(s); put(me.el, { x, y });
+      let d = 'M' + pts[0].join(' ');
+      for (let k = 1; k <= i; k++) d += 'L' + pts[k].join(' ');
+      trail.setAttribute('d', s > 0 ? d + `L${x} ${y}` : '');
+    }, 0, D, lin);
+    txt(p, 'путь одной молекулы — безнадёжно сложен', 1180, 530, ts + 3, { size: 24, fill: COL.int, anchor: 'middle' });
+    txt(p, 'средние (T, P) — просты: статистическая механика', 1180, 570, ts + 5, { size: 24, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['barrier', 'Энергия активации', (m, D) => {
+    const p = panel(0);
+    head(p, 'Почему реакции не идут сами', .2);
+    const gs = (u, s) => Math.exp(-u * u / (2 * s * s));
+    const Y = (x, H) => 600 - H * gs(x - 800, 110) + 260 * gs(x - 140, 60) + 260 * gs(x - 1460, 60);
+    const curve = H => { let d = ''; for (let x = 140; x <= 1460; x += 6) d += (d ? 'L' : 'M') + x + ' ' + Y(x, H).toFixed(1); return d; };
+    const c1 = path(p, curve(300), { stroke: COL.chalk, 'stroke-width': 4 }, { d: 0 }); draw(c1, .2, 1.2);
+    T(p, 'состояние A', { x: 400, y: 660, size: 26, fill: COL.dim, anchor: 'middle' }); T(p, 'состояние B', { x: 1200, y: 660, size: 26, fill: COL.dim, anchor: 'middle' });
+    const th = m('hill'), tb = m('back'), te = m('enzyme');
+    const bar = G(p, { o: 0 }); show(bar, th);
+    vec(bar, 880, 600, 880, 312, COL.bad, { w: 3, head: 12 }); vec(bar, 880, 312, 880, 600, COL.bad, { w: 3, head: 12 });
+    T(bar, 'энергия активации', { x: 900, y: 450, size: 26, fill: COL.bad });
+    const c2 = path(p, curve(120), { stroke: COL.good, 'stroke-width': 4, 'stroke-dasharray': '10 10' }, { d: 0 }); draw(c2, te + .5, 1.2);
+    txt(p, 'с ферментом', 640, 450, te + 1.2, { size: 28, fill: COL.good, anchor: 'middle', weight: 600 });
+    hide(bar, te + .5);
+    const ball = atom(p, 'He', { r: 22, o: 0 }); show(ball, .4);
+    prog(q => {
+      const t = q * D;
+      let x = 400, H = 300;
+      if (t > tb && t < te) x = 400 + 260 * Math.sin(Math.PI * clamp01((t - tb) / 3));
+      if (t >= te + 2) { x = 400 + 800 * smooth(te + 2, te + 6, t); H = 120; }
+      put(ball, { x, y: Y(x, H) - 22 });
+    }, 0, D, lin);
+    txt(p, 'начало и конец — те же', 1200, 360, te + 6, { size: 28, fill: COL.chalk, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 220, y: 110, w: 1160, cls: 'side' }, [{
+    id: 'c-enzyme', prompt: ['Что делает фермент в химической реакции?'],
+    build: choice([['понижает перевал — энергию активации'], ['меняет энергии начального и конечного состояний'], ['сам расходуется в реакции']], 0,
+      'Фермент ускоряет реакцию, понижая перевал; начальное и конечное состояния остаются прежними, а сам фермент не меняется.',
+      [null, 'Энергии состояний A и B те же — изменился только путь между ними.', 'Фермент передвигает атомы и готов к следующей молекуле — он не расходуется.']),
+  }], done) }],
+
+  ['nerve', 'Нерв', (m, D) => {
+    const p = panel(0);
+    head(p, 'Как бежит нервный импульс', .2);
+    const ax = G(p, { o: 0 }); show(ax, .2);
+    path(ax, 'M140 300H1460M140 400H1460', { stroke: COL.dim, 'stroke-width': 4 });
+    mk('rect', { x: 140, y: 300, width: 1320, height: 100, fill: 'rgba(240,180,90,.06)' }, ax);
+    T(ax, 'мембрана', { x: 140, y: 235, size: 24, fill: COL.dim });
+    const tm = m('membrane'), tw0 = m('wave'), sp = 150;
+    const signs = [];
+    for (let x = 180; x <= 1420; x += 56) {
+      [[270, 1], [430, 1], [325, -1], [375, -1]].forEach(([y, out_]) => {
+        const t = T(p, out_ > 0 ? '+' : '−', { x, y: y + 10, size: 30, fill: out_ > 0 ? COL.bad : COL.whole, anchor: 'middle', weight: 700, o: 0 });
+        signs.push({ t, x, out_ });
+      });
+    }
+    prog(q => {
+      const t = q * D, xf = 140 + sp * (t - tw0);
+      for (const s of signs) {
+        const flip = t > tw0 && s.x < xf && s.x > xf - 260;
+        const plus = flip ? s.out_ < 0 : s.out_ > 0;
+        s.t.textContent = plus ? '+' : '−';
+        s.t.setAttribute('fill', plus ? COL.bad : COL.whole);
+        put(s.t, { o: clamp01((t - tm) / .6) });
+      }
+    }, 0, D, lin);
+    txt(p, 'снаружи +, внутри − : как конденсатор', 800, 490, tm + .8, { size: 26, anchor: 'middle' });
+    txt(p, 'место пробоя бежит вдоль нерва →', 800, 530, tw0 + 1, { size: 26, anchor: 'middle', fill: COL.task });
+    // dominoes
+    const td = m('domino');
+    const dg = G(p, { o: 0 }); show(dg, td);
+    const doms = Array.from({ length: 24 }, (_, k) => {
+      const g = G(dg, { x: 230 + k * 50, y: 680 });
+      mk('rect', { x: -7, y: -70, width: 14, height: 70, rx: 3, fill: COL.chalk }, g);
+      return g;
+    });
+    doms.forEach((g, k) => tw(g, { r: 62 }, td + .5 + k * .16, .3, lin));
+  }],
+
+  ['krebs', 'Цикл лимонной кислоты', (m, D) => {
+    const p = panel(0);
+    head(p, 'Цикл лимонной кислоты (цикл Кребса)', .2);
+    const C = [520, 445], R = 220;
+    const names = ['цитрат', 'изоцитрат', 'α-кетоглутарат', 'сукцинил-КоА', 'сукцинат', 'фумарат', 'малат', 'оксалоацетат'];
+    const at = k => { const a = (-90 + 45 * k) * Math.PI / 180; return [C[0] + R * Math.cos(a), C[1] + R * Math.sin(a), a]; };
+    const cyc = G(p, { o: 0 }); show(cyc, m('cycle'));
+    names.forEach((s, k) => {
+      const [x, y, a] = at(k), [x2, y2] = at(k + 1);
+      mk('circle', { cx: x, cy: y, r: 13, fill: COL.whole }, cyc);
+      const lx = x + Math.cos(a) * 30, ly = y + Math.sin(a) * 30 + 8;
+      T(cyc, s, { x: lx, y: ly, size: 22, fill: COL.chalk, anchor: Math.abs(Math.cos(a)) < .3 ? 'middle' : Math.cos(a) > 0 ? 'start' : 'end' });
+      const a1 = (-90 + 45 * k + 9) * Math.PI / 180, a2 = (-90 + 45 * (k + 1) - 9) * Math.PI / 180;
+      path(cyc, `M${C[0] + R * Math.cos(a1)} ${C[1] + R * Math.sin(a1)}A${R} ${R} 0 0 1 ${C[0] + R * Math.cos(a2)} ${C[1] + R * Math.sin(a2)}`, { stroke: COL.dim, 'stroke-width': 2.5 });
+    });
+    T(cyc, 'ацетил-КоА', { x: C[0], y: 150, size: 22, fill: COL.task, anchor: 'middle' });
+    vec(cyc, C[0], 160, C[0], C[1] - R - 18, COL.task, { w: 3, head: 12 });
+    // outputs
+    const outs = G(p, { o: 0 }); show(outs, m('energy'));
+    const emit = (k, s, c, dx, dy) => { const [x, y] = at(k + .5); vec(outs, x, y, x + dx, y + dy, c, { w: 3, head: 12 }); T(outs, s, { x: x + dx * 1.35, y: y + dy * 1.35 + 8, size: 24, fill: c, anchor: 'middle', font: MATH }); };
+    emit(1, 'CO₂', COL.dim, 70, 10); emit(2, 'CO₂', COL.dim, 95, 15); emit(3, 'АТФ (ГТФ)', COL.good, -10, 80);
+    // the ¹⁴C tag travels around
+    const tg = m('tag');
+    const tag = G(p, { o: 0 }); mk('circle', { r: 10, fill: COL.irr, stroke: COL.chalk, 'stroke-width': 2 }, tag); T(tag, '¹⁴C', { x: 16, y: -12, size: 22, fill: COL.irr, font: MATH });
+    show(tag, tg);
+    prog(q => {
+      const t = q * D, s = t - tg;
+      if (s < 1.2) { put(tag, { x: C[0], y: 165 + (C[1] - R - 165) * clamp01(s / 1.2) }); return; }
+      const ang = (-90 + 30 * (s - 1.2)) * Math.PI / 180;
+      put(tag, { x: C[0] + R * Math.cos(ang), y: C[1] + R * Math.sin(ang) });
+    }, 0, D, lin);
+    txt(p, 'метка: изотоп углерода', 980, 230, tg + .5, { size: 28, fill: COL.irr, weight: 600 });
+    txt(p, '¹²C, ¹³C, ¹⁴C: 6 электронов —', 980, 290, tg + 1.5, { size: 26, font: MATH });
+    txt(p, 'химия одинакова', 980, 330, tg + 1.5, { size: 26 });
+    txt(p, '¹⁴C радиоактивен — его найдёт счётчик', 980, 380, tg + 3, { size: 26, fill: COL.dim });
+    txt(p, 'за оборот: 2 CO₂ и запас энергии', 980, 470, m('energy', .5), { size: 26, fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 880, y: 520, w: 680, cls: 'side' }, [{
+    id: 'c-isotope', prompt: ['Почему метка ¹⁴C позволяет проследить реакцию и не меняет её?'],
+    build: choice([['у ¹⁴C столько же электронов, как у ¹²C, а найти его можно по излучению'], ['¹⁴C химически активнее и ускоряет реакцию'], ['у ¹⁴C больше протонов, и он светится']], 0,
+      'Химия определяется числом электронов (6), а не массой ядра; отличается ¹⁴C лишь ядром — его выдаёт радиоактивность.',
+      [null, 'Химически изотопы одинаковы — реакции идут так же.', 'Протонов у всех изотопов углерода по 6; отличаются нейтроны.']),
+  }], done) }],
+
+  ['protein', 'Белки', (m) => {
+    const p = panel(0);
+    head(p, 'Белок: цепь из аминокислот', .2);
+    const HUES = [COL.nat, COL.whole, COL.int, COL.rat, COL.irr, COL.real, COL.task];
+    const R = rng(3), n = 30;
+    // folded: a compact serpentine through a 6 × 5 block, slightly jostled
+    const folded = Array.from({ length: n }, (_, k) => { const r = Math.floor(k / 6), c = r % 2 ? 5 - k % 6 : k % 6; return [c - 2.5 + (R() - .5) * .25, r - 2 + (R() - .5) * .25]; });
+    const tc = m('chain'), tf = m('fold');
+    const beads = folded.map(([fx, fy], k) => {
+      const lx = 130 + k * 46, ly = 300 + 30 * Math.sin(k * .7);
+      const e = G(p, { x: lx, y: ly, o: 0, s: .3 });
+      mk('circle', { r: 19, fill: HUES[Math.floor(R() * HUES.length)], stroke: COL.board, 'stroke-width': 2 }, e);
+      tw(e, { o: 1, s: 1 }, tc + k * .08, .4, back);
+      tw(e, { x: 800 + fx * 44, y: 470 + fy * 44 }, tf + 1 + k * .03, 2.4);
+      return e;
+    });
+    const link = path(p, '', { stroke: COL.dim, 'stroke-width': 3 });
+    p.insertBefore(link, beads[0]);
+    const relink = () => link.setAttribute('d', 'M' + beads.map(b => `${st(b).x.toFixed(1)} ${st(b).y.toFixed(1)}`).join('L'));
+    prog(relink, tc, tf + 1.9 - tc, lin);
+    prog(relink, tf + 1.95, 4, lin);   // starts after every bead tween, so a replay ends with the folded chain
+    txt(p, '20 сортов аминокислот — как бусины', 130, 200, tc + 1, { size: 28, fill: COL.chalk });
+    txt(p, 'цепь сворачивается в определённую форму', 800, 690, tf + 2.5, { size: 28, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['dna', 'ДНК', (m) => {
+    const p = panel(0);
+    head(p, 'ДНК: инструкция клетки', .2);
+    const seq = ['А', 'Т', 'Г', 'Ц', 'Ц', 'А', 'Т', 'Т', 'Г', 'А'];
+    const X = k => 330 + k * 100;
+    const top = G(p, { o: 0 }), bot = G(p, { o: 0 }); show(top, .3); show(bot, .3);
+    const strand = (g, y, letters, dir) => {
+      path(g, `M${X(0) - 50} ${y}H${X(9) + 50}`, { stroke: COL.chalk, 'stroke-width': 6 });
+      letters.forEach((s, k) => {
+        mk('rect', { x: X(k) - 18, y: dir > 0 ? y : y - 52, width: 36, height: 52, rx: 6, fill: BASE[s] }, g);
+        T(g, s, { x: X(k), y: dir > 0 ? y + 36 : y - 16, size: 26, fill: COL.board, anchor: 'middle', weight: 700 });
+      });
+    };
+    strand(top, 300, seq, 1); strand(bot, 404, seq.map(s => PAIR[s]), -1);
+    const tu = m('unzip'), tc = m('copy');
+    tw(top, { y: -120 }, tu, 1.5); tw(bot, { y: 160 }, tu, 1.5);
+    const n1 = G(p, { o: 0 }), n2 = G(p, { o: 0 });
+    strand(n1, 404, seq.map(s => PAIR[s]), -1); strand(n2, 300, seq, 1);
+    put(n1, { y: -150 }); put(n2, { y: 190 });
+    tw(n1, { o: 1, y: -120 }, tc, 1.2); tw(n2, { o: 1, y: 160 }, tc + .4, 1.2);
+    txt(p, 'А — Т,  Г — Ц', 1440, 360, m('pairs'), { size: 32, fill: COL.chalk, anchor: 'middle', weight: 600 });
+    txt(p, 'две одинаковые копии', 1440, 420, tc + 1.8, { size: 26, fill: COL.task, anchor: 'middle' });
+    const td = m('code');
+    const cd = G(p, { o: 0 }); show(cd, td);
+    [0, 3, 6].forEach(k => {
+      path(cd, `M${X(k) - 30} 578V588H${X(k + 2) + 30}V578`, { stroke: COL.int, 'stroke-width': 3 });
+      T(cd, '→ аминокислота', { x: X(k + 1), y: 616, size: 20, fill: COL.int, anchor: 'middle' });
+    });
+    txt(p, 'у Фейнмана звенья обозначены A, B, C, D', 800, 720, td + 2, { size: 22, fill: COL.faint, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {
+    const p = panel(0);
+    const g = G(p, { o: 0 }); show(g, .2);
+    ['А', 'Т', 'Т', 'Г', 'Ц'].forEach((s, k) => {
+      mk('rect', { x: 560 + k * 100 - 22, y: 220, width: 44, height: 60, rx: 6, fill: BASE[s] }, g);
+      T(g, s, { x: 560 + k * 100, y: 262, size: 30, fill: COL.board, anchor: 'middle', weight: 700 });
+    });
+    path(g, 'M520 216H1000', { stroke: COL.chalk, 'stroke-width': 6 });
+  }, { ask: done => quiz({ x: 300, y: 330, w: 1000, cls: 'side' }, [{
+    id: 'c-dna', prompt: ['Какая цепочка встанет напротив «А Т Т Г Ц»?'],
+    build: choice([['Т А А Ц Г'], ['А Т Т Г Ц'], ['Г Ц Ц А Т'], ['Т А А Г Ц']], 0,
+      'А пара с Т, Г пара с Ц: А→Т, Т→А, Т→А, Г→Ц, Ц→Г.',
+      [null, 'Звено не пара самому себе: А соединяется с Т.', 'А пара с Т, а не с Г.', 'Последние две буквы: Г→Ц и Ц→Г.']),
+  }], done) }],
+
+  ['astro', 'Звёзды', (m) => {
+    const p = panel(0);
+    head(p, 'Из чего сделаны звёзды', .2);
+    const star = G(p, { x: 220, y: 250, o: 0 }); show(star, .3);
+    mk('circle', { r: 70, fill: COL.int, opacity: .25 }, star); mk('circle', { r: 46, fill: COL.int }, star);
+    const tp = m('prism');
+    const pr = G(p, { o: 0 }); show(pr, tp);
+    path(pr, 'M300 250H500', { stroke: COL.chalk, 'stroke-width': 4 });
+    path(pr, 'M500 180L580 320H420Z', { fill: 'rgba(236,232,220,.15)', stroke: COL.chalk, 'stroke-width': 3 });
+    path(pr, 'M540 240L700 200M545 260L700 280', { stroke: COL.dim, 'stroke-width': 2 });
+    const sun = spectrumStrip(p, 200, 80, [656.3, 486.1, 434.0, 589.0, 589.6], { dark: true }); show(sun, tp + .8);
+    T(p, 'свет звезды', { x: 700, y: 185, size: 22, fill: COL.dim });
+    const tl = m('lines');
+    const H_ = spectrumStrip(p, 330, 50, [656.3, 486.1, 434.0, 410.2]); show(H_, tl);
+    const Na = spectrumStrip(p, 400, 50, [589.0, 589.6]); show(Na, tl + .8);
+    txt(p, 'водород', 680, 365, tl, { size: 24, fill: COL.dim, anchor: 'end' });
+    txt(p, 'натрий', 680, 435, tl + .8, { size: 24, fill: COL.dim, anchor: 'end' });
+    const match = G(p, { o: 0 }); show(match, tl + 2);
+    [656.3, 486.1, 434.0].forEach(l => path(match, `M${NM(l)} 280V330`, { stroke: COL.task, 'stroke-width': 2, 'stroke-dasharray': '4 4' }));
+    path(match, `M${NM(589.3)} 280V400`, { stroke: COL.task, 'stroke-width': 2, 'stroke-dasharray': '4 4' });
+    const th = m('helium');
+    const He = spectrumStrip(p, 490, 50, [447.1, 471.3, 492.2, 501.6, 587.6, 667.8]); show(He, th);
+    txt(p, 'гелий', 680, 525, th, { size: 24, fill: COL.int, anchor: 'end' });
+    txt(p, '1868: линия 587,6 нм на Солнце — неизвестный элемент', 1075, 590, th + .8, { size: 24, fill: COL.int, anchor: 'middle' });
+    const tf = m('fusion');
+    txt(p, '4 ¹H → ⁴He + энергия', 220, 450, tf, { size: 34, fill: COL.task, anchor: 'middle', font: MATH, weight: 600 });
+    txt(p, 'так светят звёзды', 220, 500, tf + .6, { size: 24, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['geo', 'Науки о Земле', (m, D) => {
+    const p = panel(0);
+    head(p, 'Погода и недра Земли', .2);
+    const tf = m('flow');
+    const dam = G(p, { o: 0 }); show(dam, tf);
+    path(dam, 'M100 330H360V600H620', { stroke: COL.dim, 'stroke-width': 4 });
+    path(dam, 'M100 310H360C400 310 412 330 420 360', { stroke: COL.whole, 'stroke-width': 8 });
+    const R = rng(41), drops = Array.from({ length: 26 }, () => ({ el: put(mk('circle', { r: 3 + R() * 5, fill: COL.whole }, dam), { o: 0 }), t0: R() * 1.6, vx: 40 + R() * 70, ph: R() }));
+    prog(q => {
+      const t = q * D;
+      drops.forEach(d => { const s = ((t - tf - d.t0) % 1.6 + 1.6) % 1.6; const on = t > tf + d.t0; put(d.el, { x: 422 + d.vx * s, y: 362 + 140 * s * s + 8 * Math.sin(10 * s + d.ph * 6), o: on ? 1 : 0 }); });
+    }, 0, D, lin);
+    txt(p, 'ровный поток распадается: неустойчивость', 360, 680, tf + 1, { size: 24, fill: COL.whole, anchor: 'middle' });
+    // Earth section
+    const tm = m('mantle');
+    const EA = G(p, { x: 1120, y: 720, o: 0 }); show(EA, tm);
+    mk('path', { d: 'M-380 0A380 380 0 0 1 380 0Z', fill: '#5a3d2e' }, EA);
+    mk('path', { d: 'M-160 0A160 160 0 0 1 160 0Z', fill: '#d9883a' }, EA);
+    const cells = [-250, -80, 80, 250].map((x, i) => {
+      const g = G(EA, { x, y: -250 + Math.abs(x) * .3 });
+      path(g, 'M-50 0A50 50 0 1 1 -49 10', { stroke: COL.task, 'stroke-width': 3 });
+      mk('path', { d: 'M-49 10l-10 -2l6 -10Z', fill: COL.task }, g);
+      return { g, dir: i % 2 ? -1 : 1 };
+    });
+    prog(q => cells.forEach(c => put(c.g, { r: q * (D - tm) * 30 * c.dir })), tm, D - tm, lin);
+    T(EA, 'течения в мантии', { y: -345, size: 22, fill: COL.task, anchor: 'middle' });
+    const tp = m('plates');
+    const pl = G(p, { o: 0 }); show(pl, tp);
+    const lp = mk('path', { d: 'M760 250L1060 250L1060 268L760 268Z', fill: '#8f8a7a' }, pl);
+    const rp = mk('path', { d: 'M1180 250L1480 250L1480 268L1180 268Z', fill: '#8f8a7a' }, pl);
+    const mnt = mk('path', { d: 'M1060 250L1120 160L1180 250Z', fill: '#a89f88' }, pl); put(mnt, { s: 1 });
+    tw(lp, { x: 40 }, tp, 4); tw(rp, { x: -40 }, tp, 4);
+    put(mnt, { o: 0 }); show(mnt, tp + 2, 1.5);
+    vec(pl, 860, 230, 940, 230, COL.chalk, { w: 3, head: 12 }); vec(pl, 1400, 230, 1320, 230, COL.chalk, { w: 3, head: 12 });
+    T(pl, 'тектоника плит (с конца 1960-х): горы и землетрясения', { x: 1120, y: 140, size: 22, fill: COL.int, anchor: 'middle' });
+  }],
+
+  ['psych', 'Мышление', (m) => {
+    const p = panel(0);
+    head(p, 'Мозг: где хранится память?', .2);
+    const R = rng(19), N = 34, nodes = [];
+    for (let k = 0; k < N; k++) nodes.push([260 + R() * 1080, 170 + R() * 480]);
+    const net = G(p, { o: 0 }); show(net, m('net'));
+    const edges = [];
+    nodes.forEach((a, i) => {
+      const near = nodes.map((b, j) => [Math.hypot(a[0] - b[0], a[1] - b[1]), j]).sort((x, y) => x[0] - y[0]).slice(1, 4);
+      near.forEach(([, j]) => { if (j > i) edges.push([i, j, path(net, `M${a[0]} ${a[1]}L${nodes[j][0]} ${nodes[j][1]}`, { stroke: COL.faint, 'stroke-width': 2 })]); });
+    });
+    const dots = nodes.map(([x, y]) => mk('circle', { cx: x, cy: y, r: 9, fill: COL.dim }, net));
+    // a remembered path lights up and its links thicken
+    const tmem = m('memory');
+    let cur = 0; const route = [0]; const used = new Set([0]);
+    for (let k = 0; k < 8; k++) {
+      const nxt = edges.filter(e => (e[0] === cur && !used.has(e[1])) || (e[1] === cur && !used.has(e[0])));
+      if (!nxt.length) break;
+      const e = nxt[0], j = e[0] === cur ? e[1] : e[0];
+      tw(e[2], { 'c_stroke': '#f0b45a', 'a_stroke-width': 6 }, tmem + k * .5, .4);
+      tw(dots[j], { 'c_fill': '#f0b45a' }, tmem + k * .5 + .3, .3);
+      used.add(j); route.push(j); cur = j;
+    }
+    tw(dots[0], { 'c_fill': '#f0b45a' }, tmem, .3);
+    txt(p, '?', 1450, 420, tmem + 4.5, { size: 120, fill: COL.task, anchor: 'middle', weight: 700 });
+    txt(p, 'что изменилось в сети, когда мы запомнили?', 800, 710, tmem + 4.5, { size: 26, fill: COL.chalk, anchor: 'middle' });
+  }],
+
+  ['pipe', 'Турбулентность', (m, D) => {
+    const p = panel(0);
+    head(p, 'Течение в трубе', .2);
+    const th = m('honey'), tw_ = m('water');
+    const tube = (y, t0, label, c) => {
+      const g = G(p, { o: 0 }); show(g, t0);
+      path(g, `M150 ${y - 70}H1350M150 ${y + 70}H1350`, { stroke: COL.dim, 'stroke-width': 4 });
+      T(g, label, { x: 150, y: y - 90, size: 26, fill: c, weight: 600 });
+      return g;
+    };
+    const hg = tube(250, th, 'мёд: медленно, вязко — течение ровное', COL.int);
+    for (let k = -3; k <= 3; k++) { const v = 1 - (k / 3.6) ** 2; vec(hg, 1400, 250 + k * 18, 1400 + 120 * v, 250 + k * 18, COL.int, { w: 2.5, head: 9 }); }
+    T(hg, 'профиль скоростей', { x: 1460, y: 330, size: 20, fill: COL.dim, anchor: 'middle' });
+    const hp = Array.from({ length: 21 }, (_, k) => ({ el: put(mk('circle', { r: 4, fill: COL.int }, hg), { o: .9 }), y: 250 + (k % 7 - 3) * 18, x0: 150 + Math.floor(k / 7) * 400 }));
+    const wg = tube(530, tw_, 'вода из шланга: быстро — вихри', COL.whole);
+    const R = rng(13), ed = Array.from({ length: 9 }, () => {
+      const g = G(wg);
+      path(g, 'M-26 0A26 26 0 1 1 -18 18', { stroke: COL.whole, 'stroke-width': 3 });
+      return { g, x0: 150 + R() * 1200, y: 530 + (R() - .5) * 90, s: .6 + R() * .6, w: (R() < .5 ? -1 : 1) * (200 + R() * 300) };
+    });
+    prog(q => {
+      const t = q * D;
+      hp.forEach(h => { const v = 1 - ((h.y - 250) / 65) ** 2; put(h.el, { x: 150 + ((h.x0 - 150 + 60 * v * Math.max(0, t - th)) % 1200), y: h.y }); });
+      ed.forEach(e => put(e.g, { x: 150 + ((e.x0 - 150 + 150 * Math.max(0, t - tw_)) % 1200), y: e.y + 12 * Math.sin(t * 2 + e.x0), s: e.s, r: e.w * t }));
+    }, 0, D, lin);
+    txt(p, 'ламинарное: решается на бумаге', 750, 380, th + 2, { size: 24, fill: COL.int, anchor: 'middle' });
+    txt(p, 'турбулентное: из первых принципов не выводится — данные из опыта', 750, 660, tw_ + 3, { size: 24, fill: COL.whole, anchor: 'middle' });
+  }],
+
+  ['wine', 'Весь мир в бокале вина', (m) => {
+    const p = panel(0);
+    head(p, '«Весь мир в бокале вина»', .2);
+    const gl = G(p, { o: 0 }); show(gl, .3);
+    path(gl, 'M690 170C680 330 720 420 800 430C880 420 920 330 910 170Z', { fill: 'rgba(236,232,220,.06)', stroke: COL.chalk, 'stroke-width': 3 });
+    path(gl, 'M699 270C705 360 735 415 800 422C865 415 895 360 901 270Z', { fill: 'rgba(160,40,70,.75)' });
+    path(gl, 'M800 430V610M710 620Q800 590 890 620', { stroke: COL.chalk, 'stroke-width': 3 });
+    const tg = m('glass');
+    [['физика: испарение, блеск стекла', 1000, 220, COL.task], ['химия: состав вина', 1000, 320, COL.whole], ['биология: брожение, дрожжи', 1000, 420, COL.good],
+      ['геология: стекло — переплавленная порода', 600, 300, COL.nat], ['астрономия: атомы родились в звёздах', 600, 470, COL.int]].forEach(([s, x, y, c], i) => {
+      const g = G(p, { o: 0 }); show(g, tg + i * 1.6);
+      const right = x > 800;
+      path(g, `M${right ? 880 : 720} ${y < 400 ? 300 : 380}L${right ? x - 12 : x + 12} ${y - 8}`, { stroke: c, 'stroke-width': 2 });
+      T(g, s, { x, y, size: 26, fill: c, anchor: right ? 'start' : 'end' });
+    });
+    txt(p, 'природа никакого деления не знает', 800, 690, m('parts'), { size: 34, fill: COL.chalk, anchor: 'middle', weight: 600 });
+  }],
+
+  ['q4', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 160, y: 110, w: 1280, cls: 'side' }, [{
+    id: 'c-sciences', prompt: ['Какая наука прежде всего отвечает на вопрос?'],
+    build: grid([
+      { parts: ['Из каких элементов состоит звезда?'], ans: ['a'], why: 'Астрономия (с помощью спектров — физики!).' },
+      { parts: ['Как ДНК копируется при делении клетки?'], ans: ['b'], why: 'Биология (молекулярная).' },
+      { parts: ['Почему натрий и калий похожи по свойствам?'], ans: ['c'], why: 'Химия: у них одинаковое число внешних электронов.' },
+      { parts: ['Как образуются горы?'], ans: ['g'], why: 'Геология: движение плит земной коры.' },
+    ], [['c', 'химия', COL.whole, '1'], ['b', 'биология', COL.good, '2'], ['a', 'астрономия', COL.int, '3'], ['g', 'геология', COL.nat, '4']], { text: true }),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Физика — фундамент: химия и жизнь — движения атомов.', 'w1'],
+      ['Ферменты понижают перевал; ДНК копируется парами звеньев.', 'w2'],
+      ['Звёзды сделаны из тех же атомов, что и Земля.', 'w3'],
+      ['Турбулентность и мышление — пока загадки.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-enzyme', prompt: ['Фермент ускорил реакцию. Как изменилась разность энергий начального и конечного состояний?'],
+    build: choice([['не изменилась'], ['уменьшилась'], ['увеличилась']], 0,
+      'Фермент меняет только путь — высоту перевала; начало и конец остаются прежними.',
+      [null, 'Уменьшилась энергия активации (перевал), а не разность энергий состояний.', 'Фермент не добавляет энергии реакции.']),
+  }, {
+    id: 'p-neutrons', prompt: ['Сколько нейтронов в ядрах изотопов углерода? (В ядре углерода 6 протонов.)'],
+    build: blanks([
+      { parts: ['углерод-13:  ', { box: '7' }, ' нейтронов'], why: '13 − 6 = 7.', hint: 'Массовое число = протоны + нейтроны.' },
+      { parts: ['углерод-14:  ', { box: '8' }, ' нейтронов'], why: '14 − 6 = 8.', hint: 'Массовое число = протоны + нейтроны.' },
+    ]),
+  }, {
+    id: 'p-codons', prompt: ['Сколько разных «слов» из трёх букв можно составить из четырёх букв ДНК (А, Т, Г, Ц)?'],
+    build: blanks([{ parts: [{ box: '64' }, ' слова'], why: '4 · 4 · 4 = 64 — больше, чем 20 аминокислот; поэтому код из троек и работает.', hint: 'На каждое из трёх мест — 4 варианта.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-helium', prompt: ['Где впервые обнаружили гелий?'],
+    build: choice([['в спектре Солнца'], ['в воздухе'], ['в морской воде']], 0,
+      'В 1868 году в спектре Солнца увидели линию неизвестного элемента; на Земле гелий нашли лишь в 1895 году.',
+      [null, 'В воздухе гелия очень мало — его нашли гораздо позже.', 'Нет: первым был спектр Солнца.']),
+  }, {
+    id: 'p-sun', prompt: ['Откуда Солнце берёт энергию?'],
+    build: choice([['водород превращается в гелий'], ['уголь и газ горят'], ['Солнце медленно остывает']], 0,
+      'Ядерная реакция: из четырёх ядер водорода получается ядро гелия и выделяется энергия.',
+      [null, 'Химического горения хватило бы лишь на тысячи лет, а Солнце светит миллиарды.', 'Остывание не объяснило бы, как Солнце светит миллиарды лет почти без изменений.']),
+  }, {
+    id: 'p-weather', prompt: ['Почему погоду нельзя точно предсказать надолго вперёд, хотя уравнения движения воздуха известны?'],
+    build: choice([['поток неустойчив: крошечные различия быстро растут'], ['уравнения движения воздуха неизвестны'], ['воздух не подчиняется законам механики']], 0,
+      'Течение неустойчиво (турбулентно): мы не знаем начальное состояние точно, а малые ошибки растут.',
+      [null, 'Уравнения известны — трудность в неустойчивости решений.', 'Подчиняется — но неустойчивость делает долгий прогноз невозможным.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

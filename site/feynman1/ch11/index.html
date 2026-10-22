@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Векторы</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 11, title: 'Векторы', minutes: 12, language: 'ru', audio: false, next: '../ch12/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const VA = COL.whole, VB = COL.task, VC = COL.good;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+const lab = (p, s, x, y, c, size = 30) => subify(T(p, s, { x, y, size, fill: c, font: MATH, anchor: 'middle', weight: 600 }));
+// A pair of axes centred at O, rotated by th degrees (counter-clockwise on screen), length L.
+function axes2(p, O, L, th, colr, names = ['x', 'y']) {
+  const g = G(p, { x: O[0], y: O[1], r: -th });
+  vec(g, 0, 0, L, 0, colr, { w: 2.5, head: 12 }); vec(g, 0, 0, 0, -L, colr, { w: 2.5, head: 12 });
+  const tx = T(g, names[0], { x: L + 14, y: 8, size: 26, fill: colr, font: MATH }), ty = T(g, names[1], { x: 10, y: -L - 8, size: 26, fill: colr, font: MATH });
+  [tx, ty].forEach(t => put(t, { r: th }));   // labels stay upright
+  return g;
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Векторы', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Силы и работа · Глава 11', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Векторы', { x: 800, y: 440, size: 96, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Симметрия законов физики и язык стрелок', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['symmetry', 'Симметрия', (m, D) => {
+    const p = panel(0);
+    head(p, 'Симметрия законов физики', .2);
+    const vase = G(p, { x: 330, y: 420, o: 0 }); show(vase, .3);
+    path(vase, 'M-40 -150C-90 -120 -100 -40 -60 20C-30 60 -50 110 -70 140H70C50 110 30 60 60 20C100 -40 90 -120 40 -150Z', { fill: 'rgba(232,160,200,.25)', stroke: COL.rat, 'stroke-width': 3 });
+    path(vase, 'M-30 -40H30M-20 0H20', { stroke: COL.rat, 'stroke-width': 2 });
+    const tv = m('vase');
+    prog(q => { const t = q * D, a = 180 * smooth(tv, tv + 2.5, t); put(vase, { s: 1 }); vase.setAttribute('transform', `translate(330 420) scale(${Math.cos(a * Math.PI / 180)} 1)`); }, 0, D, lin);
+    txt(p, 'повернули на 180° — та же', 330, 640, tv + 2.6, { size: 26, fill: COL.rat, anchor: 'middle' });
+    const tm = m('machine');
+    const gear = (x, y) => { const g = G(p, { x, y, o: 0 }); for (let k = 0; k < 10; k++) { const a = k * .628; path(g, `M${60 * Math.cos(a)} ${60 * Math.sin(a)}L${78 * Math.cos(a)} ${78 * Math.sin(a)}`, { stroke: COL.chalk, 'stroke-width': 10 }); } mk('circle', { r: 60, fill: '#55665f', stroke: COL.chalk, 'stroke-width': 3 }, g); mk('circle', { r: 12, fill: COL.board }, g); return g; };
+    const g1 = gear(800, 360), g2 = gear(1260, 360);
+    show(g1, tm); show(g2, tm + 1);
+    const tw_ = m('wall');
+    const wall = G(p, { o: 0 }); show(wall, tw_);
+    mk('rect', { x: 1300, y: 230, width: 30, height: 260, fill: '#7a5a3a' }, wall);
+    for (let y = 240; y < 480; y += 26) path(wall, `M1300 ${y}h30`, { stroke: '#5a3d2e', 'stroke-width': 2 });
+    tw(g2, { x: 1180 }, tw_ + 4, 1.5); hide(wall, tw_ + 4, .8);
+    prog(q => { const t = q * D; put(g1, { r: 40 * Math.max(0, t - tm) }); const jam = t > tw_ && t < tw_ + 4; put(g2, { r: jam ? 20 * Math.sin(t * 20) : 40 * Math.max(0, t - tm - 1) }); }, 0, D, lin);
+    const jamT = txt(p, 'у стены — заедает', 1180, 540, tw_ + .5, { size: 26, fill: COL.bad, anchor: 'middle' }); hide(jamT, tw_ + 4, .5);
+    txt(p, 'перенесли всё, что влияет, — работает', 1030, 600, tw_ + 5.5, { size: 26, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['shift', 'Перенос начала', (m) => {
+    const p = panel(0);
+    head(p, 'Джо и Мик: сдвинутые системы', .2);
+    const Oj = [200, 600], a = 260, P = [880, 340];
+    const t2 = m('two');
+    const j = G(p, { o: 0 }); show(j, t2);
+    vec(j, Oj[0], Oj[1], 1300, Oj[1], VA, { w: 2.5 }); vec(j, Oj[0], Oj[1], Oj[0], 170, VA, { w: 2.5 });
+    T(j, 'Джо', { x: Oj[0] + 12, y: 190, size: 26, fill: VA }); T(j, 'x', { x: 1310, y: Oj[1] + 8, size: 26, fill: VA, font: MATH });
+    const mk_ = G(p, { o: 0 }); show(mk_, t2 + 1);
+    vec(mk_, Oj[0] + a, Oj[1] + 4, 1300, Oj[1] + 4, VB, { w: 2.5 }); vec(mk_, Oj[0] + a, Oj[1], Oj[0] + a, 170, VB, { w: 2.5 });
+    T(mk_, 'Мик', { x: Oj[0] + a + 12, y: 190, size: 26, fill: VB });
+    path(mk_, `M${Oj[0]} ${Oj[1] + 40}H${Oj[0] + a}M${Oj[0]} ${Oj[1] + 30}v20M${Oj[0] + a} ${Oj[1] + 30}v20`, { stroke: COL.dim, 'stroke-width': 2 });
+    T(mk_, 'a', { x: Oj[0] + a / 2, y: Oj[1] + 76, size: 26, fill: COL.dim, font: MATH, anchor: 'middle' });
+    const tp = m('point');
+    const pt = G(p, { o: 0 }); show(pt, tp);
+    mk('circle', { cx: P[0], cy: P[1], r: 9, fill: COL.chalk }, pt);
+    path(pt, `M${P[0]} ${P[1]}V${Oj[1]}`, { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    path(pt, `M${Oj[0]} ${Oj[1] - 60}H${P[0]}`, { stroke: VA, 'stroke-width': 2 }); T(pt, 'x', { x: (Oj[0] + P[0]) / 2 - 120, y: Oj[1] - 70, size: 26, fill: VA, font: MATH });
+    path(pt, `M${Oj[0] + a} ${Oj[1] - 110}H${P[0]}`, { stroke: VB, 'stroke-width': 2 }); T(pt, 'x′', { x: (Oj[0] + a + P[0]) / 2, y: Oj[1] - 120, size: 26, fill: VB, font: MATH });
+    eq(p, 'x′ = x − a,  y′ = y,  z′ = z', 1000, 260, tp + 1.5, { size: 32 });
+    const ts = m('same');
+    eq(p, 'd²x′/dt² = d²x/dt²', 1000, 340, ts, { size: 32, fill: COL.task });
+    eq(p, 'Fₓ′ = Fₓ  ⇒  m a′ = F′', 1000, 410, ts + 1.5, { size: 32, fill: COL.good });
+    txt(p, 'центра Вселенной нет', 1000, 470, ts + 3, { size: 28, fill: COL.good });
+  }],
+
+  ['rotate', 'Повороты', (m, D) => {
+    const p = panel(0);
+    head(p, 'Поворот осей', .2);
+    const O = [300, 640], th = 25, R = th * Math.PI / 180;
+    const ta = m('axes');
+    const A1 = axes2(p, O, 520, 0, VA, ['x', 'y']);
+    const A2 = axes2(p, O, 520, 0, VB, ['x′', 'y′']); put(A2, { o: 0 });
+    tw(A2, { o: 1 }, ta, .4); tw(A2, { r: -th }, ta + .2, 1.5);
+    const tpj = m('proj');
+    const P = [700, 300];   // screen point; in Joe's coords x = 400, y = 340
+    const x = P[0] - O[0], y = O[1] - P[1];
+    const xp = x * Math.cos(R) + y * Math.sin(R), yp = y * Math.cos(R) - x * Math.sin(R);
+    const pr = G(p, { o: 0 }); show(pr, tpj);
+    mk('circle', { cx: P[0], cy: P[1], r: 9, fill: COL.chalk }, pr);
+    T(pr, 'P', { x: P[0] + 14, y: P[1] - 10, size: 28, fill: COL.chalk, font: MATH });
+    path(pr, `M${P[0]} ${P[1]}V${O[1]}M${P[0]} ${P[1]}H${O[0]}`, { stroke: VA, 'stroke-width': 1.5, 'stroke-dasharray': '5 6' });
+    const F = [O[0] + xp * Math.cos(R), O[1] - xp * Math.sin(R)];   // foot on x′
+    path(pr, `M${P[0]} ${P[1]}L${F[0]} ${F[1]}`, { stroke: VB, 'stroke-width': 1.5, 'stroke-dasharray': '5 6' });
+    eq(p, 'x′ = x cos θ + y sin θ', 960, 230, tpj + 1, { size: 34, fill: VB });
+    eq(p, 'y′ = y cos θ − x sin θ', 960, 290, tpj + 1.6, { size: 34, fill: VB });
+    eq(p, 'z′ = z', 960, 350, tpj + 2.2, { size: 34, fill: VB });
+    const tf = m('force');
+    eq(p, 'Fₓ′ = Fₓ cos θ + F_y sin θ', 960, 440, tf, { size: 30, fill: COL.bad });
+    eq(p, 'F_y′ = F_y cos θ − Fₓ sin θ', 960, 490, tf + .6, { size: 30, fill: COL.bad });
+    txt(p, 'те же формулы — законы Ньютона не меняются', 960, 580, m('invariant'), { size: 26, fill: COL.good });
+    const arc = path(p, `M${O[0] + 140} ${O[1]}A140 140 0 0 0 ${O[0] + 140 * Math.cos(R)} ${O[1] - 140 * Math.sin(R)}`, { stroke: COL.dim, 'stroke-width': 2 }); put(arc, { o: 0 }); show(arc, ta + 1.7);
+    txt(p, 'θ', O[0] + 160, O[1] - 26, ta + 1.7, { size: 28, fill: COL.dim, font: MATH });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 960, y: 620, w: 600, cls: 'side' }, [{
+    id: 'c-rot', prompt: ['Точка имеет координаты x = 1, y = 0. Оси повернули на θ = 90°. Каковы x′ и y′?'],
+    build: blanks([{ parts: ['x′ = ', { box: '0' }, ',  y′ = ', { box: '-1' }], why: 'cos 90° = 0, sin 90° = 1: x′ = 0, y′ = 0 − 1·1 = −1.', hint: 'Подставьте cos 90° = 0, sin 90° = 1.' }]),
+  }], done) }],
+
+  ['vector', 'Скаляры и векторы', (m) => {
+    const p = panel(0);
+    head(p, 'Скаляры и векторы', .2);
+    const ts = m('scalar');
+    txt(p, 'скаляры: 25 картофелин, 20 °C, 3 кг', 120, 220, ts, { size: 30, fill: COL.dim });
+    const tst = m('step');
+    txt(p, 'векторы: шаг, скорость, сила, импульс', 120, 290, tst, { size: 30, fill: VB });
+    const O = [500, 640], r = [360, -260];
+    const tt = m('three');
+    const A1 = axes2(p, O, 420, 0, VA); put(A1, { o: 0 }); show(A1, tt);
+    const A2 = axes2(p, O, 420, 30, COL.rat, ['x′', 'y′']); put(A2, { o: 0 }); show(A2, tt + 3);
+    const arr = G(p, { o: 0 }); show(arr, tst + 1);
+    vec(arr, O[0], O[1], O[0] + r[0], O[1] + r[1], COL.chalk, { w: 5, head: 18 });
+    lab(p, 'r', O[0] + r[0] / 2 - 20, O[1] + r[1] / 2 - 16, COL.chalk, 34);
+    eq(p, 'r = (x, y, z) = (x′, y′, z′)', 1040, 450, tt + 1, { size: 30 });
+    txt(p, 'числа разные — стрелка одна', 1040, 510, tt + 4, { size: 26, fill: COL.task });
+    txt(p, 'стрелку можно рисовать без осей', 1040, 570, m('arrow'), { size: 26, fill: COL.good });
+    hide(A1, m('arrow', .5)); hide(A2, m('arrow', .5));
+  }],
+
+  ['add', 'Сложение векторов', (m) => {
+    const p = panel(0);
+    head(p, 'Сложение и вычитание', .2);
+    const O = [200, 640], a = [440, -110], b = [140, -260];
+    const tc = m('comp');
+    eq(p, 'c = a + b:  cₓ = aₓ + bₓ,  c_y = a_y + b_y', 760, 200, tc, { size: 30 });
+    const A = G(p, { o: 0 }); show(A, tc + .5); vec(A, O[0], O[1], O[0] + a[0], O[1] + a[1], VA, { w: 4 }); lab(A, 'a', O[0] + a[0] / 2, O[1] + a[1] / 2 + 34, VA);
+    const B = G(p, { x: 0, o: 0 }); show(B, tc + .8); vec(B, O[0], O[1], O[0] + b[0], O[1] + b[1], VB, { w: 4 }); lab(B, 'b', O[0] + b[0] / 2 - 24, O[1] + b[1] / 2, VB);
+    const tt = m('tail');
+    tw(B, { x: a[0], y: a[1] }, tt, 1.4);
+    const C = G(p, { o: 0 }); show(C, tt + 1.6); vec(C, O[0], O[1], O[0] + a[0] + b[0], O[1] + a[1] + b[1], VC, { w: 5 }); lab(C, 'c', O[0] + (a[0] + b[0]) / 2 - 10, O[1] + (a[1] + b[1]) / 2 - 18, VC);
+    const tp = m('par');
+    const B2 = G(p, { o: 0 }); show(B2, tp); vec(B2, O[0], O[1], O[0] + b[0], O[1] + b[1], VB, { w: 2.5 });
+    const A2 = G(p, { o: 0 }); show(A2, tp + .4); vec(A2, O[0] + b[0], O[1] + b[1], O[0] + a[0] + b[0], O[1] + a[1] + b[1], VA, { w: 2.5 });
+    txt(p, 'a + b = b + a', 1180, 270, tp + .8, { size: 30, fill: VC, font: MATH });
+    const ts = m('sub');
+    const Q = [1000, 650], a2 = [380, -120], b2 = [120, -280];
+    const S = G(p, { o: 0 }); show(S, ts);
+    vec(S, Q[0], Q[1], Q[0] + a2[0], Q[1] + a2[1], VA, { w: 3.5 }); lab(S, 'a', Q[0] + a2[0] / 2, Q[1] + a2[1] / 2 + 32, VA);
+    vec(S, Q[0], Q[1], Q[0] + b2[0], Q[1] + b2[1], VB, { w: 3.5 }); lab(S, 'b', Q[0] + b2[0] / 2 - 24, Q[1] + b2[1] / 2, VB);
+    vec(S, Q[0] + b2[0], Q[1] + b2[1], Q[0] + a2[0], Q[1] + a2[1], COL.bad, { w: 4 }); lab(S, 'a − b', Q[0] + (a2[0] + b2[0]) / 2 + 60, Q[1] + (a2[1] + b2[1]) / 2 - 20, COL.bad);
+    const tsc = m('scale');
+    const K = G(p, { o: 0 }); show(K, tsc);
+    vec(K, 760, 360, 880, 340, VA, { w: 3 }); T(K, 'a', { x: 820, y: 330, size: 24, fill: VA, font: MATH });
+    vec(K, 920, 360, 1160, 320, VA, { w: 3 }); T(K, '2a', { x: 1040, y: 316, size: 24, fill: VA, font: MATH });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1100, y: 400, w: 460, cls: 'side' }, [{
+    id: 'c-sum', prompt: ['a = (3, 1), b = (−1, 4). Найдите a + b.'],
+    build: blanks([{ parts: ['(', { box: '2' }, ', ', { box: '5' }, ')'], why: '(3 − 1, 1 + 4) = (2, 5).', hint: 'Складывайте составляющие по отдельности.' }]),
+  }], done) }],
+
+  ['velocity', 'Скорость — вектор', (m, D) => {
+    const p = panel(0);
+    head(p, 'Скорость и ускорение — векторы', .2);
+    const O = [180, 640];
+    let d = ''; const C = t => [420 + 600 * t - 200 * t * t, 600 - 520 * t + 160 * t * t];
+    for (let k = 0; k <= 60; k++) { const [x, y] = C(k / 60); d += (d ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1); }
+    path(p, d, { stroke: COL.dim, 'stroke-width': 3 });
+    mk('circle', { cx: O[0], cy: O[1], r: 6, fill: COL.dim }, p); T(p, 'O', { x: O[0] - 22, y: O[1] + 8, size: 24, fill: COL.dim, font: MATH });
+    const tdr = m('dr');
+    const r1 = G(p), r2 = G(p), dr = G(p);
+    prog(q => {
+      const t = q * D, e = t < m('v') ? .28 : .28 - .24 * smooth(m('v'), m('v') + 3, t);
+      const P1 = C(.35), P2 = C(.35 + e);
+      [r1, r2, dr].forEach(g => g.replaceChildren());
+      if (t < tdr) return;
+      vec(r1, O[0], O[1], P1[0], P1[1], VA, { w: 3 }); vec(r2, O[0], O[1], P2[0], P2[1], VB, { w: 3 });
+      vec(dr, P1[0], P1[1], P2[0], P2[1], COL.bad, { w: 4, head: 14 });
+    }, 0, D, lin);
+    txt(p, 'r₁', C(.35)[0] - 140, C(.35)[1] + 120, tdr, { size: 28, fill: VA, font: MATH });
+    txt(p, 'Δr = r₂ − r₁', 1000, 260, tdr + 1, { size: 32, fill: COL.bad, font: MATH });
+    eq(p, 'v = lim Δr/Δt = dr/dt', 1000, 340, m('v'), { size: 34, fill: COL.task });
+    eq(p, 'a = dv/dt = d²r/dt²', 1000, 430, m('newton'), { size: 34 });
+    eq(p, 'm a = F', 1000, 520, m('newton', 1.5), { size: 48, fill: COL.good });
+  }],
+
+  ['curve', 'Ускорение на кривой', (m) => {
+    const p = panel(0);
+    head(p, 'Ускорение на криволинейном пути', .2);
+    const C = [300, 760], R = 520, a1 = 70 * Math.PI / 180, a2 = 55 * Math.PI / 180;
+    path(p, `M${C[0] + R * Math.cos(1.45)} ${C[1] - R * Math.sin(1.45)}A${R} ${R} 0 0 1 ${C[0] + R * Math.cos(.75)} ${C[1] - R * Math.sin(.75)}`, { stroke: COL.dim, 'stroke-width': 3 });
+    const P1 = [C[0] + R * Math.cos(a1), C[1] - R * Math.sin(a1)], P2 = [C[0] + R * Math.cos(a2), C[1] - R * Math.sin(a2)], L = 260;
+    const t1 = [Math.sin(a1), Math.cos(a1)], t2 = [Math.sin(a2), Math.cos(a2)];
+    const V1 = G(p, { o: 0 }); show(V1, .3); vec(V1, P1[0], P1[1], P1[0] + L * t1[0], P1[1] + L * t1[1], VA, { w: 4 }); lab(V1, 'v₁', P1[0] + 120, P1[1] - 10, VA);
+    const V2 = G(p, { o: 0 }); show(V2, .6); vec(V2, P2[0], P2[1], P2[0] + L * 1.12 * t2[0], P2[1] + L * 1.12 * t2[1], VB, { w: 4 }); lab(V2, 'v₂', P2[0] + 140, P2[1] + 40, VB);
+    const tw_ = m('wrong');
+    const wr = G(p, { o: 0 }); show(wr, tw_); hide(wr, m('move'));
+    path(wr, `M${P1[0] + L * t1[0]} ${P1[1] + L * t1[1]}L${P2[0] + L * 1.12 * t2[0]} ${P2[1] + L * 1.12 * t2[1]}`, { stroke: COL.bad, 'stroke-width': 3, 'stroke-dasharray': '6 6' });
+    T(wr, '✗ так нельзя', { x: 780, y: 240, size: 28, fill: COL.bad });
+    const tm = m('move'), Q = [1000, 560];
+    const D_ = G(p, { o: 0 }); show(D_, tm);
+    const e1 = [Q[0] + 360 * Math.cos(.25), Q[1] - 360 * Math.sin(.25)], e2 = [Q[0] + 400, Q[1]];
+    vec(D_, Q[0], Q[1], e1[0], e1[1], VA, { w: 3.5 }); T(D_, 'v₁', { x: Q[0] + 160, y: Q[1] - 70, size: 26, fill: VA, font: MATH });
+    vec(D_, Q[0], Q[1], e2[0], e2[1], VB, { w: 3.5 }); T(D_, 'v₂', { x: Q[0] + 200, y: Q[1] + 36, size: 26, fill: VB, font: MATH });
+    vec(D_, e1[0], e1[1], e2[0], e2[1], COL.bad, { w: 4 }); T(D_, 'Δv', { x: e2[0] + 14, y: (e1[1] + e2[1]) / 2, size: 26, fill: COL.bad, font: MATH });
+    path(D_, `M${Q[0] + 90} ${Q[1]}A90 90 0 0 0 ${Q[0] + 90 * Math.cos(.25)} ${Q[1] - 90 * Math.sin(.25)}`, { stroke: COL.dim, 'stroke-width': 2 }); T(D_, 'Δθ', { x: Q[0] + 100, y: Q[1] - 6, size: 22, fill: COL.dim, font: MATH });
+    const tp = m('parts');
+    const pa = G(p, { o: 0 }); show(pa, tp);
+    const foot = [Q[0] + 360 * Math.cos(.25), Q[1]];
+    vec(pa, e1[0], e1[1], foot[0], foot[1], COL.int, { w: 3, head: 10 }); vec(pa, foot[0], foot[1], e2[0], e2[1], COL.good, { w: 3, head: 10 });
+    T(pa, 'Δv⊥', { x: foot[0] - 70, y: (e1[1] + foot[1]) / 2 + 8, size: 22, fill: COL.int, font: MATH }); T(pa, 'Δv∥', { x: (foot[0] + e2[0]) / 2 - 16, y: Q[1] + 30, size: 22, fill: COL.good, font: MATH });
+    eq(p, 'a∥ = dv/dt  — меняется быстрота', 980, 230, tp + 1, { size: 26, fill: COL.good });
+    eq(p, 'a⊥ = v·Δθ/Δt = v²/R', 980, 290, m('circle'), { size: 30, fill: COL.int });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 140, w: 560, cls: 'side' }, [{
+    id: 'c-perp', prompt: ['Машина идёт по кругу с постоянной по величине скоростью. Какая часть ускорения у неё есть?'],
+    build: choice([['только поперечная, v²/R к центру'], ['только вдоль скорости'], ['никакой: скорость постоянна']], 0,
+      'Быстрота не меняется — a∥ = 0; меняется направление — a⊥ = v²/R.',
+      [null, 'Вдоль скорости ускорение меняло бы быстроту, а она постоянна.', 'Вектор скорости меняет направление — это тоже ускорение.']),
+  }], done) }],
+
+  ['dot', 'Скалярное произведение', (m) => {
+    const p = panel(0);
+    head(p, 'Скалярное произведение', .2);
+    const tl = m('len');
+    eq(p, '|r|² = x² + y² + z² = x′² + y′² + z′²', 120, 220, tl, { size: 32 });
+    eq(p, 'a · b = aₓbₓ + a_yb_y + a_zb_z', 120, 300, m('ab'), { size: 36, fill: COL.task });
+    txt(p, 'одно и то же число в любой системе', 120, 350, m('ab', 1.5), { size: 26, fill: COL.dim });
+    const tc = m('cos'), O = [1000, 600];
+    const g = G(p, { o: 0 }); show(g, tc);
+    const ang = 40 * Math.PI / 180, A = 420, B = 300;
+    vec(g, O[0], O[1], O[0] + A, O[1], VA, { w: 4 }); T(g, 'a', { x: O[0] + A - 20, y: O[1] + 36, size: 30, fill: VA, font: MATH });
+    const Bp = [O[0] + B * Math.cos(ang), O[1] - B * Math.sin(ang)];
+    vec(g, O[0], O[1], Bp[0], Bp[1], VB, { w: 4 }); T(g, 'b', { x: Bp[0] - 30, y: Bp[1] - 10, size: 30, fill: VB, font: MATH });
+    path(g, `M${Bp[0]} ${Bp[1]}V${O[1]}`, { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    path(g, `M${O[0]} ${O[1] + 20}H${Bp[0]}`, { stroke: COL.good, 'stroke-width': 5 }); T(g, 'b cos θ', { x: (O[0] + Bp[0]) / 2, y: O[1] + 52, size: 24, fill: COL.good, font: MATH, anchor: 'middle' });
+    path(g, `M${O[0] + 70} ${O[1]}A70 70 0 0 0 ${O[0] + 70 * Math.cos(ang)} ${O[1] - 70 * Math.sin(ang)}`, { stroke: COL.dim, 'stroke-width': 2 }); T(g, 'θ', { x: O[0] + 84, y: O[1] - 16, size: 24, fill: COL.dim, font: MATH });
+    eq(p, 'a · b = a b cos θ', 120, 440, tc + 1, { size: 44, fill: COL.good });
+    eq(p, 'a ⟂ b  ⇒  a · b = 0', 120, 530, m('zero'), { size: 36, fill: COL.int });
+  }],
+
+  ['uses', 'Где нужно скалярное произведение', (m) => {
+    const p = panel(0);
+    head(p, 'Энергия, работа, единичные векторы', .2);
+    eq(p, 'Eк = ½ m (v · v) = ½ m (vₓ² + v_y² + v_z²)', 120, 220, m('ke'), { size: 32, fill: COL.task });
+    const tw_ = m('work');
+    eq(p, 'A = F · s = F s cos θ', 120, 320, tw_, { size: 36, fill: COL.good });
+    const g = G(p, { o: 0 }); show(g, tw_ + .5);
+    path(g, 'M140 560H760', { stroke: COL.dim, 'stroke-width': 3 });
+    mk('rect', { x: 320, y: 500, width: 100, height: 60, rx: 6, fill: '#55665f' }, g);
+    vec(g, 370, 530, 560, 420, COL.bad, { w: 4 }); T(g, 'F', { x: 560, y: 410, size: 28, fill: COL.bad, font: MATH });
+    vec(g, 370, 600, 560, 600, COL.good, { w: 3 }); T(g, 'работает только эта часть', { x: 580, y: 608, size: 22, fill: COL.good });
+    path(g, 'M560 420V600', { stroke: COL.dim, 'stroke-width': 1.5, 'stroke-dasharray': '6 6' });
+    const ti = m('ijk'), O = [1150, 560];
+    const u = G(p, { o: 0 }); show(u, ti);
+    vec(u, O[0], O[1], O[0] + 150, O[1], VA, { w: 4 }); T(u, 'i', { x: O[0] + 160, y: O[1] + 8, size: 30, fill: VA, font: MATH, weight: 700 });
+    vec(u, O[0], O[1], O[0], O[1] - 150, VB, { w: 4 }); T(u, 'j', { x: O[0] + 10, y: O[1] - 158, size: 30, fill: VB, font: MATH, weight: 700 });
+    vec(u, O[0], O[1], O[0] - 100, O[1] + 80, VC, { w: 4 }); T(u, 'k', { x: O[0] - 128, y: O[1] + 96, size: 30, fill: VC, font: MATH, weight: 700 });
+    eq(p, 'a = aₓ i + a_y j + a_z k', 920, 260, ti + 1, { size: 32 });
+    eq(p, 'i·i = 1,  i·j = 0', 920, 320, ti + 1.8, { size: 28, fill: COL.dim });
+  }],
+
+  ['q4', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 140, w: 1000, cls: 'side' }, [{
+    id: 'c-dot', prompt: ['a = (2, 3), b = (4, −1). Чему равно a · b?'],
+    build: blanks([{ parts: ['a · b = ', { box: '5' }], why: '2·4 + 3·(−1) = 8 − 3 = 5.', hint: 'aₓbₓ + a_yb_y.' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Законы не меняются при сдвигах и поворотах осей.', 'w1'],
+      ['Вектор — три составляющие; рисуем стрелкой.', 'w2'],
+      ['Сложение — параллелограмм; v и a — векторы.', 'w3'],
+      ['a · b = ab cos θ — одинаково в любых осях.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-len', prompt: ['Найдите длину вектора a = (3, 4, 12).'],
+    build: blanks([{ parts: ['|a| = ', { box: '13' }], why: '√(9 + 16 + 144) = √169 = 13.', hint: '|a| = √(aₓ² + a_y² + a_z²).' }]),
+  }, {
+    id: 'p-diff', prompt: ['a = (5, 2), b = (1, 6). Найдите a − b.'],
+    build: blanks([{ parts: ['(', { box: '4' }, ', ', { box: '-4' }, ')'], why: '(5 − 1, 2 − 6) = (4, −4).', hint: 'Вычитайте составляющие.' }]),
+  }, {
+    id: 'p-scalar', prompt: ['Что из этого — скаляр?'],
+    build: grid([
+      { parts: ['температура'], ans: ['s'], why: 'Направления нет.' },
+      { parts: ['импульс'], ans: ['v'], why: 'p = m v — вектор.' },
+      { parts: ['кинетическая энергия'], ans: ['s'], why: '½ m (v·v) — скаляр.' },
+      { parts: ['сила'], ans: ['v'], why: 'У силы есть направление.' },
+    ], [['s', 'скаляр', COL.good, '1'], ['v', 'вектор', COL.task, '2']], { text: true }),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-work', prompt: ['Санки тянут силой 100 Н под углом 60° к земле на 20 м. Какую работу совершила сила?'],
+    build: blanks([{ parts: ['A = ', { box: '1000' }, ' Дж'], why: 'A = F s cos θ = 100 · 20 · 0,5 = 1000 Дж.', hint: 'cos 60° = 0,5.' }]),
+  }, {
+    id: 'p-perp', prompt: ['Векторы (1, 2) и (4, x) перпендикулярны. Найдите x.'],
+    build: blanks([{ parts: ['x = ', { box: '-2' }], why: '1·4 + 2·x = 0 ⇒ x = −2.', hint: 'Перпендикулярны — скалярное произведение равно нулю.' }]),
+  }, {
+    id: 'p-circle', prompt: ['Работа силы, которая всё время перпендикулярна скорости (например, нить при движении по кругу)…'],
+    build: choice([['равна нулю'], ['положительна'], ['отрицательна']], 0,
+      'F · ds = F ds cos 90° = 0: быстрота и кинетическая энергия не меняются.',
+      [null, 'cos 90° = 0 — такая сила не совершает работы.', 'cos 90° = 0 — такая сила не совершает работы.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

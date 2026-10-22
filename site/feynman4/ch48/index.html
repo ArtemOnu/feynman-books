@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Биения</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 48, title: 'Биения', minutes: 7, language: 'ru', audio: false, next: '../ch49/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const W1 = 10, W2 = 11, TT = 4 * Math.PI;   // two tones and the time span shown (two beat periods)
+const trace = (p, fn, x0, y0, w, amp, colr, t0, dur = 1.6, n = 700, sw = 3) =>
+  draw(path(p, curve(fn, x0, y0, w / TT, amp, TT, n), { stroke: colr, 'stroke-width': sw }, { d: 0 }), t0, dur);
+const pack = s => t => Math.exp(-((t / s) ** 2)) * Math.cos(14 * t);
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Биения', (m, D) => introCard(m, D, 'Звук', 48, 'Биения', 'Две близкие частоты вместе')],
+
+  ['sum', 'Сложение', (m) => {
+    const p = panel(0);
+    head(p, 'Два камертона', .2);
+    trace(p, t => Math.cos(W1 * t), 200, 200, 1200, 50, COL.task, m('one'));
+    trace(p, t => Math.cos(W2 * t), 200, 330, 1200, 50, COL.good, m('two'));
+    txt(p, 'ω₁', 160, 210, m('one'), { size: 28, fill: COL.task, anchor: 'end' });
+    txt(p, 'ω₂', 160, 340, m('two'), { size: 28, fill: COL.good, anchor: 'end' });
+    trace(p, t => Math.cos(W1 * t) + Math.cos(W2 * t), 200, 540, 1200, 50, COL.chalk, m('add'), 2.5);
+    txt(p, 'сумма', 160, 550, m('add'), { size: 26, anchor: 'end' });
+    const e = G(p, { o: 0 }); show(e, m('env'));
+    path(e, curve(t => 2 * Math.cos(t / 2), 200, 540, 1200 / TT, 50, TT, 200), { stroke: COL.bad, 'stroke-width': 2.5, 'stroke-dasharray': '8 6' });
+    path(e, curve(t => -2 * Math.cos(t / 2), 200, 540, 1200 / TT, 50, TT, 200), { stroke: COL.bad, 'stroke-width': 2.5, 'stroke-dasharray': '8 6' });
+  }],
+
+  ['formula', 'Формула', (m) => {
+    const p = panel(0);
+    head(p, 'Сумма — произведение', .2);
+    eq(p, 'cos ω₁t + cos ω₂t = 2 cos ½(ω₁+ω₂)t · cos ½(ω₁−ω₂)t', 800, 200, m('id'), { size: 38, anchor: 'middle' });
+    txt(p, 'тон', 760, 260, m('fast'), { size: 26, fill: COL.task, anchor: 'middle' });
+    txt(p, 'огибающая', 1180, 260, m('slow'), { size: 26, fill: COL.bad, anchor: 'middle' });
+    trace(p, t => Math.cos(W1 * t) + Math.cos(W2 * t), 200, 450, 1200, 60, COL.task, m('fast'), 2);
+    const e = G(p, { o: 0 }); show(e, m('slow'));
+    path(e, curve(t => 2 * Math.cos(t / 2), 200, 450, 1200 / TT, 60, TT, 200), { stroke: COL.bad, 'stroke-width': 3 });
+    path(e, curve(t => -2 * Math.cos(t / 2), 200, 450, 1200 / TT, 60, TT, 200), { stroke: COL.bad, 'stroke-width': 3 });
+    eq(p, 'частота биений = ω₁ − ω₂', 800, 660, m('beat'), { size: 44, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1040, y: 640, w: 540, cls: 'side' }, [{
+    id: 'c-beat', prompt: ['Камертоны 440 Гц и 444 Гц. Сколько биений в секунду?'],
+    build: blanks([{ parts: [{ box: '4' }, ' в секунду'], why: '444 − 440 = 4 Гц.', hint: 'Частота биений — разность частот.' }]),
+  }], done) }],
+
+  ['am', 'Модуляция', (m) => {
+    const p = panel(0);
+    head(p, 'Амплитудная модуляция', .2);
+    trace(p, t => Math.cos(6 * W1 * t), 200, 230, 1200, 40, COL.dim, m('carrier'), 1.5, 1200, 1.5);
+    trace(p, t => (1 + .6 * Math.cos(1.5 * t)) * Math.cos(6 * W1 * t), 200, 400, 1200, 45, COL.task, m('mod'), 2, 1400, 1.8);
+    txt(p, 'несущая ω_c', 180, 240, m('carrier'), { size: 24, fill: COL.dim, anchor: 'end' }); subify(p.lastChild);
+    txt(p, 'звук ω_m', 180, 410, m('mod'), { size: 24, fill: COL.task, anchor: 'end' }); subify(p.lastChild);
+    eq(p, '(1 + cos ω_m t) cos ω_c t = cos ω_c t + ½cos(ω_c+ω_m)t + ½cos(ω_c−ω_m)t', 800, 520, m('bands'), { size: 30, anchor: 'middle' });
+    path(p, 'M500 690H1100', { stroke: COL.dim, 'stroke-width': 2 });
+    [[-1, .5], [0, 1], [1, .5]].forEach(([k, h], i) => {
+      const l = path(p, `M${800 + k * 120} 690V${690 - h * 110}`, { stroke: i === 1 ? COL.dim : COL.good, 'stroke-width': 8 }); put(l, { o: 0 }); show(l, m('bands', 2 + i * .3));
+    });
+    const br = G(p, { o: 0 }); show(br, m('width')); path(br, 'M680 710V720H920V710', { stroke: COL.good, 'stroke-width': 2 });
+    T(br, '2ω_m', { x: 1000, y: 610, size: 26, fill: COL.good, font: MATH }); subify(br.lastChild);
+  }],
+
+  ['packet', 'Цуг волн', (m) => {
+    const p = panel(0);
+    head(p, 'Короткий цуг — широкая полоса', .2);
+    draw(path(p, curve(pack(2.2), 560, 290, 70, 90, 6, 500, -6), { stroke: COL.task, 'stroke-width': 3 }, { d: 0 }), m('train', -1), 1.5);
+    draw(path(p, curve(pack(.7), 560, 560, 70, 90, 6, 500, -6), { stroke: COL.good, 'stroke-width': 3 }, { d: 0 }), m('train'), 1.5);
+    txt(p, 'длинный', 560, 180, m('train', -1), { size: 26, fill: COL.task, anchor: 'middle' });
+    txt(p, 'короткий', 560, 445, m('train'), { size: 26, fill: COL.good, anchor: 'middle' });
+    const sp = (y, w, c, t0) => draw(path(p, curve(x => Math.exp(-(((x - 14) / w) ** 2)), 926, y, 26, 110, 22, 200, 6), { stroke: c, 'stroke-width': 3 }, { d: 0 }), t0, 1);
+    path(p, 'M1080 290H1500M1080 560H1500', { stroke: COL.dim, 'stroke-width': 1.5 });
+    sp(290, .9, COL.task, m('many')); sp(560, 2.9, COL.good, m('many', .8));
+    txt(p, 'спектр', 1290, 335, m('many'), { size: 26, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'Δω · Δt ~ 2π', 800, 700, m('rel'), { size: 44, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['uncert', 'Неопределённость', (m) => {
+    const p = panel(0);
+    head(p, 'Волны частиц', .2);
+    eq(p, 'p = ħ k', 800, 240, m('waves'), { size: 46, anchor: 'middle' });
+    eq(p, 'Δk ~ 2π / Δx', 800, 360, m('dx'), { size: 44, anchor: 'middle' });
+    eq(p, 'Δx · Δp ~ h', 800, 500, m('hp'), { size: 60, anchor: 'middle', fill: COL.task });
+    txt(p, 'соотношение неопределённостей', 800, 570, m('hp', 1.5), { size: 30, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-band', prompt: ['Несущая 1000 кГц модулирована звуком 5 кГц. Какие частоты излучает станция?'],
+    build: choice([['995, 1000 и 1005 кГц'], ['только 1000 кГц'], ['1000 и 5 кГц']], 0, 'Несущая и две боковые: 1000 ± 5 кГц.', [null, 'Модуляция добавляет боковые частоты.', 'Звуковая частота сама не излучается — только сдвигает.']),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Биения с частотой ω₁ − ω₂.', 'w1'], ['Модуляция: боковые ω_c ± ω_m.', 'w2'],
+      ['Δω · Δt ~ 2π.', 'w3'], ['Δx · Δp ~ h.', 'w4']]);
+  }],
+
+  ['final1', 'Практика', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-tune', prompt: ['Струна звучит вместе с камертоном 440 Гц: 3 биения в секунду. Струну подтянули — биения участились. Какова была частота струны?'],
+    build: blanks([{ parts: [{ box: '443' }, ' Гц'], why: '437 или 443; натяжение повышает частоту — и биения участились, значит, было 443.', hint: 'Разность 3 Гц; натяжение повышает частоту.' }]),
+  }, {
+    id: 'p-pulse', prompt: ['Импульс длится 1 мкс. Какой порядок ширины полосы частот (в Гц) ему нужен?'],
+    build: choice([['~10⁶ Гц'], ['~10³ Гц'], ['~10⁹ Гц']], 0, 'Δf ~ 1/Δt = 10⁶ Гц.', [null, 'Слишком узко для микросекундного импульса.', 'Это для наносекундного.']),
+  }], done, 'Практика по главе   1 из 1') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Теория тяготения</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 7, title: 'Теория тяготения', minutes: 14, language: 'ru', audio: false, next: '../ch08/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const SUN = COL.int, PLANET = COL.whole;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => txt(p, str, x, y, t0, { size, fill, anchor, font: MATH });
+function body(p, colr, r, { x = 0, y = 0, o = 1 } = {}) { const g = G(p, { x, y, o }); mk('circle', { r, fill: colr, stroke: COL.board, 'stroke-width': 2 }, g); return g; }
+// A Kepler orbit: semi-major a (px), eccentricity e, centre (cx, cy), focus (Sun) on the right.
+// pos(M) gives the planet for mean anomaly M (radians): solves Kepler's equation E − e·sinE = M.
+function keplerOrbit(cx, cy, a, e) {
+  const b = a * Math.sqrt(1 - e * e), c = a * e;
+  const pos = M => { let E = M; for (let k = 0; k < 12; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); return [cx + a * Math.cos(E), cy - b * Math.sin(E)]; };
+  return { a, b, c, f1: [cx + c, cy], f2: [cx - c, cy], pos, d: `M${cx - a} ${cy}a${a} ${b} 0 1 0 ${2 * a} 0a${a} ${b} 0 1 0 ${-2 * a} 0` };
+}
+function sector(p, O, F, M0, M1, colr) {
+  let d = `M${F[0]} ${F[1]}`;
+  for (let k = 0; k <= 24; k++) { const [x, y] = O.pos(M0 + (M1 - M0) * k / 24); d += `L${x.toFixed(1)} ${y.toFixed(1)}`; }
+  return path(p, d + 'Z', { fill: colr, opacity: .45, stroke: colr, 'stroke-width': 1.5 });
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Теория тяготения', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Большие идеи · Глава 7', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Теория тяготения', { x: 800, y: 440, size: 92, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Один закон — от яблока до галактик', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['law', 'Закон тяготения', (m, D) => {
+    const p = panel(0);
+    head(p, 'Закон всемирного тяготения', .2);
+    const A = body(p, COL.task, 50, { x: 400, y: 380, o: 0 }), B = body(p, COL.whole, 30, { x: 1100, y: 380, o: 0 });
+    show(A, .3); show(B, .3);
+    T(p, 'm', { x: 400, y: 470, size: 34, fill: COL.task, anchor: 'middle', font: MATH }); T(p, 'm′', { x: 1100, y: 450, size: 34, fill: COL.whole, anchor: 'middle', font: MATH });
+    const fa = G(p, { o: 0 }), fb = G(p, { o: 0 });
+    const tf = m('force'), ti = m('inv');
+    prog(q => {
+      const t = q * D, gap = t < ti ? 700 : 700 - 260 * smooth(ti + .5, ti + 3, t);
+      const xa = 750 - gap / 2, xb = 750 + gap / 2;
+      put(A, { x: xa }); put(B, { x: xb });
+      const F = Math.min(90 * (700 / gap) ** 2, (gap - 100) / 2);
+      fa.replaceChildren(); fb.replaceChildren();
+      vec(fa, xa + 52, 380, xa + 52 + F, 380, COL.bad, { w: 5, head: 18 });
+      vec(fb, xb - 32, 380, xb - 32 - F, 380, COL.bad, { w: 5, head: 18 });
+    }, 0, D, lin);
+    show(fa, tf); show(fb, tf);
+    eq(p, 'F = G · m m′ / r²', 800, 620, tf + .4, { size: 52, fill: COL.chalk, anchor: 'middle' });
+    txt(p, 'вдвое ближе — вчетверо сильнее', 800, 680, ti + 3, { size: 26, fill: COL.bad, anchor: 'middle' });
+    eq(p, 'a = F / m', 1350, 200, m('accel'), { size: 40, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['kepler1', 'Первый закон Кеплера', (m, D) => {
+    const p = panel(0);
+    head(p, 'Первый закон: эллипс', .2);
+    const O = keplerOrbit(640, 420, 380, .6);
+    const tp = m('pins');
+    const pins = G(p, { o: 0 }); show(pins, tp);
+    [O.f1, O.f2].forEach(([x, y]) => { mk('circle', { cx: x, cy: y, r: 7, fill: COL.chalk }, pins); });
+    const str = path(p, '', { stroke: COL.task, 'stroke-width': 2.5 });
+    const pen = body(p, COL.task, 9, { o: 0 }); show(pen, tp);
+    const trace = path(p, '', { stroke: COL.chalk, 'stroke-width': 4 });
+    prog(q => {
+      const t = q * D, s = clamp01((t - tp - .5) / 7), th = s * 2 * Math.PI;
+      const x = 640 + O.a * Math.cos(th), y = 420 - O.b * Math.sin(th);
+      put(pen, { x, y });
+      str.setAttribute('d', t > tp ? `M${O.f2[0]} ${O.f2[1]}L${x} ${y}L${O.f1[0]} ${O.f1[1]}` : '');
+      let d = ''; for (let k = 0; k <= 120 * s; k++) { const a = k / 120 * 2 * Math.PI; d += (d ? 'L' : 'M') + (640 + O.a * Math.cos(a)).toFixed(1) + ' ' + (420 - O.b * Math.sin(a)).toFixed(1); }
+      trace.setAttribute('d', d);
+    }, 0, D, lin);
+    eq(p, 'r₁ + r₂ = 2a', 1280, 260, tp + 1.5, { size: 40, anchor: 'middle' });
+    txt(p, 'булавки — фокусы', 1280, 320, tp + 2, { size: 26, fill: COL.dim, anchor: 'middle' });
+    const s = body(p, SUN, 26, { x: O.f1[0], y: O.f1[1], o: 0 }); show(s, m('sun'));
+    txt(p, 'Солнце — в фокусе', 1280, 420, m('sun'), { size: 30, fill: SUN, anchor: 'middle', weight: 600 });
+  }],
+
+  ['kepler2', 'Второй закон Кеплера', (m, D) => {
+    const p = panel(0);
+    head(p, 'Второй закон: равные площади', .2);
+    const O = keplerOrbit(640, 420, 400, .65);
+    path(p, O.d, { stroke: COL.faint, 'stroke-width': 2 });
+    body(p, SUN, 24, { x: O.f1[0], y: O.f1[1] });
+    const pl = body(p, PLANET, 14);
+    const rv = path(p, '', { stroke: COL.dim, 'stroke-width': 2 });
+    const per = 8;
+    prog(q => { const t = q * D, M = 2 * Math.PI * t / per, [x, y] = O.pos(M); put(pl, { x, y }); rv.setAttribute('d', t > m('area') - .5 ? `M${O.f1[0]} ${O.f1[1]}L${x} ${y}` : ''); }, 0, D, lin);
+    const w = .55;   // one "week" of mean anomaly
+    const s1 = sector(p, O, O.f1, -w / 2, w / 2, COL.task); put(s1, { o: 0 }); show(s1, m('area'));
+    const s2 = sector(p, O, O.f1, Math.PI - w / 2, Math.PI + w / 2, COL.task); put(s2, { o: 0 }); show(s2, m('equal'));
+    txt(p, 'Δt', O.pos(0)[0] - 90, O.pos(0)[1] + 10, m('area', .4), { size: 28, fill: COL.task, font: MATH });
+    txt(p, 'Δt', O.pos(Math.PI)[0] + 30, O.pos(Math.PI)[1] + 10, m('equal', .4), { size: 28, fill: COL.task, font: MATH });
+    txt(p, 'у Солнца — быстрее', 1250, 240, m('fast'), { size: 28, fill: PLANET });
+    txt(p, 'вдали — медленнее', 1250, 290, m('fast', .8), { size: 28, fill: PLANET });
+    txt(p, 'площади равны', 1250, 420, m('equal', .8), { size: 34, fill: COL.task, weight: 600 });
+  }],
+
+  ['kepler3', 'Третий закон Кеплера', (m, D) => {
+    const p = panel(0);
+    head(p, 'Третий закон: T² ∝ a³', .2);
+    const C = [480, 440];
+    body(p, SUN, 22, { x: C[0], y: C[1] });
+    const R = [70, 130, 210, 310], cols = [COL.nat, COL.whole, COL.bad, COL.task];
+    const pls = R.map((r, i) => { mk('circle', { cx: C[0], cy: C[1], r, fill: 'none', stroke: COL.faint, 'stroke-width': 1.5 }, p); return body(p, cols[i], 9 + i * 2); });
+    const tp = m('planets');
+    prog(q => { const t = q * D; R.forEach((r, i) => { const T_ = 2.2 * (r / 70) ** 1.5, a = 2 * Math.PI * t / T_; put(pls[i], { x: C[0] + r * Math.cos(a), y: C[1] - r * Math.sin(a) }); }); }, 0, D, lin);
+    const tab = G(p, { o: 0 }); show(tab, tp);
+    [['', 'a, а.е.', 'T, лет', 'T²/a³'], ['Меркурий', '0,387', '0,241', '1,00'], ['Земля', '1,000', '1,000', '1,00'], ['Марс', '1,524', '1,881', '1,00'], ['Юпитер', '5,203', '11,86', '1,00']].forEach((row, j) => row.forEach((c, i) => {
+      T(tab, c, { x: i ? 1060 + i * 150 : 900, y: 230 + j * 56, size: 26, fill: j === 0 ? COL.dim : i === 3 ? COL.good : i === 0 ? cols[j - 1] : COL.chalk, anchor: i ? 'end' : 'start', font: i ? MATH : UI });
+    }));
+    eq(p, 'T² ∝ a³', 1150, 600, m('law'), { size: 52, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 880, y: 470, w: 680, cls: 'side' }, [{
+    id: 'c-kepler3', prompt: ['Планета вчетверо дальше от Солнца, чем Земля. Сколько длится её год?'],
+    build: blanks([{ parts: ['T = ', { box: '8' }, ' лет'], why: 'T² ∝ a³: T² = 4³ = 64, T = 8 лет.', hint: 'Возведите 4 в куб и извлеките квадратный корень.' }]),
+  }], done) }],
+
+  ['dyn', 'Сила и инерция', (m, D) => {
+    const p = panel(0);
+    head(p, 'Что заставляет планеты двигаться', .2);
+    const ti = m('inertia'), ts = m('sling'), tsn = m('sun');
+    const puck = body(p, COL.chalk, 16, { x: 160, y: 250, o: 0 }); show(puck, ti);
+    tw(puck, { x: 1400 }, ti + .3, 4, lin);
+    path(p, 'M160 250H1450', { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '6 8' });
+    txt(p, 'ничто не мешает — прямо и равномерно', 160, 210, ti + .3, { size: 26, fill: COL.dim });
+    const C = [420, 540], r = 130;
+    const sl = G(p, { o: 0 }); show(sl, ts);
+    mk('circle', { cx: C[0], cy: C[1], r: 8, fill: COL.dim }, sl);
+    const rope = path(sl, '', { stroke: COL.chalk, 'stroke-width': 2.5 });
+    const stone = body(sl, '#8f8a7a', 16);
+    const pull = G(sl);
+    prog(q => {
+      const t = q * D, a = 2.2 * (t - ts), x = C[0] + r * Math.cos(a), y = C[1] - r * Math.sin(a);
+      put(stone, { x, y }); rope.setAttribute('d', `M${C[0]} ${C[1]}L${x} ${y}`);
+      pull.replaceChildren(); if (t > ts) vec(pull, x, y, x + (C[0] - x) * .45, y + (C[1] - y) * .45, COL.bad, { w: 3, head: 12 });
+    }, 0, D, lin);
+    txt(p, 'верёвка тянет к центру', 420, 720, ts + 1, { size: 24, fill: COL.bad, anchor: 'middle' });
+    // planet: tangent line, actual path bending toward the Sun
+    const S_ = [1150, 540];
+    const pg = G(p, { o: 0 }); show(pg, tsn);
+    body(pg, SUN, 24, { x: S_[0], y: S_[1] });
+    mk('circle', { cx: S_[0], cy: S_[1], r: 170, fill: 'none', stroke: COL.faint, 'stroke-width': 2 }, pg);
+    const P0 = [S_[0], S_[1] - 170];
+    path(pg, `M${P0[0]} ${P0[1]}H${P0[0] + 240}`, { stroke: COL.chalk, 'stroke-width': 2, 'stroke-dasharray': '8 8' });
+    T(pg, 'по инерции', { x: P0[0] + 240, y: P0[1] - 14, size: 22, fill: COL.dim, anchor: 'end' });
+    body(pg, PLANET, 12, { x: P0[0], y: P0[1] });
+    vec(pg, P0[0], P0[1] + 16, P0[0], P0[1] + 80, COL.bad, { w: 4, head: 14 });
+    T(pg, 'к Солнцу', { x: P0[0] + 14, y: P0[1] + 60, size: 22, fill: COL.bad });
+  }],
+
+  ['moon', 'Луна падает', (m, D) => {
+    const p = panel(0);
+    head(p, 'Луна и яблоко', .2);
+    const E = [360, 470];
+    const earth = body(p, '#3f7fb5', 46, { x: E[0], y: E[1] });
+    const R = 340, moonA = -Math.PI / 2 + .1;
+    mk('circle', { cx: E[0], cy: E[1], r: R, fill: 'none', stroke: COL.faint, 'stroke-width': 2 }, p);
+    const tf = m('fall');
+    const Mn = [E[0] + R * Math.cos(moonA), E[1] + R * Math.sin(moonA)];
+    const mo = body(p, '#c8c4b8', 16, { x: Mn[0], y: Mn[1] });
+    const tx = -Math.sin(moonA), ty = Math.cos(moonA);   // tangent
+    const tangent = path(p, `M${Mn[0]} ${Mn[1]}L${Mn[0] + 300 * tx} ${Mn[1] + 300 * ty}`, { stroke: COL.chalk, 'stroke-width': 2, 'stroke-dasharray': '8 8' }, { d: 0 });
+    draw(tangent, tf, .8);
+    const ang = .55, M2 = [E[0] + R * Math.cos(moonA + ang), E[1] + R * Math.sin(moonA + ang)];
+    const T2 = [Mn[0] + R * Math.tan(ang) * tx, Mn[1] + R * Math.tan(ang) * ty];
+    const fallL = G(p, { o: 0 }); show(fallL, tf + 1);
+    vec(fallL, T2[0], T2[1], M2[0] + (T2[0] - M2[0]) * .08, M2[1] + (T2[1] - M2[1]) * .08, COL.task, { w: 3, head: 12 });
+    T(fallL, 'падение (сильно увеличено)', { x: T2[0] + 20, y: (T2[1] + M2[1]) / 2, size: 22, fill: COL.task });
+    tw(mo, { x: M2[0], y: M2[1] }, tf + 1.4, 2);
+    txt(p, 'Луна за 1 с: 1,36 мм', 820, 220, tf + 3, { size: 32, fill: COL.chalk, weight: 600 });
+    const ta = m('apple');
+    const ap = G(p, { x: E[0] + 40, y: E[1] - 60, o: 0 }); show(ap, ta);
+    mk('circle', { r: 9, fill: '#e06a5a' }, ap);
+    tw(ap, { y: E[1] - 48 }, ta + .5, .8);
+    txt(p, 'яблоко за 1 с: 4,9 м', 820, 290, ta, { size: 32, fill: '#e06a5a', weight: 600 });
+    const tr = m('ratio');
+    eq(p, 'R(Луны) / R(Земли) ≈ 60', 820, 400, tr, { size: 32 });
+    eq(p, '4,9 м / 60² = 4,9 м / 3600 = 1,36 мм', 820, 460, tr + 1.5, { size: 32, fill: COL.good });
+    txt(p, '✓ обратные квадраты', 820, 520, tr + 3, { size: 30, fill: COL.good, weight: 600 });
+    txt(p, '(рисунок не в масштабе)', 360, 860 - 60, tf, { size: 20, fill: COL.faint, anchor: 'middle' });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 800, y: 570, w: 760, cls: 'side' }, [{
+    id: 'c-inverse', prompt: ['Спутник летит на высоте, равной радиусу Земли (вдвое дальше от центра). Какое там ускорение свободного падения? (у поверхности 9,8 м/с²)'],
+    build: choice([['2,45 м/с²'], ['4,9 м/с²'], ['9,8 м/с²'], ['1,23 м/с²']], 0,
+      'Вдвое дальше от центра — сила в 2² = 4 раза меньше: 9,8 / 4 = 2,45 м/с².',
+      [null, 'Это делёние на 2, а сила убывает как квадрат расстояния.', 'На орбите тяготение не исчезает, но ослабевает.', 'Это деление на 8 — расстояние выросло в 2 раза, а не в 2³.']),
+  }], done) }],
+
+  ['orbit', 'Падение вокруг Земли', (m, D) => {
+    const p = panel(0);
+    head(p, 'Почему Луна не падает на Землю', .2);
+    const td = m('drop');
+    // the demonstration: horizontal and vertical drop meet
+    const ground = 680, h = 300, g = 160;   // px/s² for the demo
+    path(p, `M120 ${ground}H760`, { stroke: COL.dim, 'stroke-width': 3 });
+    path(p, `M120 ${ground - h}H260`, { stroke: COL.dim, 'stroke-width': 4 });
+    const b1 = body(p, COL.task, 14, { x: 260, y: ground - h, o: 0 }), b2 = body(p, COL.whole, 14, { x: 560, y: ground - h, o: 0 });
+    show(b1, td); show(b2, td);
+    prog(q => { const t = q * D, s = clamp01((t - td - .5) / 1.9) * 1.9; put(b1, { x: 260 + 158 * s, y: ground - h + .5 * g * s * s }); put(b2, { y: ground - h + .5 * g * s * s }); }, 0, D, lin);
+    txt(p, 'одновременно на одной высоте', 440, ground + 40, td + 2.5, { size: 24, fill: COL.dim, anchor: 'middle' });
+    // cannon on the round Earth
+    const tf = m('faster'), tc = m('circle');
+    const E = [1180, 470], R = 170;
+    body(p, '#3f7fb5', R, { x: E[0], y: E[1] });
+    const top = [E[0], E[1] - R - 30];
+    path(p, `M${top[0] - 20} ${top[1]}H${top[0] + 20}`, { stroke: COL.chalk, 'stroke-width': 6 });
+    const GM = 300 * 300 * (R + 30);
+    const traj = (v, steps) => { let x = 0, y = R + 30, vx = v, vy = 0, d = `M${E[0]} ${E[1] - y}`; for (let k = 0; k < steps; k++) { const r = Math.hypot(x, y), a = GM / (r * r); vx -= a * x / r * .01; vy -= a * y / r * .01; x += vx * .01; y += vy * .01; d += `L${(E[0] + x).toFixed(1)} ${(E[1] - y).toFixed(1)}`; if (Math.hypot(x, y) < R) break; } return d; };
+    const vc = 300;
+    [[.45, COL.bad], [.7, COL.task], [.88, COL.nat]].forEach(([k, c], i) => draw(path(p, traj(vc * k, 400), { stroke: c, 'stroke-width': 3 }, { d: 0 }), tf + i * 1.5, 1.2));
+    draw(path(p, traj(vc, 430), { stroke: COL.good, 'stroke-width': 4 }, { d: 0 }), tc, 3);
+    txt(p, 'v ≈ √(0,0049 км · 12 740 км) ≈ 7,9 км/с', 1180, 790 - 40, tc + 1, { size: 26, fill: COL.good, anchor: 'middle', font: MATH });
+  }],
+
+  ['tides', 'Приливы', (m, D) => {
+    const p = panel(0);
+    head(p, 'Два приливных горба', .2);
+    const E = [560, 440], R = 150;
+    const water = path(p, '', { fill: 'rgba(134,201,232,.45)', stroke: COL.whole, 'stroke-width': 2 });
+    body(p, '#6f8f5a', R, { x: E[0], y: E[1] });
+    const moon = body(p, '#c8c4b8', 34, { x: 1380, y: E[1] });
+    const tp = m('pull'), tt = m('two');
+    prog(q => {
+      const t = q * D, k = 55 * smooth(tt, tt + 2, t);
+      let d = ''; for (let a = 0; a <= 360; a += 3) { const r = R + 18 + k * Math.cos(a * Math.PI / 180) ** 2; d += (d ? 'L' : 'M') + (E[0] + r * Math.cos(a * Math.PI / 180)).toFixed(1) + ' ' + (E[1] - r * Math.sin(a * Math.PI / 180)).toFixed(1); }
+      water.setAttribute('d', d + 'Z');
+    }, 0, D, lin);
+    const arr = G(p, { o: 0 }); show(arr, tp);
+    [[E[0] + R + 30, 'ближе — сильнее', 120], [E[0], 'центр — средне', 80], [E[0] - R - 30, 'дальше — слабее', 50]].forEach(([x, s, L], i) => {
+      vec(arr, x, E[1] + 230 + i * 0, x + L, E[1] + 230, COL.bad, { w: 4, head: 14 });
+    });
+    T(arr, 'притяжение Луны', { x: E[0], y: E[1] + 290, size: 22, fill: COL.bad, anchor: 'middle' });
+    txt(p, 'вода у Луны тянется сильнее Земли,', 860, 220, tt + .5, { size: 26 });
+    txt(p, 'Земля — сильнее дальней воды', 860, 260, tt + .5, { size: 26 });
+    txt(p, '→ два горба, прилив каждые ~12 ч', 860, 310, tt + 1.5, { size: 26, fill: COL.whole, weight: 600 });
+    const tc = m('common');
+    const cm = G(p, { o: 0 }); show(cm, tc);
+    mk('circle', { cx: E[0] + 110, cy: E[1], r: 7, fill: COL.task }, cm);
+    path(cm, `M${E[0] + 110} ${E[1] + 8}L${E[0] + 200} ${E[1] + 170}`, { stroke: COL.task, 'stroke-width': 1.5 });
+    T(cm, 'общий центр масс (внутри Земли)', { x: E[0] + 210, y: E[1] + 190, size: 22, fill: COL.task });
+    txt(p, '(не в масштабе)', 1380, 520, tc, { size: 20, fill: COL.faint, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 860, y: 560, w: 700, cls: 'side' }, [{
+    id: 'c-tides', prompt: ['Сколько раз в сутки (примерно) бывает прилив в одном месте берега?'],
+    build: choice([['2'], ['1'], ['4']], 0,
+      'Горбов два — со стороны Луны и с противоположной; Земля поворачивается под ними, прилив ≈ каждые 12 ч 25 мин.',
+      [null, 'Так думали до Ньютона: горб воды есть и с дальней от Луны стороны.', 'Горбов два, а не четыре.']),
+  }], done) }],
+
+  ['neptune', 'Открытие Нептуна', (m, D) => {
+    const p = panel(0);
+    head(p, 'Планета, найденная на кончике пера', .2);
+    const S_ = [300, 450];
+    body(p, SUN, 30, { x: S_[0], y: S_[1] });
+    const orb = (r, per, c, size, t0, ph = 0) => {
+      mk('circle', { cx: S_[0], cy: S_[1], r, fill: 'none', stroke: COL.faint, 'stroke-width': 1.5 }, p);
+      const b = body(p, c, size, { o: 0 }); show(b, t0);
+      prog(q => { const t = q * D, a = ph + 2 * Math.PI * t / per; put(b, { x: S_[0] + r * Math.cos(a), y: S_[1] - r * Math.sin(a) * .55 }); }, 0, D, lin);
+      return b;
+    };
+    orb(160, 6, COL.nat, 14, .3); orb(260, 10, COL.int, 12, .3, 1);
+    const tu = m('uranus'), tg = m('guess'), tf = m('found');
+    const ur = orb(420, 30, '#9ad6d6', 12, tu, 2);
+    const ne = orb(620, 60, '#5c7ce8', 13, 1e9, 2.6);
+    const ghost = G(p, { o: 0 }); show(ghost, tg);
+    const gx = S_[0] + 620 * Math.cos(2.6 + 2 * Math.PI * tg / 60), gy = S_[1] - 620 * Math.sin(2.6 + 2 * Math.PI * tg / 60) * .55;
+    mk('circle', { cx: gx, cy: gy, r: 22, fill: 'none', stroke: COL.task, 'stroke-width': 3, 'stroke-dasharray': '6 6' }, ghost);
+    T(ghost, '?', { x: gx, y: gy + 10, size: 30, fill: COL.task, anchor: 'middle', weight: 700 });
+    show(ne, tf, .8);
+    txt(p, 'Уран отклоняется от расчёта', 1000, 200, tu + 1, { size: 26, fill: '#9ad6d6' });
+    txt(p, 'Адамс и Леверье: «там ещё одна планета»', 1000, 250, tg + .5, { size: 26, fill: COL.task });
+    txt(p, '1846: Нептун найден', 1000, 300, tf + .5, { size: 30, fill: '#7f9cf0', weight: 600 });
+  }],
+
+  ['stars', 'Тяготение среди звёзд', (m, D) => {
+    const p = panel(0);
+    head(p, 'Двойные звёзды, скопления, галактики', .2);
+    const tb = m('binary');
+    const bin = G(p, { o: 0 }); show(bin, tb);
+    const C = [300, 420];
+    const A = body(bin, COL.chalk, 20), B = body(bin, COL.whole, 9);
+    prog(q => {
+      const t = q * D, Mn = 2 * Math.PI * t / 7; let E = Mn; for (let k = 0; k < 10; k++) E -= (E - .5 * Math.sin(E) - Mn) / (1 - .5 * Math.cos(E));
+      const x = 180 * (Math.cos(E) - .5), y = 180 * Math.sqrt(.75) * Math.sin(E);
+      put(A, { x: C[0] - x * .25, y: C[1] - y * .25 }); put(B, { x: C[0] + x * .75, y: C[1] + y * .75 });
+    }, 0, D, lin);
+    T(bin, 'Сириус A и B: период 50 лет', { x: C[0], y: 640, size: 22, fill: COL.dim, anchor: 'middle' });
+    const tc = m('cluster');
+    const cl = G(p, { x: 800, y: 420, o: 0 }); show(cl, tc);
+    const R = rng(4);
+    for (let k = 0; k < 700; k++) { const r = 150 * Math.pow(R(), 1.8), a = R() * 6.283; mk('circle', { cx: r * Math.cos(a), cy: r * Math.sin(a), r: 1.6, fill: COL.chalk, opacity: .8 }, cl); }
+    T(cl, 'шаровое скопление', { y: 220, size: 22, fill: COL.dim, anchor: 'middle' });
+    const tgx = m('galaxy');
+    const gx = G(p, { x: 1280, y: 420, o: 0 }); show(gx, tgx);
+    for (let arm = 0; arm < 2; arm++) for (let k = 0; k < 260; k++) { const s = R() * 5, r = 22 * s, a = s * .9 + arm * Math.PI + (R() - .5) * .5; mk('circle', { cx: r * Math.cos(a), cy: r * Math.sin(a) * .4, r: 1.5, fill: '#c9b8ee', opacity: .8 }, gx); }
+    mk('ellipse', { rx: 26, ry: 12, fill: COL.chalk, opacity: .9 }, gx);
+    prog(q => put(gx, { r: -q * D * 4 }), tgx, D - tgx, lin);
+    T(p, 'галактика: сплющена вращением', { x: 1280, y: 640, size: 22, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['cavendish', 'Опыт Кавендиша', (m, D) => {
+    const p = panel(0);
+    head(p, 'Опыт Кавендиша', .2);
+    const ts = m('setup'), tt = m('twist');
+    path(p, 'M520 140H680', { stroke: COL.dim, 'stroke-width': 6 });
+    path(p, 'M600 140V380', { stroke: COL.chalk, 'stroke-width': 1.5 });
+    const beam = G(p, { x: 600, y: 400 });
+    path(beam, 'M-260 0H260', { stroke: COL.chalk, 'stroke-width': 5 });
+    body(beam, '#8f8a7a', 16, { x: -260 }); body(beam, '#8f8a7a', 16, { x: 260 });
+    const bigs = G(p, { o: 0 }); show(bigs, ts);
+    body(bigs, '#6f6a5f', 46, { x: 600 - 260 + 20, y: 400 + 70 }); body(bigs, '#6f6a5f', 46, { x: 600 + 260 - 20, y: 400 - 70 });
+    T(bigs, 'M', { x: 600 - 240, y: 482, size: 26, fill: COL.chalk, anchor: 'middle', weight: 700 }); T(bigs, 'M', { x: 600 + 240, y: 342, size: 26, fill: COL.chalk, anchor: 'middle', weight: 700 });
+    tw(bigs, { r: 0 }, 0, .1);
+    prog(q => { const t = q * D; put(beam, { r: 9 * smooth(tt, tt + 3, t) }); }, 0, D, lin);
+    const sc = G(p, { o: 0 }); show(sc, tt);
+    path(sc, 'M600 400L940 400', { stroke: COL.task, 'stroke-width': 1.5, 'stroke-dasharray': '4 6' });
+    txt(p, 'угол закручивания нити (увеличен)', 600, 620, tt + 1, { size: 24, fill: COL.task, anchor: 'middle' });
+    eq(p, 'G = 6,67·10⁻¹¹ Н·м²/кг²', 1000, 240, m('g'), { size: 34, fill: COL.good });
+    eq(p, 'g = G·M/R²  ⇒  M = g·R²/G', 1000, 330, m('weigh'), { size: 32 });
+    eq(p, 'M(Земли) ≈ 6·10²⁴ кг', 1000, 400, m('weigh', 1.5), { size: 36, fill: COL.task });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 980, y: 460, w: 580, cls: 'side' }, [{
+    id: 'c-mass', prompt: ['g = 9,8 м/с², R = 6,4·10⁶ м, G = 6,67·10⁻¹¹. Какого порядка масса Земли?'],
+    build: choice([['6·10²⁴ кг'], ['6·10¹⁸ кг'], ['6·10³⁰ кг'], ['4·10¹⁴ кг']], 0,
+      'M = gR²/G = 9,8 · 4,1·10¹³ / 6,67·10⁻¹¹ ≈ 6·10²⁴ кг.',
+      [null, 'Проверьте R²: (6,4·10⁶)² ≈ 4·10¹³.', 'Это порядок массы Солнца.', 'Здесь забыли разделить на G.']),
+  }], done) }],
+
+  ['what', 'Что такое тяготение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Что такое тяготение?', .2);
+    const tr = m('ratio');
+    const e1 = body(p, COL.whole, 22, { x: 300, y: 300, o: 0 }), e2 = body(p, COL.whole, 22, { x: 560, y: 300, o: 0 });
+    show(e1, tr); show(e2, tr);
+    const ea = G(p, { o: 0 }); show(ea, tr + .5);
+    vec(ea, 270, 300, 130, 300, COL.bad, { w: 6, head: 18 }); vec(ea, 590, 300, 730, 300, COL.bad, { w: 6, head: 18 });
+    T(ea, 'электрическое отталкивание', { x: 430, y: 240, size: 24, fill: COL.bad, anchor: 'middle' });
+    const ga = G(p, { o: 0 }); show(ga, tr + 1.2);
+    vec(ga, 324, 345, 334, 345, COL.whole, { w: 1, head: 4 }); vec(ga, 536, 345, 526, 345, COL.whole, { w: 1, head: 4 });
+    T(ga, 'притяжение масс (почти не видно)', { x: 430, y: 390, size: 22, fill: COL.whole, anchor: 'middle' });
+    eq(p, 'F_эл / F_тяг ≈ 4,17·10⁴²', 1100, 300, tr + 2, { size: 40, fill: COL.task, anchor: 'middle' });
+    txt(p, '= 4 170 000 000 000 000 000 000 000 000 000 000 000 000 000', 1100, 350, tr + 2.8, { size: 18, fill: COL.dim, anchor: 'middle', font: MATH });
+    const te = m('equiv');
+    const sh = G(p, { x: 800, y: 600, o: 0 }); show(sh, te);
+    path(sh, 'M-200 -80H160Q220 -80 240 0Q220 80 160 80H-200Z', { fill: 'rgba(236,232,220,.08)', stroke: COL.chalk, 'stroke-width': 3 });
+    const man = G(sh, { x: -80 }); mk('circle', { cy: -30, r: 14, fill: COL.chalk }, man); path(man, 'M0 -16V20M0 0L-20 -10M0 0L22 -14M0 20L-14 44M0 20L14 44', { stroke: COL.chalk, 'stroke-width': 4 });
+    const pen = G(sh, { x: 40 }); path(pen, 'M-30 0H30', { stroke: COL.task, 'stroke-width': 5 });
+    prog(q => { const t = q * D; put(man, { y: 6 * Math.sin(t), r: 8 * Math.sin(t * .7) }); put(pen, { y: 6 * Math.sin(t + .4), r: 40 * t }); }, 0, D, lin);
+    txt(p, 'тяготение ∝ инертной массе: в корабле всё парит вместе', 800, 730, te + 1, { size: 24, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['einstein', 'Тяготение и относительность', (m, D) => {
+    const p = panel(0);
+    head(p, 'Эйнштейн', .2);
+    txt(p, 'по Ньютону — мгновенно; но быстрее света сигнал не бежит', 96, 160, m('signal'), { size: 28 });
+    const tl = m('light');
+    const S_ = [800, 470];
+    body(p, SUN, 70, { x: S_[0], y: S_[1] });
+    const star = [1500, 380], earth = [120, 470];
+    body(p, COL.chalk, 6, { x: star[0], y: star[1] });
+    T(p, 'звезда', { x: star[0], y: star[1] - 18, size: 22, fill: COL.dim, anchor: 'middle' });
+    body(p, '#3f7fb5', 20, { x: earth[0], y: earth[1] });
+    const ray = path(p, `M${star[0]} ${star[1]}Q${S_[0]} 330 ${earth[0]} ${earth[1]}`, { stroke: COL.int, 'stroke-width': 3 }, { d: 0 });
+    draw(ray, tl, 2.5);
+    const app = path(p, `M${earth[0]} ${earth[1]}L1500 ${earth[1] + (330 - earth[1]) * 1380 / 680}`, { stroke: COL.int, 'stroke-width': 2, 'stroke-dasharray': '6 8', opacity: .6 }, { d: 0 });
+    draw(app, tl + 2.8, 1.5);
+    txt(p, 'кажущееся положение звезды смещено', 1500, 280, tl + 4, { size: 24, fill: COL.int, anchor: 'end' });
+    txt(p, '(изгиб сильно преувеличен; на деле 1,75″)', 800, 690, tl + 4.5, { size: 22, fill: COL.faint, anchor: 'middle' });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['F = G·mm′/r² — для всех тел во Вселенной.', 'w1'],
+      ['Эллипсы, равные площади, T² ∝ a³ — следствия.', 'w2'],
+      ['Луна, яблоко, приливы, Нептун — один закон.', 'w3'],
+      ['Причина неизвестна; Эйнштейн уточнил закон.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-force3', prompt: ['Расстояние между двумя телами увеличили втрое. Во сколько раз уменьшилась сила тяготения?'],
+    build: blanks([{ parts: ['в ', { box: '9' }, ' раз'], why: 'F ∝ 1/r²: 3² = 9.', hint: 'Сила обратно пропорциональна квадрату расстояния.' }]),
+  }, {
+    id: 'p-mass2', prompt: ['Массы обоих тел увеличили вдвое, расстояние не меняли. Во сколько раз выросла сила?'],
+    build: blanks([{ parts: ['в ', { box: '4' }, ' раза'], why: 'F ∝ m·m′: 2 · 2 = 4.', hint: 'Сила пропорциональна произведению масс.' }]),
+  }, {
+    id: 'p-kepler', prompt: ['Где планета на эллиптической орбите движется быстрее всего?'],
+    build: choice([['ближе всего к Солнцу'], ['дальше всего от Солнца'], ['везде одинаково']], 0,
+      'Радиус-вектор заметает равные площади: где он короче, планета должна двигаться быстрее.',
+      [null, 'Вдали радиус-вектор длинный — для той же площади нужна меньшая скорость.', 'Второй закон Кеплера говорит о равных площадях, а не равных скоростях.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-jupiter', prompt: ['Юпитер в 5,2 раза дальше от Солнца, чем Земля. Каков его год? Округлите до целых.'],
+    build: blanks([{ parts: ['T ≈ ', { box: '12' }, ' лет'], test: ([x]) => Math.abs(x - 11.86) < .6, why: 'T = a^(3/2) = 5,2^1,5 ≈ 11,9 ≈ 12 лет.', hint: 'T² = a³, a = 5,2.' }]),
+  }, {
+    id: 'p-fall', prompt: ['Луна в 60 раз дальше от центра Земли, чем яблоко у поверхности. Во сколько раз её «падение» за секунду меньше 4,9 м?'],
+    build: blanks([{ parts: ['в ', { box: '3600' }, ' раз'], why: '60² = 3600: 4,9 м / 3600 ≈ 1,36 мм.', hint: 'Обратные квадраты.' }]),
+  }, {
+    id: 'p-orbit', prompt: ['Почему космонавт на орбите невесом?'],
+    build: choice([['он и корабль падают вокруг Земли с одним ускорением'], ['на орбите нет тяготения'], ['его выталкивает центробежная сила сильнее тяготения']], 0,
+      'Тяготение пропорционально массе, поэтому космонавт, карандаш и корабль падают одинаково — ничто ни на что не давит.',
+      [null, 'На высоте 400 км тяготение лишь на ~10 % слабее, чем у поверхности.', 'Если бы выталкивание было сильнее, корабль улетел бы.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

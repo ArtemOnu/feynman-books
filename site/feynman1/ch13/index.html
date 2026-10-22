@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Работа и потенциальная энергия (I)</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 13, title: 'Работа и потенциальная энергия (I)', minutes: 14, language: 'ru', audio: false, next: '../ch14/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const KE = COL.task, PE = COL.whole;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+function ballEl(p, colr, r, { x = 0, y = 0, o = 1 } = {}) { const g = G(p, { x, y, o }); mk('circle', { r, fill: colr, stroke: COL.board, 'stroke-width': 2 }, g); return g; }
+// Stacked energy bar: total height H at (x, base); returns set(ke share 0..1).
+function energyBar(p, x, base, H, t0) {
+  const g = G(p, { o: 0 }); show(g, t0);
+  const pe = mk('rect', { x, y: base - H, width: 90, height: H, fill: PE }, g), ke = mk('rect', { x, y: base, width: 90, height: 0, fill: KE }, g);
+  path(g, `M${x - 10} ${base - H}H${x + 100}`, { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+  T(g, 'Eп', { x: x + 110, y: base - 20, size: 24, fill: PE, font: MATH }); T(g, 'Eк', { x: x + 110, y: base - H + 26, size: 24, fill: KE, font: MATH });
+  return k => { pe.setAttribute('height', H * (1 - k)); pe.setAttribute('y', base - H * (1 - k)); ke.setAttribute('height', H * k); ke.setAttribute('y', base - H); };
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Работа и потенциальная энергия', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Силы и работа · Глава 13', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Работа и потенциальная энергия', { x: 800, y: 430, size: 76, weight: 600, anchor: 'middle' });
+    T(g, 'часть I', { x: 800, y: 500, size: 36, fill: COL.dim, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Почему энергия сохраняется — из законов Ньютона', 800, 590, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['fall', 'Падающее тело', (m, D) => {
+    const p = panel(0);
+    head(p, 'Падающее тело', .2);
+    const top = 170, bot = 650;
+    path(p, `M160 ${bot + 22}H460`, { stroke: COL.dim, 'stroke-width': 3 });
+    const b = ballEl(p, COL.chalk, 20, { x: 310, y: top });
+    const set = energyBar(p, 520, bot, 400, m('bars'));
+    prog(q => { const t = q * D, s = clamp01((t - m('bars') - .5) / 4), y = top + (bot - top) * s * s; put(b, { y }); set(s * s); }, 0, D, lin);
+    eq(p, '½ m v² + m g h = const', 860, 220, .4, { size: 36 });
+    eq(p, 'dT/dt = m v dv/dt = F v', 860, 330, m('rate'), { size: 34, fill: KE });
+    eq(p, 'F = −m g,  v = dh/dt', 860, 410, m('cancel'), { size: 32 });
+    eq(p, 'dT/dt = −d(m g h)/dt', 860, 490, m('cancel', 1.5), { size: 36, fill: COL.good });
+  }],
+
+  ['curve', 'Скольжение по кривой', (m, D) => {
+    const p = panel(0);
+    head(p, 'Скольжение без трения', .2);
+    const Y = x => 560 - 220 * Math.cos((x - 120) / 760 * Math.PI * 1.6) * Math.exp(-(x - 120) / 900);
+    let d = ''; for (let x = 120; x <= 1100; x += 6) d += (d ? 'L' : 'M') + x + ' ' + Y(x).toFixed(1);
+    path(p, d, { stroke: COL.chalk, 'stroke-width': 4 });
+    const H0 = Y(120);
+    path(p, `M100 ${H0}H1150`, { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '8 8' });
+    T(p, 'начальная высота', { x: 1150, y: H0 - 12, size: 22, fill: COL.good, anchor: 'end' });
+    const b = ballEl(p, COL.task, 16, { x: 120, y: H0 - 16 });
+    const fv = G(p);
+    const ts = m('slide');
+    let x = 122, v = 0; const xs = [];
+    for (let k = 0; k < 4000; k++) { const sl = (Y(x + 1) - Y(x - 1)) / 2, c = 1 / Math.sqrt(1 + sl * sl); v = Math.max(20, Math.sqrt(Math.max(0, 2 * 400 * (Y(x) - H0)))); x += v * c * .005; xs.push(x); if (x > 1090) break; }
+    prog(q => {
+      const t = q * D, k = Math.min(xs.length - 1, Math.max(0, Math.floor((t - ts) / .005 * .25))), xx = t < ts ? 120 : xs[k];
+      const sl = (Y(xx + 1) - Y(xx - 1)) / 2, n = Math.hypot(1, sl);
+      put(b, { x: xx + 16 * sl / n, y: Y(xx) - 16 / n });
+      fv.replaceChildren();
+      if (t > m('tangent')) { vec(fv, xx, Y(xx) - 30, xx, Y(xx) + 60, COL.dim, { w: 2, head: 9 }); const ft = 90 * sl / n; vec(fv, xx, Y(xx) - 30, xx + ft / n, Y(xx) - 30 + ft * sl / n, COL.bad, { w: 3, head: 11 }); }
+    }, 0, D, lin);
+    eq(p, 'Fₜ = −m g sin θ', 1180, 260, m('tangent', 1), { size: 30, fill: COL.bad });
+    eq(p, 'Fₜ · ds/dt = −m g dh/dt', 1180, 320, m('tangent', 2.5), { size: 28 });
+    txt(p, 'скорость внизу — только от высоты', 800, 720, m('same'), { size: 28, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1150, y: 380, w: 420, cls: 'side' }, [{
+    id: 'c-slide', prompt: ['Санки съезжают без трения с горки высотой 5 м (g = 10 м/с²). Какая скорость у подножия?'],
+    build: blanks([{ parts: ['v = ', { box: '10' }, ' м/с'], why: '½mv² = mgh ⇒ v = √(2gh) = √100 = 10 м/с.', hint: '½ v² = g h.' }]),
+  }], done) }],
+
+  ['work', 'Работа и мощность', (m) => {
+    const p = panel(0);
+    head(p, 'Работа и мощность', .2);
+    eq(p, 'dT/dt = F · v   — мощность', 120, 220, m('power'), { size: 36, fill: KE });
+    eq(p, 'dT = F · ds', 120, 300, m('dt'), { size: 36 });
+    eq(p, 'ΔT = ∫ F · ds   — работа', 120, 380, m('integral'), { size: 40, fill: COL.good });
+    const to = m('only');
+    const g = G(p, { o: 0 }); show(g, to);
+    let d = 'M900 600'; for (let k = 1; k <= 30; k++) d += `L${900 + k * 18} ${600 - 160 * Math.sin(k / 30 * 2.6)}`;
+    path(g, d, { stroke: COL.dim, 'stroke-width': 3 });
+    const P = [1170, 600 - 160 * Math.sin(15 / 30 * 2.6)];
+    vec(g, P[0], P[1], P[0] + 60, P[1] + 160, COL.bad, { w: 4 }); T(g, 'F', { x: P[0] + 70, y: P[1] + 160, size: 28, fill: COL.bad, font: MATH });
+    vec(g, P[0], P[1], P[0] + 110, P[1] - 30, COL.whole, { w: 3 }); T(g, 'ds', { x: P[0] + 116, y: P[1] - 34, size: 26, fill: COL.whole, font: MATH });
+    T(g, 'работает проекция F на ds', { x: 1150, y: 700, size: 24, fill: COL.dim, anchor: 'middle' });
+    const tu = m('units');
+    eq(p, '1 Дж = 1 Н·м,   1 Вт = 1 Дж/с', 120, 500, tu, { size: 30 });
+    eq(p, '1 кВт·ч = 1000 Вт · 3600 с = 3,6·10⁶ Дж', 120, 560, tu + 1.5, { size: 30, fill: COL.task });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 120, y: 620, w: 720, cls: 'side' }, [{
+    id: 'c-kwh', prompt: ['Лампа 100 Вт горела 10 часов. Сколько это киловатт-часов?'],
+    build: blanks([{ parts: [{ box: '1' }, ' кВт·ч'], why: '0,1 кВт · 10 ч = 1 кВт·ч = 3,6·10⁶ Дж.', hint: '100 Вт = 0,1 кВт.' }]),
+  }], done) }],
+
+  ['gravity', 'Работа тяготения', (m, D) => {
+    const p = panel(0);
+    head(p, 'Падение издалека', .2);
+    const M_ = [220, 400];
+    ballEl(p, '#3f7fb5', 70, { x: M_[0], y: M_[1] }); T(p, 'M', { x: M_[0], y: M_[1] + 10, size: 30, fill: COL.chalk, anchor: 'middle', font: MATH });
+    const tf = m('fall');
+    const b = ballEl(p, COL.task, 14, { x: 1400, y: M_[1], o: 0 }); show(b, tf);
+    const fv = G(p);
+    prog(q => { const t = q * D, s = smooth(tf, tf + 6, t) ** 2, x = 1400 - (1400 - 320) * s; put(b, { x }); fv.replaceChildren(); if (t > tf) { const r = (x - M_[0]) / 1180, F = Math.min(200, 12 / (r * r)); vec(fv, x - 16, M_[1], x - 16 - F, M_[1], COL.bad, { w: 3, head: 11 }); } }, 0, D, lin);
+    T(p, '1', { x: 1400, y: M_[1] + 46, size: 26, fill: COL.dim, anchor: 'middle', font: MATH }); T(p, '2', { x: 360, y: M_[1] + 46, size: 26, fill: COL.dim, anchor: 'middle', font: MATH });
+    txt(p, 'F = G M m / r² — растёт при сближении', 800, 300, tf + 1, { size: 26, fill: COL.bad, anchor: 'middle' });
+    eq(p, 'T₂ − T₁ = −∫ G M m dr/r² = G M m (1/r₂ − 1/r₁)', 800, 560, m('int'), { size: 32, anchor: 'middle' });
+    eq(p, 'U = −G M m / r', 800, 640, m('pe'), { size: 40, fill: PE, anchor: 'middle' });
+    eq(p, '½ m v² − G M m / r = const', 800, 700, m('pe', 1.5), { size: 34, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['loop', 'Замкнутый путь', (m, D) => {
+    const p = panel(0);
+    head(p, 'Работа по замкнутому пути', .2);
+    const M_ = [260, 620];
+    ballEl(p, '#3f7fb5', 22, { x: M_[0], y: M_[1] }); T(p, 'M', { x: M_[0], y: M_[1] + 50, size: 26, fill: COL.dim, anchor: 'middle', font: MATH });
+    const P = (r, a) => [M_[0] + r * Math.cos(a), M_[1] - r * Math.sin(a)];
+    const R = [700, 360, 480, 560, 700], A = [.55, .5, .32, .22, .12];
+    // 1 (r=700,a=.55) → 2 (r=360) radial in, arc to a=.5? Build: radial, arc, radial, arc ... back to start
+    const pts = [[700, .55], [360, .55], [360, .32], [480, .32], [480, .22], [560, .22], [560, .12], [700, .12], [700, .55]];
+    let d = ''; const segs = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [r1, a1] = pts[i], [r2, a2] = pts[i + 1], A1 = P(r1, a1), A2 = P(r2, a2);
+      if (r1 === r2) segs.push({ d: `M${A1[0]} ${A1[1]}A${r1} ${r1} 0 0 ${a2 < a1 ? 1 : 0} ${A2[0]} ${A2[1]}`, arc: true });
+      else segs.push({ d: `M${A1[0]} ${A1[1]}L${A2[0]} ${A2[1]}`, arc: false, sign: r2 < r1 ? 1 : -1 });
+    }
+    const tp = m('path'), ta = m('arcs'), tr = m('radial');
+    segs.forEach((s, i) => { const e = path(p, s.d, { stroke: COL.chalk, 'stroke-width': 4 }, { d: 0 }); draw(e, tp + i * .4, .4); s.e = e; });
+    segs.forEach(s => { if (s.arc) tw(s.e, { c_stroke: '#5d7068' }, ta, .5); else tw(s.e, { c_stroke: s.sign > 0 ? '#8fd6b0' : '#f08c7a', 'a_stroke-width': 7 }, tr, .5); });
+    pts.slice(0, -1).forEach(([r, a], i) => { const [x, y] = P(r, a); txt(p, String(i + 1), x + 10, y - 12, tp + i * .4, { size: 22, fill: COL.dim }); });
+    txt(p, 'по дуге: F ⟂ путь → работа 0', 1060, 240, ta, { size: 26, fill: COL.dim });
+    txt(p, 'к M: +работа', 1060, 300, tr, { size: 26, fill: COL.good });
+    txt(p, 'от M: −работа, ровно столько же', 1060, 340, tr + .4, { size: 26, fill: COL.bad });
+    eq(p, '∮ F · ds = 0', 1060, 440, tr + 2, { size: 48, fill: COL.task });
+    txt(p, 'любой плавный путь ≈ зазубрины', 1060, 520, m('smooth'), { size: 26 });
+    txt(p, 'вечного двигателя нет', 1060, 570, m('smooth', 2), { size: 28, fill: COL.good, weight: 600 });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1040, y: 600, w: 520, cls: 'side' }, [{
+    id: 'c-loop', prompt: ['Спутник сделал полный оборот по орбите. Какую работу совершило над ним тяготение?'],
+    build: choice([['ноль'], ['положительную'], ['отрицательную']], 0,
+      'Путь замкнут — работа тяготения равна нулю; спутник вернулся с той же скоростью.',
+      [null, 'Тогда спутник разгонялся бы с каждым оборотом — получился бы вечный двигатель.', 'Тогда спутник тормозил бы с каждым оборотом.']),
+  }], done) }],
+
+  ['spring', 'Энергия пружины', (m, D) => {
+    const p = panel(0);
+    head(p, 'Энергия пружины', .2);
+    const O = [160, 620], X = x => O[0] + x * 400, Y = f => O[1] - f * 300;
+    path(p, `M${O[0]} ${O[1] - 340}V${O[1]}H${O[0] + 460}`, { stroke: COL.dim, 'stroke-width': 2 });
+    T(p, 'x', { x: O[0] + 470, y: O[1] + 8, size: 26, fill: COL.dim, font: MATH }); T(p, '|F| = kx', { x: O[0] + 10, y: O[1] - 350, size: 24, fill: COL.dim, font: MATH });
+    const tp = m('pull');
+    draw(path(p, `M${O[0]} ${O[1]}L${X(1)} ${Y(1)}`, { stroke: COL.bad, 'stroke-width': 3 }, { d: 0 }), tp, 1);
+    const tri = path(p, `M${O[0]} ${O[1]}L${X(1)} ${Y(1)}V${O[1]}Z`, { fill: PE, opacity: .4 }); put(tri, { o: 0 }); show(tri, tp + 1.2);
+    eq(p, 'U = ½ k x²', X(.55), Y(.2), tp + 1.6, { size: 32, fill: PE, anchor: 'middle' });
+    const wall = 720;
+    path(p, `M${wall} 220V420`, { stroke: COL.dim, 'stroke-width': 6 });
+    const coil = path(p, '', { stroke: COL.chalk, 'stroke-width': 3 });
+    const m_ = G(p); mk('rect', { x: -36, y: -36, width: 72, height: 72, rx: 6, fill: COL.task }, m_);
+    const set = energyBar(p, 1300, 640, 300, m('osc'));
+    const to = m('osc');
+    prog(q => { const t = q * D, xx = t < to ? smooth(tp, tp + 1.5, t) : Math.cos(2 * (t - to)); const x = 1000 + 140 * xx;
+      let d = `M${wall} 320`; for (let k = 1; k <= 14; k++) d += `L${wall + (x - 36 - wall) * k / 14} ${320 + (k % 2 ? -16 : 16) * (k < 14 ? 1 : 0)}`; coil.setAttribute('d', d); put(m_, { x, y: 320 });
+      set(1 - xx * xx); }, 0, D, lin);
+    path(p, 'M1000 380V440', { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '4 4' });
+  }],
+
+  ['many', 'Много тел', (m) => {
+    const p = panel(0);
+    head(p, 'Энергия системы тел', .2);
+    eq(p, 'Σ ½ mᵢvᵢ² + Σ по парам (−G mᵢmⱼ / rᵢⱼ) = const', 800, 210, m('pairs'), { size: 34, anchor: 'middle' });
+    const pos = [[400, 560], [640, 380], [880, 600], [600, 680]];
+    const tb = m('build');
+    pos.forEach(([x, y], i) => {
+      const b = ballEl(p, [COL.task, COL.whole, COL.good, COL.rat][i], 24, { x: 1450, y: 300 + i * 80, o: 0 });
+      tw(b, { o: 1 }, tb + i * 2 - .3, .3); tw(b, { x, y }, tb + i * 2, 1.4);
+      for (let j = 0; j < i; j++) { const [x2, y2] = pos[j], e = path(p, `M${x} ${y}L${x2} ${y2}`, { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' }); put(e, { o: 0 }); show(e, tb + i * 2 + 1.4); }
+    });
+    txt(p, 'каждая новая связь — работа против уже стоящих тел', 800, 300, tb + 2, { size: 26, fill: COL.dim, anchor: 'middle' });
+    txt(p, 'W₁₃ + W₂₃: силы складываются — работы тоже', 1100, 720, tb + 5, { size: 24, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['plane', 'Поле плоскости', (m) => {
+    const p = panel(0);
+    head(p, 'Поле бесконечной плоскости', .2);
+    const ts = m('sheet'), Y0 = 560;
+    const sh = G(p, { o: 0 }); show(sh, ts);
+    mk('path', { d: `M100 ${Y0}L300 ${Y0 - 70}H1000L800 ${Y0}Z`, fill: 'rgba(134,201,232,.2)', stroke: COL.whole, 'stroke-width': 2 }, sh);
+    const P = [550, 280];
+    mk('circle', { cx: P[0], cy: P[1], r: 8, fill: COL.task }, sh); T(sh, 'P', { x: P[0] + 14, y: P[1] - 8, size: 26, fill: COL.task, font: MATH });
+    path(sh, `M${P[0]} ${P[1]}V${Y0 - 35}`, { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' }); T(sh, 'a', { x: P[0] + 10, y: (P[1] + Y0) / 2, size: 26, fill: COL.dim, font: MATH });
+    const tr = m('rings');
+    [60, 130, 210, 300].forEach((r, i) => { const e = mk('ellipse', { cx: P[0], cy: Y0 - 35, rx: r, ry: r * .2, fill: 'none', stroke: COL.int, 'stroke-width': 2 }, p); put(e, { o: 0 }); show(e, tr + i * .4);
+      const L = path(p, `M${P[0] + r} ${Y0 - 35}L${P[0]} ${P[1]}`, { stroke: COL.int, 'stroke-width': 1.5, opacity: .6 }); put(L, { o: 0 }); show(L, tr + i * .4); });
+    eq(p, 'C = 2πGμ', 1180, 250, m('result'), { size: 44, fill: COL.task });
+    txt(p, 'не зависит от a!', 1180, 310, m('result', 1), { size: 28, fill: COL.task });
+    const tc = m('cone');
+    const cn = G(p, { o: 0 }); show(cn, tc);
+    path(cn, `M${P[0]} ${P[1]}L${P[0] - 140} ${Y0 - 35}M${P[0]} ${P[1]}L${P[0] + 140} ${Y0 - 35}`, { stroke: COL.good, 'stroke-width': 3 });
+    txt(p, 'дальше — слабее, но в конус', 1180, 400, tc + .5, { size: 24, fill: COL.good });
+    txt(p, 'попадает больше вещества (∝ a²)', 1180, 435, tc + .5, { size: 24, fill: COL.good });
+    const tcap = m('capacitor');
+    const cp = G(p, { o: 0 }); show(cp, tcap);
+    path(cp, 'M1180 520V700M1340 520V700', { stroke: COL.chalk, 'stroke-width': 6 });
+    T(cp, '+σ', { x: 1180, y: 510, size: 24, fill: COL.bad, anchor: 'middle', font: MATH }); T(cp, '−σ', { x: 1340, y: 510, size: 24, fill: COL.whole, anchor: 'middle', font: MATH });
+    [560, 610, 660].forEach(y => vec(cp, 1195, y, 1325, y, COL.int, { w: 2.5, head: 10 }));
+    T(cp, 'E = σ/ε₀', { x: 1260, y: 730, size: 24, fill: COL.int, anchor: 'middle', font: MATH }); T(cp, '0', { x: 1120, y: 620, size: 26, fill: COL.dim, font: MATH, anchor: 'middle' }); T(cp, '0', { x: 1400, y: 620, size: 26, fill: COL.dim, font: MATH, anchor: 'middle' });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 620, w: 900, cls: 'side' }, [{
+    id: 'c-plane', prompt: ['Точку P отодвинули от бесконечной однородной плоскости вдвое дальше. Как изменилось поле?'],
+    build: choice([['не изменилось'], ['уменьшилось в 4 раза'], ['уменьшилось в 2 раза']], 0,
+      'Поле плоскости 2πGμ не зависит от расстояния: ослабление 1/a² компенсируется ростом «видимого» вещества.',
+      [null, '1/r² — для точки; у плоскости вещества в конусе больше ровно в a² раз.', 'Поле плоскости от расстояния не зависит вовсе.']),
+  }], done) }],
+
+  ['shell', 'Сферический слой', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сферический слой', .2);
+    const C = [480, 440], R = 220;
+    const ts = m('shell');
+    const sh = G(p, { o: 0 }); show(sh, ts);
+    mk('circle', { cx: C[0], cy: C[1], r: R, fill: 'none', stroke: COL.whole, 'stroke-width': 8 }, sh);
+    for (let k = -4; k <= 4; k++) { const x = C[0] + k * R / 5, h = Math.sqrt(R * R - (k * R / 5) ** 2); mk('ellipse', { cx: x, cy: C[1], rx: 10, ry: h, fill: 'none', stroke: COL.int, 'stroke-width': 1.5, opacity: .7 }, sh); }
+    const to = m('outside'), ti = m('inside');
+    const pt = ballEl(p, COL.task, 12, { x: 1050, y: C[1], o: 0 }); show(pt, to);
+    const fv = G(p, { o: 0 }); show(fv, to + .5); vec(fv, 1035, C[1], 935, C[1], COL.bad, { w: 4 });
+    const ghost = ballEl(p, COL.whole, 26, { x: C[0], y: C[1], o: 0 }); show(ghost, to + 1.5);
+    T(p, 'как будто вся масса в центре', { x: 1050, y: C[1] + 70, size: 24, fill: COL.whole, anchor: 'middle' });
+    put(p.lastChild, { o: 0 }); show(p.lastChild, to + 1.5);
+    eq(p, 'U = −G m m′ / R', 1050, 250, to + 2.5, { size: 34, fill: PE, anchor: 'middle' });
+    const pi = ballEl(p, COL.good, 12, { x: C[0] + 80, y: C[1] - 60, o: 0 }); show(pi, ti);
+    prog(q => { const t = q * D; if (t > ti) put(pi, { x: C[0] + 80 + 60 * Math.sin(t - ti), y: C[1] - 60 + 40 * Math.cos(1.3 * (t - ti)) }); }, 0, D, lin);
+    txt(p, 'внутри: U = const, силы нет', 1050, 620, ti + .5, { size: 30, fill: COL.good, anchor: 'middle', weight: 600 });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['ΔT = ∫ F · ds — работа; мощность F · v.', 'w1'],
+      ['U = mgh, −GMm/r, ½kx².', 'w2'],
+      ['∮ F · ds = 0 в поле тяготения.', 'w3'],
+      ['Шар — как точка; внутри слоя силы нет.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-lift', prompt: ['Кран поднял груз 200 кг на 15 м за 30 с (g = 10 м/с²). Какую работу он совершил?'],
+    build: blanks([{ parts: ['A = ', { box: '30000' }, ' Дж'], why: 'A = mgh = 200 · 10 · 15 = 30 000 Дж.', hint: 'A = mgh.' }]),
+  }, {
+    id: 'p-power', prompt: ['Та же работа за 30 с. Какова средняя мощность крана?'],
+    build: blanks([{ parts: ['P = ', { box: '1000' }, ' Вт'], why: '30 000 Дж / 30 с = 1000 Вт.', hint: 'Мощность — работа за секунду.' }]),
+  }, {
+    id: 'p-pend', prompt: ['Маятник отпустили с высоты 0,8 м над нижней точкой (g = 10 м/с²). Скорость в нижней точке?'],
+    build: blanks([{ parts: ['v = ', { box: '4' }, ' м/с'], why: 'v = √(2gh) = √16 = 4 м/с.', hint: '½v² = gh.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-spring', prompt: ['Пружину с k = 400 Н/м сжали на 0,1 м. Какая в ней запасена энергия?'],
+    build: blanks([{ parts: ['U = ', { box: '2' }, ' Дж'], why: '½ · 400 · 0,01 = 2 Дж.', hint: 'U = ½kx².' }]),
+  }, {
+    id: 'p-spring2', prompt: ['Сжатие той же пружины увеличили вдвое. Во сколько раз выросла энергия?'],
+    build: blanks([{ parts: ['в ', { box: '4' }, ' раза'], why: 'U ∝ x²: 2² = 4.', hint: 'U = ½kx².' }]),
+  }, {
+    id: 'p-inside', prompt: ['Внутри полого однородного шара (сферического слоя) сила тяготения…'],
+    build: choice([['равна нулю везде'], ['направлена к центру'], ['направлена наружу, к стенке']], 0,
+      'Потенциальная энергия внутри слоя всюду одинакова, значит, силы нет.',
+      [null, 'Притяжение близкой стенки ровно компенсируется притяжением более массивной дальней части.', 'Притяжения всех частей слоя в сумме дают ноль.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

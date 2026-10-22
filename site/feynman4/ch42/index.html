@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Применения кинетической теории</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 42, title: 'Применения кинетической теории', minutes: 10, language: 'ru', audio: false, next: '../ch43/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const ELEC = '#86c9e8';
+const electron = (p, x, y, o = 1) => { const e = G(p, { x, y, o }); mk('circle', { r: 7, fill: ELEC }, e); T(e, '−', { y: -10, size: 18, fill: ELEC, anchor: 'middle' }); return e; };
+// Reaction profile: two wells and a hump, x in [0, 1].
+const prof = x => .9 * Math.exp(-((x - .5) ** 2) / .012) - .35 * Math.exp(-((x - .2) ** 2) / .01) - .6 * Math.exp(-((x - .82) ** 2) / .01);
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Применения', (m, D) => introCard(m, D, 'Молекулы в движении', 42, 'Применения кинетической теории', 'Одна экспонента на все случаи')],
+
+  ['evap', 'Испарение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Испарение: два потока', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M140 160V680H840V160', { stroke: COL.chalk, 'stroke-width': 3, fill: 'none' });
+    path(g, 'M140 450H840', { stroke: WATER, 'stroke-width': 2, 'stroke-dasharray': '8 6' });
+    const liq = [];
+    for (let y = 480; y < 670; y += 34) for (let x = 165 + (y % 68 ? 17 : 0); x < 830; x += 34) liq.push({ el: atom(g, 'O', { x, y, s: .7 }), x0: x, y0: y, ph: x * .37 + y, w: 8 });
+    motion(liq, (a, t) => wobble(a, t, 3), 0, D);
+    const box = [160, 180, 820, 430], vap = gas(g, 8, box, 6, { el: 'O', s: .7, speed: [160, 260] });
+    vap.forEach(a => put(a.el, gasAt(a, 0, box))); motion(vap, (a, t) => gasAt(a, t, box), 0, D);
+    const i1 = G(p, { o: 0 }); show(i1, m('in')); vec(i1, 920, 300, 920, 430, COL.good); T(i1, 'прилипают ∝ n(пар)', { x: 950, y: 380, size: 26, fill: COL.good });
+    const o1 = G(p, { o: 0 }); show(o1, m('out')); vec(o1, 1000, 560, 1000, 460, COL.task); T(o1, 'вылетают ∝ e^{−W/kT}', { x: 1030, y: 520, size: 26, fill: COL.task });
+    subify(i1.lastChild); subify(o1.lastChild);
+    eq(p, 'n(пар) ∝ e^{−W/kT}', 920, 640, m('bal'), { size: 42, fill: COL.task });
+    txt(p, 'уходят быстрые — жидкость остывает', 920, 230, m('cool'), { size: 26, fill: WATER });
+  }],
+
+  ['thermion', 'Термоэмиссия', (m, D) => {
+    const p = panel(0);
+    head(p, 'Электроны из горячего металла', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M120 640H620V330H900', { stroke: COL.chalk, 'stroke-width': 3.5, fill: 'none' });
+    T(g, 'металл', { x: 370, y: 690, size: 24, fill: COL.dim, anchor: 'middle' });
+    T(g, 'вакуум', { x: 760, y: 690, size: 24, fill: COL.dim, anchor: 'middle' });
+    const R = rng(4), els = [];
+    for (let i = 0; i < 26; i++) els.push({ el: electron(g, 150 + R() * 440, 470 + R() * 150), x0: 0, y0: 0, ph: R() * 6, w: 6 + R() * 3 });
+    els.forEach(e => { e.x0 = st(e.el).x; e.y0 = st(e.el).y; });
+    motion(els, (a, t) => wobble(a, t, 6), 0, D);
+    const esc = electron(p, 560, 470, 0); show(esc, m('hot'));
+    prog(q => put(esc, kf(q * 3, [[0, 560, 470], [1, 610, 320], [3, 880, 300]])), m('hot'), 3);
+    const w = G(p, { o: 0 }); show(w, m('metal'));
+    vec(w, 650, 470, 650, 335, COL.task, { w: 3, head: 12 }); T(w, 'W', { x: 670, y: 420, size: 32, fill: COL.task, font: MATH });
+    eq(p, 'j ∝ e^{−W/kT}', 1000, 260, m('cur'), { size: 44, fill: COL.task });
+    eq(p, 'W ≈ 4 эВ,   kT ≈ 1/40 эВ', 1000, 340, m('cur', 3), { size: 30, fill: COL.dim });
+    axesP(p, 1000, 640, 460, 220, m('hot'), 'j', 'T');
+    draw(path(p, curve(T => Math.exp(-6 / T), 1000, 640, 115, 1100, 4, 120, .4), { stroke: COL.good, 'stroke-width': 3.5 }, { d: 0 }), m('hot', .3), 1.5);
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 900, y: 380, w: 660, cls: 'side' }, [{
+    id: 'c-therm', prompt: ['Катод нагрели: W/kT уменьшилось с 40 до 38. Во сколько раз вырос ток эмиссии?'],
+    build: choice([['в 1,05 раза'], ['в e² ≈ 7,4 раза'], ['в 2 раза']], 1, 'exp(−38)/exp(−40) = e².', ['Важна разность показателей, а не их отношение.', null, 'Показатель изменился на 2 — множитель e², а не 2.']),
+  }], done) }],
+
+  ['saha', 'Ионизация', (m) => {
+    const p = panel(0);
+    head(p, 'Тепловая ионизация', .2);
+    const box = (x0, w, n, ions, t0) => {
+      const g = G(p, { o: 0 }); show(g, t0);
+      path(g, `M${x0} 160H${x0 + w}V440H${x0}Z`, { stroke: COL.dim, 'stroke-width': 3, fill: 'none' });
+      const R = rng(x0);
+      for (let i = 0; i < n; i++) {
+        const x = x0 + 30 + R() * (w - 60), y = 190 + R() * 220;
+        if (i < ions) { atom(g, 'Na', { x, y, charge: '+' }); electron(g, x + 40 + R() * 40, y - 30 + R() * 60); }
+        else atom(g, 'C', { x, y, s: .9 });
+      }
+      return g;
+    };
+    box(120, 560, 26, 2, .2);
+    txt(p, 'плотный газ', 400, 480, .2, { size: 26, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'ионизация ∝ nₐ e^{−W/kT}', 200, 570, m('rate'), { size: 32 });
+    eq(p, 'рекомбинация ∝ nₑ nᵢ', 900, 570, m('rate', 4), { size: 32 });
+    eq(p, 'nₑ nᵢ / nₐ ∝ e^{−W/kT}', 800, 670, m('saha'), { size: 44, anchor: 'middle', fill: COL.task });
+    box(920, 560, 6, 3, m('dilute'));
+    txt(p, 'разреженный: доля ионов больше', 1200, 480, m('dilute'), { size: 26, fill: COL.good, anchor: 'middle' });
+    put(p.lastChild, {});
+  }],
+
+  ['chem', 'Реакции', (m, D) => {
+    const p = panel(0);
+    head(p, 'Химическая кинетика', .2);
+    const X = x => 200 + x * 1100, Y = u => 420 - u * 300;
+    let d = ''; for (let k = 0; k <= 200; k++) { const x = k / 200; d += (k ? 'L' : 'M') + X(x).toFixed(1) + ' ' + Y(prof(x)).toFixed(1); }
+    draw(path(p, d, { stroke: COL.chalk, 'stroke-width': 3.5 }, { d: 0 }), .2, 1);
+    T(p, 'исходные', { x: X(.2), y: Y(prof(.2)) + 60, size: 24, fill: COL.dim, anchor: 'middle' });
+    T(p, 'продукты', { x: X(.82), y: Y(prof(.82)) + 60, size: 24, fill: COL.dim, anchor: 'middle' });
+    const ball = atom(p, 'O', { s: .8 }), t0 = m('rate', 2);
+    prog(q => {
+      const t = q * D, x = t < t0 ? .2 + .1 * Math.sin(t * 3) * Math.min(1, t / 2) : .2 + .62 * smooth(t0, t0 + 2.5, t);
+      put(ball, { x: X(x), y: Y(prof(x)) - 20 });
+    }, 0, D, lin);
+    const a = G(p, { o: 0 }); show(a, m('path'));
+    path(a, `M${X(.2)} ${Y(prof(.2))}H${X(.5)}`, { stroke: COL.task, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    vec(a, X(.5), Y(prof(.2)), X(.5), Y(prof(.5)) + 6, COL.task, { w: 3, head: 12 });
+    T(a, 'A', { x: X(.5) + 16, y: (Y(prof(.2)) + Y(prof(.5))) / 2, size: 32, fill: COL.task, font: MATH });
+    eq(p, 'скорость ∝ e^{−A/kT}', 1300, 250, m('rate'), { size: 40, anchor: 'middle', fill: COL.task });
+    txt(p, 'равновесие — от разности уровней, не от горба', 1300, 320, m('eqm', 4), { size: 24, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 200, y: 150, w: 1200, cls: 'side' }, [{
+    id: 'c-saha', prompt: ['Верно или нет?'],
+    build: grid([
+      { parts: ['В более разреженном газе доля ионизованных атомов больше'], ans: ['y'], why: 'Рекомбинации нужна встреча двух частиц — в разреженном газе она реже.' },
+      { parts: ['Равновесные концентрации реакции зависят от высоты горба A'], ans: ['n'], why: 'Горб замедляет обе реакции одинаково; важна разность уровней.' },
+      { parts: ['Катализатор, понижая горб, ускоряет и прямую, и обратную реакцию'], ans: ['y'], why: 'Множитель e^(−A/kT) общий для обеих.' },
+    ], [['y', 'верно', COL.good, '1'], ['n', 'неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['einstein', 'Законы Эйнштейна', (m) => {
+    const p = panel(0);
+    head(p, 'Поглощение и излучение', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M140 260H700M140 560H700', { stroke: COL.chalk, 'stroke-width': 4 });
+    T(g, 'E₂', { x: 120, y: 268, size: 28, fill: COL.dim, anchor: 'end', font: MATH });
+    T(g, 'E₁', { x: 120, y: 568, size: 28, fill: COL.dim, anchor: 'end', font: MATH });
+    for (let i = 0; i < 9; i++) mk('circle', { cx: 170 + i * 60, cy: 545, r: 11, fill: COL.task }, g);
+    for (let i = 0; i < 3; i++) mk('circle', { cx: 170 + i * 60, cy: 245, r: 11, fill: COL.task }, g);
+    T(g, 'ħω', { x: 720, y: 420, size: 28, fill: COL.dim, font: MATH });
+    eq(p, 'N₂/N₁ = e^{−ħω/kT}', 820, 220, m('ratio'), { size: 36 });
+    const ab = G(p, { o: 0 }); show(ab, m('abs')); vec(ab, 420, 540, 420, 275, COL.good); T(ab, 'B·I', { x: 380, y: 420, size: 26, fill: COL.good, anchor: 'end', font: MATH });
+    const sp = G(p, { o: 0 }); show(sp, m('emit')); vec(sp, 520, 270, 520, 535, COL.bad); T(sp, 'A', { x: 540, y: 420, size: 26, fill: COL.bad, font: MATH });
+    const si = G(p, { o: 0 }); show(si, m('emit', 4)); vec(si, 620, 270, 620, 535, COL.task); T(si, 'B·I', { x: 640, y: 420, size: 26, fill: COL.task, font: MATH });
+    eq(p, 'N₁ B I = N₂ (A + B I)', 820, 330, m('planck'), { size: 36 });
+    eq(p, 'I = (A/B) / (e^{ħω/kT} − 1)', 820, 440, m('planck', 2), { size: 40, fill: COL.task });
+    txt(p, 'вынужденное излучение → лазер', 820, 530, m('planck', 5), { size: 28, fill: COL.good });
+  }],
+
+  ['q3', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-stim', prompt: ['Что такое вынужденное излучение?'],
+    build: choice([['атом наверху излучает под действием падающего света, с вероятностью ∝ I'], ['атом внизу поглощает свет'], ['атом наверху излучает сам по себе, без света']], 0, 'Это вклад B·I в переходы вниз.', [null, 'Это поглощение.', 'Это спонтанное излучение (A).']),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Барьер W — множитель e^{−W/kT}.', 'w1'], ['Пар, термоэмиссия, ионизация — баланс потоков.', 'w2'],
+      ['Реакции: скорость ∝ e^{−A/kT}.', 'w3'], ['Поглощение + два вида излучения → Планк.', 'w4']]);
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-react', prompt: ['При 300 К для реакции A/kT = 20. Примерно во сколько раз ускорится реакция при 315 К?'],
+    build: choice([['≈ в 1,05 раза'], ['≈ в 2,6 раза'], ['≈ в 20 раз']], 1, 'A/kT станет 20·300/315 ≈ 19,05; e^0,95 ≈ 2,6.', ['Экспонента усиливает малое изменение T.', null, 'Слишком много: показатель изменился меньше чем на 1.']),
+  }, {
+    id: 'p-saha', prompt: ['Газ: nₑ = nᵢ, а nₑnᵢ/nₐ = 1 (в условных единицах), nₐ = 100. Найдите nₑ.'],
+    build: blanks([{ parts: ['nₑ = ', { box: '10' }], why: 'nₑ² = 100 ⇒ nₑ = 10.', hint: 'nₑ² = nₐ · 1.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-levels', prompt: ['Два уровня, ħω = kT · ln 2. Какая доля N₂/N₁?'],
+    build: blanks([{ parts: ['N₂/N₁ = ', { box: '1/2' }], why: 'exp(−ln 2) = 1/2.', hint: 'N₂/N₁ = exp(−ħω/kT).' }]),
+  }, {
+    id: 'p-cool', prompt: ['Почему испарение охлаждает жидкость?'],
+    build: choice([['вылетают самые быстрые молекулы, средняя энергия оставшихся падает'], ['пар давит на жидкость'], ['испаряются самые медленные молекулы']], 0, 'Нужна энергия ≥ W — уходят молекулы с избытком энергии.', [null, 'Давление тут ни при чём.', 'Наоборот: медленным не хватает энергии W.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Резонанс</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 23, title: 'Резонанс', minutes: 14, language: 'ru', audio: false, next: '../ch24/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+const rho2 = (w, g) => 1 / ((1 - w * w) ** 2 + (g * w) ** 2);   // ω₀ = 1, m = 1
+const theta = (w, g) => -Math.atan2(g * w, 1 - w * w);
+function axes(p, x0, y0, w, h, t0, xl, yl) {
+  const g = G(p, { o: 0 }); show(g, t0);
+  path(g, `M${x0} ${y0 - h - 10}V${y0}H${x0 + w + 20}`, { stroke: COL.dim, 'stroke-width': 2 });
+  T(g, xl, { x: x0 + w + 20, y: y0 + 32, size: 24, fill: COL.dim, font: MATH, anchor: 'end' }); T(g, yl, { x: x0 + 10, y: y0 - h - 16, size: 24, fill: COL.dim, font: MATH });
+  return g;
+}
+// circuit symbols (horizontal, centred on (x, y))
+function cap(p, x, y, c) { path(p, `M${x - 40} ${y}H${x - 8}M${x - 8} ${y - 30}V${y + 30}M${x + 8} ${y - 30}V${y + 30}M${x + 8} ${y}H${x + 40}`, { stroke: c, 'stroke-width': 4 }); }
+function res(p, x, y, c) { let d = `M${x - 40} ${y}H${x - 30}`; for (let k = 0; k < 6; k++) d += `L${x - 25 + k * 10} ${y + (k % 2 ? 14 : -14)}`; path(p, d + `L${x + 30} ${y}H${x + 40}`, { stroke: c, 'stroke-width': 4 }); }
+function ind(p, x, y, c) { let d = `M${x - 40} ${y}H${x - 30}`; for (let k = 0; k < 4; k++) d += `a8 12 0 1 1 15 0`; path(p, d + `H${x + 40}`, { stroke: c, 'stroke-width': 4 }); }
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Резонанс', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Колебания · Глава 23', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Резонанс', { x: 800, y: 440, size: 96, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Комплексные числа превращают колебания в алгебру', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['trick', 'Комплексный трюк', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сила как вращающаяся стрелка', .2);
+    eq(p, 'F₀ cos ωt = Re (F₀ e^{iωt})', 900, 220, m('re'), { size: 36, fill: COL.task });
+    const C = [420, 420], R = 180, tr = m('rot');
+    const g = G(p, { o: 0 }); show(g, tr);
+    vec(g, C[0] - R - 40, C[1], C[0] + R + 40, C[1], COL.dim, { w: 2, head: 11 }); vec(g, C[0], C[1] + R + 30, C[0], C[1] - R - 30, COL.dim, { w: 2, head: 11 });
+    mk('circle', { cx: C[0], cy: C[1], r: R, fill: 'none', stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '6 6' }, g);
+    T(g, 'Re', { x: C[0] + R + 30, y: C[1] + 30, size: 22, fill: COL.dim }); T(g, 'Im', { x: C[0] + 12, y: C[1] - R - 20, size: 22, fill: COL.dim });
+    const arr = G(p), sh = mk('circle', { r: 10, fill: COL.task }, p), drop = path(p, '', { stroke: COL.dim, 'stroke-width': 1.5, 'stroke-dasharray': '4 6' });
+    put(sh, { o: 0 }); show(sh, tr);
+    prog(q => { const t = q * D, a = 1.2 * Math.max(0, t - tr), x = C[0] + R * Math.cos(a), y = C[1] - R * Math.sin(a);
+      arr.replaceChildren(); if (t > tr) vec(arr, C[0], C[1], x, y, COL.whole, { w: 4 }); sh.setAttribute('cx', x); sh.setAttribute('cy', C[1]); drop.setAttribute('d', t > tr ? `M${x} ${y}V${C[1]}` : ''); }, 0, D, lin);
+    eq(p, 'd/dt e^{iωt} = iω e^{iωt}', 900, 360, m('deriv'), { size: 36 });
+    txt(p, 'дифференцирование → умножение на iω', 900, 420, m('deriv', 1), { size: 28, fill: COL.good });
+  }],
+
+  ['solve', 'Решение', (m) => {
+    const p = panel(0);
+    head(p, 'Вынужденные колебания без трения', .2);
+    eq(p, 'd²x/dt² + ω₀² x = (F̂/m) e^{iωt}', 800, 240, .4, { size: 38, anchor: 'middle' });
+    eq(p, 'x = x̂ e^{iωt}:   (iω)² x̂ + ω₀² x̂ = F̂/m', 800, 340, m('sub_'), { size: 36, anchor: 'middle' });
+    eq(p, 'x̂ = F̂ / m(ω₀² − ω²)', 800, 470, m('alg'), { size: 52, anchor: 'middle', fill: COL.task });
+    txt(p, 'дифференциальное уравнение стало алгебраическим', 800, 560, m('alg', 1.5), { size: 28, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 300, y: 600, w: 1000, cls: 'side' }, [{
+    id: 'c-deriv', prompt: ['x = x̂ e^(iωt). Чем заменяется d³x/dt³?'],
+    build: choice([['(iω)³ x = −iω³ x'], ['ω³ x'], ['3iω x']], 0, 'Каждая производная — множитель iω: (iω)³ = i³ω³ = −iω³.', [null, 'Пропущены множители i.', 'Множители перемножаются, а не складываются.']),
+  }], done) }],
+
+  ['damped', 'С трением', (m) => {
+    const p = panel(0);
+    head(p, 'Вынужденные колебания с трением', .2);
+    eq(p, 'ẍ + γ ẋ + ω₀² x = F/m', 800, 240, m('eq'), { size: 40, anchor: 'middle' });
+    eq(p, 'x̂ = F̂ / m(ω₀² − ω² + iγω) = F̂ R', 800, 340, m('R'), { size: 40, anchor: 'middle', fill: COL.task });
+    eq(p, 'R = ρ e^{iθ}:   x = ρ F₀ cos(ωt + Δ + θ)', 800, 450, m('polar'), { size: 36, anchor: 'middle', fill: COL.good });
+    txt(p, 'ρ — усиление амплитуды, θ — отставание фазы', 800, 520, m('polar', 1.5), { size: 28, anchor: 'middle', fill: COL.dim });
+  }],
+
+  ['curve', 'Резонансная кривая', (m, D) => {
+    const p = panel(0);
+    head(p, 'Резонансная кривая и фаза', .2);
+    const g = .2, X = w => 140 + w * 300, Y = r => 440 - r * 11;
+    axes(p, 140, 440, 600, 300, m('peak') - .3, 'ω/ω₀', 'ρ²');
+    let d = ''; for (let w = 0; w <= 2; w += .005) d += (d ? 'L' : 'M') + X(w).toFixed(1) + ' ' + Y(Math.min(26, rho2(w, g))).toFixed(1);
+    draw(path(p, d, { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), m('peak'), 1.5);
+    const tw_ = m('width'), half = 1 / (g * g) / 2;
+    const wg = G(p, { o: 0 }); show(wg, tw_);
+    path(wg, `M${X(1 - g / 2)} ${Y(half)}H${X(1 + g / 2)}`, { stroke: COL.good, 'stroke-width': 3 });
+    vec(wg, X(1 - g / 2) - 50, Y(half), X(1 - g / 2) - 4, Y(half), COL.good, { w: 2, head: 9 }); vec(wg, X(1 + g / 2) + 50, Y(half), X(1 + g / 2) + 4, Y(half), COL.good, { w: 2, head: 9 });
+    T(wg, 'γ', { x: X(1 + g / 2) + 60, y: Y(half) + 8, size: 28, fill: COL.good, font: MATH });
+    eq(p, 'Q = ω₀ / γ', 1150, 200, m('q'), { size: 40, fill: COL.task, anchor: 'middle' });
+    const tp = m('phase');
+    axes(p, 140, 720, 600, 200, tp, 'ω/ω₀', 'θ');
+    let f = ''; for (let w = 0; w <= 2; w += .01) f += (f ? 'L' : 'M') + X(w).toFixed(1) + ' ' + (540 - theta(w, g) / Math.PI * 180).toFixed(1);
+    draw(path(p, f, { stroke: COL.whole, 'stroke-width': 3 }, { d: 0 }), tp + .3, 1.5);
+    [[0, '0°'], [-90, '−90°'], [-180, '−180°']].forEach(([a, s]) => txt(p, s, 128, 540 - a + 8, tp, { size: 20, fill: COL.dim, anchor: 'end', font: MATH }));
+    txt(p, 'фаза: 0 → −90° (в резонансе) → −180°', 1150, 600, tp + 1, { size: 26, fill: COL.whole, anchor: 'middle' });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 900, y: 260, w: 660, cls: 'side' }, [{
+    id: 'c-q', prompt: ['Резонанс на частоте 1000 Гц, ширина 2 Гц. Добротность Q?'],
+    build: blanks([{ parts: ['Q = ', { box: '500' }], why: 'Q = ω₀/γ = 1000/2 = 500.', hint: 'Q = ω₀/γ.' }]),
+  }], done) }],
+
+  ['circuit', 'Электрический резонанс', (m, D) => {
+    const p = panel(0);
+    head(p, 'Три элемента цепи', .2);
+    const tc = m('c'), tr = m('r'), tl = m('l');
+    const e1 = G(p, { o: 0 }), e2 = G(p, { o: 0 }), e3 = G(p, { o: 0 });
+    cap(e1, 300, 260, COL.whole); eq(e1, 'V = q/C', 420, 270, 0, { size: 32, fill: COL.whole }); show(e1, tc);
+    res(e2, 300, 380, COL.task); eq(e2, 'V = R dq/dt', 420, 390, 0, { size: 32, fill: COL.task }); show(e2, tr);
+    ind(e3, 300, 500, COL.good); eq(e3, 'V = L d²q/dt²', 420, 510, 0, { size: 32, fill: COL.good }); show(e3, tl);
+    const ts = m('sum');
+    const loop = G(p, { o: 0 }); show(loop, ts);
+    path(loop, 'M900 300H1000M1080 300H1180M1260 300H1400V560H900V300', { stroke: COL.dim, 'stroke-width': 3 });
+    ind(loop, 1040, 300, COL.good); res(loop, 1220, 300, COL.task); cap(loop, 1150, 560, COL.whole);
+    mk('circle', { cx: 900, cy: 430, r: 26, fill: COL.board, stroke: COL.int, 'stroke-width': 3 }, loop); path(loop, 'M886 430q7 -12 14 0t14 0', { stroke: COL.int, 'stroke-width': 2 });
+    T(loop, 'V(t)', { x: 860, y: 438, size: 22, fill: COL.int, anchor: 'end', font: MATH });
+    eq(p, 'L q̈ + R q̇ + q/C = V(t)', 1150, 660, ts + .5, { size: 36, fill: COL.chalk, anchor: 'middle' });
+  }],
+
+  ['table', 'Аналогии', (m) => {
+    const p = panel(0);
+    head(p, 'Механика ↔ электричество', .2);
+    const rows = [['смещение x', 'заряд q'], ['масса m', 'индуктивность L'], ['трение γm', 'сопротивление R'], ['жёсткость k', '1/C'], ['ω₀² = k/m', 'ω₀² = 1/LC'], ['Q = ω₀/γ', 'Q = ω₀L/R']];
+    rows.forEach(([a, b], i) => { const t0 = m('rows', i * .5) + (i >= 4 ? m('w0') - m('rows') - 2 : 0); eq(p, a, 600, 220 + i * 62, t0, { size: 32, anchor: 'end', fill: COL.whole }); txt(p, '↔', 800, 220 + i * 62, t0, { size: 30, anchor: 'middle', fill: COL.dim }); eq(p, b, 1000, 220 + i * 62, t0 + .2, { size: 32, fill: COL.task }); });
+    txt(p, 'радио: меняем C — подстраиваем ω₀ к станции', 800, 650, m('tune'), { size: 28, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 300, y: 620, w: 1000, cls: 'side' }, [{
+    id: 'c-lc', prompt: ['Ёмкость контура увеличили в 4 раза. Как изменилась резонансная частота?'],
+    build: blanks([{ parts: ['уменьшилась в ', { box: '2' }, ' раза'], why: 'ω₀ = 1/√(LC): √4 = 2.', hint: 'ω₀² = 1/LC.' }]),
+  }], done) }],
+
+  ['nature', 'Резонанс в природе', (m) => {
+    const p = panel(0);
+    head(p, 'Резонансы в природе', .2);
+    const mini = (x0, y0, t0, g, lab, c, dip = false) => {
+      const gg = G(p, { o: 0 }); show(gg, t0);
+      path(gg, `M${x0} ${y0 - 160}V${y0}H${x0 + 300}`, { stroke: COL.dim, 'stroke-width': 2 });
+      let d = ''; for (let w = .4; w <= 1.6; w += .005) { const r = Math.sqrt(rho2(w, g)) * g; d += (d ? 'L' : 'M') + (x0 + (w - .4) * 250).toFixed(1) + ' ' + (dip ? y0 - 150 + 140 * r : y0 - 140 * r).toFixed(1); }
+      path(gg, d, { stroke: c, 'stroke-width': 3 });
+      T(gg, lab, { x: x0 + 150, y: y0 + 34, size: 22, fill: c, anchor: 'middle' });
+    };
+    mini(140, 360, m('atm'), .25, 'атмосфера: период ≈ 10½ ч', COL.whole);
+    mini(560, 360, m('salt'), .08, 'NaCl: поглощение ИК', COL.task, true);
+    mini(980, 360, m('nucleus'), .1, 'ядра Li: выход γ-квантов', COL.good);
+    mini(560, 680, m('moss'), .008, 'Мёссбауэр: Q ≈ 10¹⁰', COL.rat, true);
+    txt(p, 'Кракатау, 1883', 290, 440, m('atm', 2), { size: 22, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['x = Re(x̂ e^{iωt}); d/dt → iω.', 'w1'],
+      ['x̂ = F̂ / m(ω₀² − ω² + iγω).', 'w2'],
+      ['Ширина пика γ, добротность Q = ω₀/γ.', 'w3'],
+      ['Контур LRC — тот же осциллятор.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      subify(T(g, str, { x: 260, size: 36, weight: 600 }));
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-res', prompt: ['В резонансе (ω = ω₀) на сколько градусов смещение отстаёт от силы?'],
+    build: blanks([{ parts: [{ box: '90' }, '°'], why: 'R = 1/(iγωm): множитель −i — отставание на 90°.', hint: 'Подставьте ω = ω₀ в знаменатель.' }]),
+  }, {
+    id: 'p-peak', prompt: ['Трение уменьшили вдвое. Как изменилась высота пика ρ² в резонансе?'],
+    build: blanks([{ parts: ['выросла в ', { box: '4' }, ' раза'], why: 'ρ² = 1/(m²γ²ω₀²) ∝ 1/γ².', hint: 'В резонансе ρ² = 1/(mγω₀)².' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-analog', prompt: ['Что в электрическом контуре играет роль массы?'],
+    build: choice([['индуктивность L'], ['сопротивление R'], ['ёмкость C']], 0, 'L умножает вторую производную заряда — как m умножает ускорение.', [null, 'R — аналог трения.', '1/C — аналог жёсткости.']),
+  }, {
+    id: 'p-lcw', prompt: ['L = 1 Гн, C = 1 мкФ. Найдите ω₀.'],
+    build: blanks([{ parts: ['ω₀ = ', { box: '1000' }, ' рад/с'], why: '1/√(1 · 10⁻⁶) = 1000.', hint: 'ω₀ = 1/√(LC).' }]),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

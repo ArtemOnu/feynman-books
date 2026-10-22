@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Закон сохранения импульса</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 10, title: 'Закон сохранения импульса', minutes: 14, language: 'ru', audio: false, next: '../ch11/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+// An air track at height y from x1 to x2.
+function track(p, x1, x2, y, t0 = .2) {
+  const g = G(p, { o: 0 }); show(g, t0);
+  mk('rect', { x: x1, y, width: x2 - x1, height: 18, rx: 4, fill: '#55665f', stroke: COL.dim, 'stroke-width': 2 }, g);
+  for (let x = x1 + 30; x < x2 - 20; x += 40) mk('circle', { cx: x, cy: y + 9, r: 2.5, fill: COL.board }, g);
+  return g;
+}
+// A cart of k unit masses, centred on its own origin, sitting on a track at y.
+function cart(p, k, y, colr = COL.whole, { x = 0, label } = {}) {
+  const g = G(p, { x, y: y - 26 }), w = 70 * k;
+  mk('rect', { x: -w / 2, y: -24, width: w, height: 48, rx: 6, fill: colr, stroke: COL.board, 'stroke-width': 2 }, g);
+  T(g, label || (k === 1 ? 'm' : k + 'm'), { y: 10, size: 26, fill: COL.board, anchor: 'middle', font: MATH, weight: 700 });
+  g._w = w;
+  return g;
+}
+// Piecewise-linear position: segs [[t0, x0, v], ...] — from t0 the cart moves from x0 at speed v (px/s).
+const pw = (t, segs) => { let s = segs[0]; for (const q of segs) if (t >= q[0]) s = q; return s[1] + s[2] * (t - s[0]); };
+// A labelled velocity arrow attached above a cart.
+function vlabel(p, colr) { const g = G(p); g._c = colr; return g; }
+function setV(g, x, y, v, lab, k = .45) {
+  g.replaceChildren();
+  if (Math.abs(v) < 1) { T(g, lab, { x, y, size: 24, fill: g._c, anchor: 'middle', font: MATH }); return; }
+  vec(g, x, y + 8, x + v * k, y + 8, g._c, { w: 3, head: 12 });
+  T(g, lab, { x: x + v * k / 2, y: y - 6, size: 24, fill: g._c, anchor: 'middle', font: MATH });
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Закон сохранения импульса', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Механика · Глава 10', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Закон сохранения импульса', { x: 800, y: 440, size: 80, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Когда подробности слишком сложны — общие законы', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['why', 'Зачем общие законы', (m, D) => {
+    const p = panel(0);
+    head(p, 'Не всё можно сосчитать', .2);
+    const cards = [['гармонический осциллятор', 'на бумаге: cos t', COL.good, 'simple'], ['планета вокруг Солнца', 'численно, шагами', COL.whole, 'simple'],
+      ['столкновение машин', 'ни так, ни этак', COL.bad, 'hard'], ['10¹⁷ молекул газа', 'ни так, ни этак', COL.bad, 'hard']];
+    cards.forEach(([a, b, c, mk_], i) => {
+      const g = G(p, { x: 230 + (i % 2) * 560, y: 230 + Math.floor(i / 2) * 170, o: 0 }); show(g, m(mk_, (i % 2) * .6));
+      mk('rect', { x: -120, y: -50, width: 500, height: 110, rx: 16, fill: 'rgba(10,16,14,.5)', stroke: c, 'stroke-width': 2.5 }, g);
+      T(g, a, { x: -96, y: -6, size: 28, fill: COL.chalk, weight: 600 }); T(g, b, { x: -96, y: 34, size: 24, fill: c });
+    });
+    const gas_ = G(p, { o: 0 }); show(gas_, m('hard', .6));
+    const box = [1260, 380, 1500, 510];
+    mk('rect', { x: box[0] - 6, y: box[1] - 6, width: 252, height: 142, fill: 'none', stroke: COL.dim }, gas_);
+    const it = gas(gas_, 24, box, 3, { s: .4, speed: [150, 300] }); motion(it, (q, t) => gasAt(q, t, box), 0, D);
+    eq(p, 'общие теоремы: энергия и импульс', 800, 640, m('general'), { size: 36, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['third', 'Третий закон', (m, D) => {
+    const p = panel(0);
+    head(p, 'Третий закон Ньютона', .2);
+    const tp = m('pair');
+    const A = G(p, { x: 500, y: 320, o: 0 }), B = G(p, { x: 760, y: 320, o: 0 });
+    mk('circle', { r: 36, fill: COL.whole }, A); T(A, '1', { y: 10, size: 30, fill: COL.board, anchor: 'middle', weight: 700 });
+    mk('circle', { r: 50, fill: COL.task }, B); T(B, '2', { y: 10, size: 30, fill: COL.board, anchor: 'middle', weight: 700 });
+    show(A, tp); show(B, tp);
+    const f = G(p, { o: 0 }); show(f, tp + .8);
+    vec(f, 540, 320, 640, 320, COL.bad, { w: 5 }); vec(f, 706, 320, 606, 320, COL.bad, { w: 5 });
+    T(f, 'F₁₂', { x: 600, y: 296, size: 26, fill: COL.bad, anchor: 'middle', font: MATH }); T(f, 'F₂₁ = −F₁₂', { x: 640, y: 380, size: 26, fill: COL.bad, anchor: 'middle', font: MATH });
+    tw(A, { x: 380 }, tp + 2, 3, out); tw(B, { x: 840 }, tp + 2, 3, out);
+    hide(f, tp + 1.8, .4);
+    eq(p, 'dp₁/dt = −dp₂/dt', 1000, 260, m('rates'), { size: 38 });
+    eq(p, 'd(p₁ + p₂)/dt = 0', 1000, 340, m('sum'), { size: 38, fill: COL.task });
+    eq(p, 'm₁v₁ + m₂v₂ = const', 1000, 430, m('sum', 1.2), { size: 42, fill: COL.good });
+    // momentum bars
+    const bars = G(p, { o: 0 }); show(bars, m('rates'));
+    const b1 = mk('rect', { x: 600, y: 520, width: 0, height: 34, fill: COL.whole }, bars), b2 = mk('rect', { x: 600, y: 570, width: 0, height: 34, fill: COL.task }, bars);
+    path(bars, 'M600 505V620', { stroke: COL.dim, 'stroke-width': 2 });
+    T(bars, 'p₁', { x: 616, y: 546, size: 24, fill: COL.whole, font: MATH }); T(bars, 'p₂', { x: 584, y: 596, size: 24, fill: COL.task, anchor: 'end', font: MATH });
+    const tot = T(bars, '', { x: 600, y: 660, size: 26, fill: COL.good, anchor: 'middle', font: MATH });
+    prog(q => { const t = q * D, s = smooth(tp + 2, tp + 3.5, t) * 200; b1.setAttribute('x', 600 - s); b1.setAttribute('width', s); b2.setAttribute('width', s); tot.textContent = t > tp + 2 ? 'p₁ + p₂ = 0 — всё время' : ''; }, 0, D, lin);
+  }],
+
+  ['many', 'Много частиц', (m, D) => {
+    const p = panel(0);
+    head(p, 'Система частиц', .2);
+    const R = rng(8), pts = Array.from({ length: 7 }, () => [500 + R() * 400, 260 + R() * 300]);
+    const ti = m('internal');
+    const lines = G(p, { o: 0 }); show(lines, ti);
+    for (let i = 0; i < 7; i++) for (let j = i + 1; j < 7; j++) if (R() < .45) {
+      const [a, b] = [pts[i], pts[j]], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
+      vec(lines, a[0] + ux * 20, a[1] + uy * 20, a[0] + ux * 60, a[1] + uy * 60, COL.bad, { w: 2, head: 9 });
+      vec(lines, b[0] - ux * 20, b[1] - uy * 20, b[0] - ux * 60, b[1] - uy * 60, COL.bad, { w: 2, head: 9 });
+    }
+    pts.forEach(([x, y], i) => { const g = G(p, { x, y }); mk('circle', { r: 14, fill: [COL.whole, COL.task, COL.good, COL.rat][i % 4] }, g); });
+    mk('ellipse', { cx: 700, cy: 410, rx: 300, ry: 220, fill: 'none', stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '8 8' }, p);
+    txt(p, 'внутренние силы попарно гасятся', 700, 680, ti + 1, { size: 26, fill: COL.bad, anchor: 'middle' });
+    eq(p, 'Σ mᵢvᵢ = const', 1250, 300, ti + 2, { size: 40, fill: COL.good, anchor: 'middle' });
+    const te = m('external');
+    const ex = G(p, { o: 0 }); show(ex, te);
+    vec(ex, 1080, 500, 1000, 470, COL.int, { w: 5 }); T(ex, 'внешняя сила', { x: 1090, y: 520, size: 24, fill: COL.int });
+    txt(p, 'меняет полный импульс только она', 1250, 580, te + .5, { size: 24, fill: COL.int, anchor: 'middle' });
+    eq(p, 'по каждой оси: x, y, z', 1250, 380, te + 2, { size: 30, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 200, y: 140, w: 1200, cls: 'side' }, [{
+    id: 'c-third', prompt: ['Грузовик и муха сталкиваются на дороге. Чья сила, действующая на другого, больше?'],
+    build: choice([['силы равны по величине'], ['сила грузовика больше'], ['сила мухи больше']], 0,
+      'По третьему закону силы равны и противоположны. Ускорения разные — потому что массы разные.',
+      [null, 'Грузовик действует на муху с той же силой, что муха на грузовик; различаются ускорения.', 'Силы равны; муха лишь получает огромное ускорение.']),
+  }], done) }],
+
+  ['relativity', 'Принцип относительности', (m, D) => {
+    const p = panel(0);
+    head(p, 'Принцип относительности Галилея', .2);
+    const pl = G(p, { x: 300, y: 380, o: 0 }); show(pl, .3);
+    path(pl, 'M0 0H700Q780 0 800 40Q780 80 700 80H0L-60 40Z', { fill: 'rgba(236,232,220,.08)', stroke: COL.chalk, 'stroke-width': 3 });
+    path(pl, 'M300 0L380 -100H460L420 0M300 80L380 180H460L420 80', { fill: 'rgba(236,232,220,.06)', stroke: COL.chalk, 'stroke-width': 2 });
+    const kid = G(pl, { x: 380, y: 60 }); mk('circle', { cy: -40, r: 9, fill: COL.chalk }, kid); path(kid, 'M0 -30V0M0 -20L14 -28', { stroke: COL.chalk, 'stroke-width': 3 });
+    const ball = mk('circle', { r: 7, fill: COL.task }, pl);
+    prog(q => { const t = q * D; put(pl, { x: 300 + 40 * Math.sin(t * .3) }); const ph = (t % 1.2) / 1.2; ball.setAttribute('cx', 410); ball.setAttribute('cy', 70 - 50 * 4 * ph * (1 - ph)); }, 0, D, lin);
+    vec(p, 1200, 360, 1420, 360, COL.dim, { w: 3 }); T(p, 'v = const', { x: 1310, y: 340, size: 26, fill: COL.dim, anchor: 'middle', font: MATH });
+    txt(p, 'мячик прыгает так же, как на земле', 800, 650, m('plane', 1), { size: 30, anchor: 'middle' });
+  }],
+
+  ['track', 'Воздушный жёлоб', (m, D) => {
+    const p = panel(0);
+    head(p, 'Опыты на воздушном жёлобе', .2);
+    const Y = 360, L = 160, Rr = 1440;
+    track(p, L, Rr, Y);
+    path(p, `M${L} ${Y - 70}v70M${Rr} ${Y - 70}v70`, { stroke: COL.chalk, 'stroke-width': 6 });
+    const a = cart(p, 1, Y, COL.whole), b = cart(p, 1, Y, COL.task);
+    const tb = m('blast'), ts = m('stick'), v = 220;
+    const va = vlabel(p, COL.whole), vb = vlabel(p, COL.task);
+    const spark = G(p, { x: 800, y: Y - 26, o: 0 }); for (let k = 0; k < 8; k++) path(spark, `M0 0L${40 * Math.cos(k * .785)} ${40 * Math.sin(k * .785)}`, { stroke: COL.int, 'stroke-width': 3 });
+    tw(spark, { o: 1 }, tb, .1); tw(spark, { o: 0 }, tb + .3, .4);
+    const hit = (Rr - 35 - 835) / v;   // time to reach the end
+    prog(q => {
+      const t = q * D;
+      let xa, xb;
+      if (t < ts) {   // explode, bounce off the ends, meet in the middle and stick
+        const s = Math.max(0, t - tb);
+        const d = s < hit ? v * s : Math.max(0, v * hit - v * (s - hit));
+        xa = 765 - d; xb = 835 + d;
+        const moving = s > 0 && s < 2 * hit;
+        setV(va, xa, Y - 80, moving ? (s < hit ? -v : v) : 0, moving ? 'v' : '0'); setV(vb, xb, Y - 80, moving ? (s < hit ? v : -v) : 0, moving ? 'v' : '0');
+      } else { xa = 765; xb = 835; setV(va, xa, Y - 80, 0, ''); setV(vb, xb, Y - 80, 0, 'v = 0'); }
+      put(a, { x: xa }); put(b, { x: xb });
+    }, 0, D, lin);
+    txt(p, 'равные массы — равные скорости', 800, 480, m('sym'), { size: 30, anchor: 'middle', fill: COL.chalk });
+    txt(p, 'так и определяем: массы равны, если скорости разлёта равны', 800, 530, m('mass'), { size: 26, anchor: 'middle', fill: COL.dim });
+    txt(p, 'встретились и слиплись → остановились', 800, 600, ts + 1.5, { size: 28, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['car', 'Взгляд из автомобиля', (m, D) => {
+    const p = panel(0);
+    head(p, 'Тот же опыт — из движущегося автомобиля', .2);
+    const tr = m('ride'), tsn = m('seen'), v = 160;
+    const Y1 = 290, Y2 = 590;
+    txt(p, 'в системе центра масс', 160, Y1 - 120, .3, { size: 24, fill: COL.dim });
+    track(p, 160, 1440, Y1);
+    const a1 = cart(p, 1, Y1, COL.whole), b1 = cart(p, 1, Y1, COL.task), va1 = vlabel(p, COL.whole), vb1 = vlabel(p, COL.task);
+    txt(p, 'из машины, едущей влево со скоростью v', 160, Y2 - 120, tsn, { size: 24, fill: COL.int });
+    const tr2 = track(p, 160, 1440, Y2, tsn);
+    const a2 = cart(p, 1, Y2, COL.whole), b2 = cart(p, 1, Y2, COL.task), va2 = vlabel(p, COL.whole), vb2 = vlabel(p, COL.task);
+    [a2, b2].forEach(e => { put(e, { o: 0 }); show(e, tsn); });
+    const car = G(p, { o: 0 }); show(car, tr);
+    mk('rect', { x: -40, y: -20, width: 80, height: 28, rx: 8, fill: COL.int }, car); mk('circle', { cx: -22, cy: 10, r: 8, fill: COL.dim }, car); mk('circle', { cx: 22, cy: 10, r: 8, fill: COL.dim }, car);
+    const T0 = tsn + 1, Tc = 2;   // collision after Tc seconds
+    prog(q => {
+      const t = q * D, s = Math.max(0, t - T0), hitd = s >= Tc;
+      // centre-of-mass frame
+      const xa = hitd ? 765 : 765 - v * Tc + v * s, xb = hitd ? 835 : 835 + v * Tc - v * s;
+      put(a1, { x: xa }); put(b1, { x: xb }); setV(va1, xa, Y1 - 80, hitd ? 0 : v, hitd ? '0' : 'v'); setV(vb1, xb, Y1 - 80, hitd ? 0 : -v, hitd ? '' : '−v');
+      // car frame: everything shifted by +v·s (car moves left at v)
+      const sh = v * (s - Tc);
+      const xa2 = Math.min(1330, xa + sh), xb2 = Math.min(1400, xb + sh);
+      put(a2, { x: xa2 }); put(b2, { x: xb2 });
+      setV(va2, xa2, Y2 - 80, hitd ? v : 2 * v, hitd ? 'v' : '2v'); setV(vb2, xb2, Y2 - 80, hitd ? v : 0, hitd ? '' : '0');
+      put(car, { x: 1380, y: Y2 - 140, o: t > tr ? 1 : 0 });
+    }, 0, D, lin);
+    eq(p, 'm · 2v + m · 0 = 2m · v', 800, 760 - 40, m('result'), { size: 36, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 150, w: 1000, cls: 'side' }, [{
+    id: 'c-stick', prompt: ['Брусок массой m со скоростью 6 м/с ударяет покоящийся такой же брусок и слипается с ним. Какова скорость пары?'],
+    build: blanks([{ parts: ['v = ', { box: '3' }, ' м/с'], why: 'm·6 = 2m·v ⇒ v = 3 м/с.', hint: 'Импульс до удара равен импульсу после.' }]),
+  }], done) }],
+
+  ['masses', 'Разные массы', (m, D) => {
+    const p = panel(0);
+    head(p, 'Разные массы', .2);
+    const Y1 = 300, Y2 = 590, v = 200;
+    track(p, 160, 1440, Y1); track(p, 160, 1440, Y2);
+    const tt = m('two');
+    const a = cart(p, 1, Y1, COL.whole), b = cart(p, 2, Y1, COL.task), va = vlabel(p, COL.whole), vb = vlabel(p, COL.task);
+    const tth = m('three');
+    const c = cart(p, 1, Y2, COL.whole), d = cart(p, 2, Y2, COL.task), vc = vlabel(p, COL.whole), vd = vlabel(p, COL.task);
+    [c, d].forEach(e => { put(e, { o: 0 }); show(e, tth); });
+    prog(q => {
+      const t = q * D, s = Math.max(0, Math.min(2.6, t - tt - .5));
+      put(a, { x: 700 - v * s }); put(b, { x: 805 + v / 2 * s });
+      setV(va, 700 - v * s, Y1 - 80, s > 0 ? -v : 0, s > 0 ? 'v' : ''); setV(vb, 805 + v / 2 * s, Y1 - 80, s > 0 ? v / 2 : 0, s > 0 ? 'v/2' : '');
+      const u = Math.max(0, t - tth - .5), Tc = 2.4, hit = u >= Tc;
+      const xc = hit ? 700 + v / 3 * (u - Tc) : 220 + v * u, xd = hit ? 805 + v / 3 * (u - Tc) : 805;
+      put(c, { x: Math.min(xc, 1200) }); put(d, { x: Math.min(xd, 1305) });
+      setV(vc, Math.min(xc, 1200), Y2 - 80, hit ? 0 : v, hit ? '' : 'v'); setV(vd, Math.min(xd, 1305), Y2 - 80, hit ? v / 3 : 0, hit ? 'v/3' : '0');
+    }, 0, D, lin);
+    eq(p, '0 = m·(−v) + 2m·(v/2)', 800, 420, tt + 2, { size: 30, anchor: 'middle', fill: COL.good });
+    eq(p, 'm·v + 0 = 3m·(v/3)', 800, 710, tth + 3.5, { size: 30, anchor: 'middle', fill: COL.good });
+    txt(p, 'Σ m·v до = Σ m·v после — для любых масс', 800, 150, m('rule'), { size: 30, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['elastic', 'Упругий удар', (m, D) => {
+    const p = panel(0);
+    head(p, 'Упругие соударения', .2);
+    const Y = 330, ts = m('squeeze'), tb = m('bounce'), tsw = m('swap');
+    const A = G(p, { y: Y }), B = G(p, { y: Y });
+    const ea = mk('ellipse', { rx: 50, ry: 50, fill: COL.whole }, A), eb = mk('ellipse', { rx: 50, ry: 50, fill: COL.task }, B);
+    const kin = mk('rect', { x: 1200, y: 600, width: 60, height: 0, fill: COL.task }, p), spr = mk('rect', { x: 1300, y: 600, width: 60, height: 0, fill: COL.good }, p);
+    T(p, 'Eк', { x: 1230, y: 640, size: 24, fill: COL.task, anchor: 'middle', font: MATH }); T(p, 'сжатие', { x: 1330, y: 640, size: 22, fill: COL.good, anchor: 'middle' });
+    const C = G(p, { y: 620 }), Dd = G(p, { y: 620 });
+    mk('circle', { r: 36, fill: COL.whole }, C); mk('circle', { r: 36, fill: COL.task }, Dd); put(C, { o: 0 }); put(Dd, { o: 0 }); show(C, tsw); show(Dd, tsw);
+    track(p, 160, 1100, 656, tsw);
+    prog(q => {
+      const t = q * D, v = 220;
+      // symmetric approach: contact at tc, squeeze 0.8 s, then apart
+      const tc = ts + 2.2, sq = 1.0;
+      let d, k = 0, kin_ = 1;
+      if (t < tc) d = 100 + v * (tc - t); else if (t < tc + sq) { const f = (t - tc) / sq; k = Math.sin(Math.PI * f); d = 100 - 30 * k; kin_ = 1 - k; } else d = 100 + v * (t - tc - sq);
+      if (t < ts) d = 100 + v * 2.2;
+      d = Math.min(d, 640);
+      put(A, { x: 800 - d / 2 - 0 }); put(B, { x: 800 + d / 2 });
+      ea.setAttribute('rx', 50 - 15 * k); eb.setAttribute('rx', 50 - 15 * k); ea.setAttribute('ry', 50 + 8 * k); eb.setAttribute('ry', 50 + 8 * k);
+      put(A, { x: 750 - d / 2 + 50 }); put(B, { x: 850 + d / 2 - 50 });
+      kin.setAttribute('height', 120 * kin_); kin.setAttribute('y', 600 - 120 * kin_); spr.setAttribute('height', 120 * (1 - kin_)); spr.setAttribute('y', 600 - 120 * (1 - kin_));
+      // swap: moving ball hits a resting one and stops
+      const s = Math.max(0, t - tsw - .3), hitT = (700 - 72 - 250) / v;
+      put(C, { x: s < hitT ? 250 + v * s : 700 - 72 }); put(Dd, { x: s < hitT ? 700 : Math.min(1060, 700 + v * (s - hitT)) });
+    }, 0, D, lin);
+    txt(p, 'вся энергия вернулась — удар упругий', 800, 470, tb + 1, { size: 28, anchor: 'middle', fill: COL.good });
+    txt(p, 'равные массы обмениваются скоростями', 640, 740 - 20, tsw + 2.5, { size: 28, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1060, y: 400, w: 500, cls: 'side' }, [{
+    id: 'c-elastic', prompt: ['Шар со скоростью 5 м/с упруго ударяет такой же покоящийся шар (лоб в лоб). Что будет?'],
+    build: choice([['первый остановится, второй полетит со скоростью 5 м/с'], ['оба полетят со скоростью 2,5 м/с'], ['первый отскочит назад со скоростью 5 м/с']], 0,
+      'Равные массы при упругом ударе обмениваются скоростями: сохраняются и импульс, и кинетическая энергия.',
+      [null, 'Так было бы при слипании — тогда часть энергии уходит в тепло.', 'Тогда импульс не сохранился бы: был +5m, стал бы −5m + ….']),
+  }], done) }],
+
+  ['rocket', 'Ракета', (m, D) => {
+    const p = panel(0);
+    head(p, 'Ракета и отдача', .2);
+    const tg = m('gas'), tr = m('recoil');
+    const rk = G(p, { x: 700, y: 380 });
+    path(rk, 'M-120 -40H80L150 0L80 40H-120Z', { fill: COL.chalk, stroke: COL.dim, 'stroke-width': 2 });
+    path(rk, 'M-120 -40L-160 -70V-30ZM-120 40L-160 70V30Z', { fill: COL.bad });
+    T(rk, 'M', { x: -10, y: 12, size: 34, fill: COL.board, anchor: 'middle', font: MATH, weight: 700 });
+    const R = rng(4), puffs = Array.from({ length: 30 }, () => ({ el: put(mk('circle', { r: 7 + R() * 7, fill: COL.task, opacity: .7 }, p), { o: 0 }), t0: tg + R() * 6, dy: (R() - .5) * 60 }));
+    prog(q => {
+      const t = q * D, s = Math.max(0, t - tr), x = 700 + 14 * s * s;
+      put(rk, { x: Math.min(x, 1300) });
+      puffs.forEach(pf => { const u = t - pf.t0; put(pf.el, { x: Math.min(x, 1300) - 170 - 420 * Math.max(0, u), y: 380 + pf.dy * Math.max(0, u), o: u > 0 && u < 1.2 ? 1 - u / 1.2 : 0 }); });
+    }, 0, D, lin);
+    eq(p, 'газ m со скоростью V ←', 160, 560, tg + 1, { size: 30, fill: COL.task });
+    eq(p, '0 = M·v − m·V', 160, 640, tr, { size: 36 });
+    eq(p, 'v = (m/M)·V', 160, 710, tr + 1, { size: 42, fill: COL.good });
+    txt(p, 'воздух не нужен — это отдача, как у ружья', 900, 640, tr + 2.5, { size: 26, fill: COL.dim });
+  }],
+
+  ['relmom', 'Импульс в новой физике', (m) => {
+    const p = panel(0);
+    head(p, 'Импульс в теории относительности и поле', .2);
+    eq(p, 'p = m₀v / √(1 − v²/c²)', 800, 200, .4, { size: 44, fill: COL.task, anchor: 'middle' });
+    const th = m('hidden');
+    const tb = G(p, { x: 330, y: 420, o: 0 }); show(tb, th);
+    mk('rect', { x: -130, y: -90, width: 260, height: 180, rx: 12, fill: 'rgba(10,16,14,.5)', stroke: COL.dim, 'stroke-width': 2 }, tb);
+    const Rg = rng(9);
+    for (let k = 0; k < 14; k++) { const x = (Rg() - .5) * 200, y = (Rg() - .5) * 130, a = Rg() * 6.28; vec(tb, x, y, x + 28 * Math.cos(a), y + 28 * Math.sin(a), COL.bad, { w: 2, head: 8 }); }
+    T(tb, 'тепло: Σ v ≈ 0', { y: 130, size: 24, fill: COL.bad, anchor: 'middle', font: MATH });
+    const tf = m('field');
+    const fg = G(p, { o: 0 }); show(fg, tf);
+    mk('circle', { cx: 700, cy: 420, r: 22, fill: COL.bad }, fg); mk('circle', { cx: 1100, cy: 420, r: 22, fill: COL.whole }, fg);
+    for (let k = 0; k < 4; k++) { const e = path(fg, `M${740 + k * 80} 400q20 20 0 40`, { stroke: COL.int, 'stroke-width': 3 }); put(e, { o: 0 }); show(e, tf + 1 + k * .4, .2); }
+    T(fg, 'импульс хранит поле', { x: 900, y: 500, size: 24, fill: COL.int, anchor: 'middle' });
+    const tl = m('light');
+    const lg = G(p, { o: 0 }); show(lg, tl);
+    for (let k = 0; k < 3; k++) vec(lg, 1260, 600 + k * 30, 1420, 600 + k * 30, COL.int, { w: 2, head: 10 });
+    mk('rect', { x: 1430, y: 580, width: 20, height: 100, fill: COL.dim }, lg);
+    T(lg, 'свет давит', { x: 1350, y: 570, size: 24, fill: COL.int, anchor: 'middle' });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Действие равно противодействию.', 'w1'],
+      ['Без внешних сил Σ m·v не меняется.', 'w2'],
+      ['Тот же закон — из относительности и симметрии.', 'w3'],
+      ['Упругий удар: равные массы меняются скоростями.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-stick3', prompt: ['Тело 2 кг со скоростью 9 м/с налетает на покоящееся тело 1 кг и слипается с ним. Скорость после удара?'],
+    build: blanks([{ parts: ['v = ', { box: '6' }, ' м/с'], why: '2·9 = 3·v ⇒ v = 6 м/с.', hint: 'Импульс до = импульс после; масса после — 3 кг.' }]),
+  }, {
+    id: 'p-head', prompt: ['Два одинаковых бруска летят навстречу: один 4 м/с вправо, другой 2 м/с влево. Слипаются. Скорость пары?'],
+    build: blanks([{ parts: ['v = ', { box: '1' }, ' м/с вправо'], why: 'm·4 + m·(−2) = 2m·v ⇒ v = 1 м/с.', hint: 'Скорость влево берите со знаком минус.' }]),
+  }, {
+    id: 'p-energy', prompt: ['При слипании (неупругий удар) кинетическая энергия…'],
+    build: choice([['частично переходит в тепло'], ['сохраняется полностью'], ['увеличивается']], 0,
+      'Пример: m при v → 2m при v/2. Было mv²/2, стало mv²/4 — половина ушла в тепло и деформацию.',
+      [null, 'Сохраняется импульс; кинетическая энергия — только при упругом ударе.', 'Энергия не может появиться из ничего.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-gun', prompt: ['Ружьё 4 кг стреляет пулей 10 г со скоростью 800 м/с. С какой скоростью отдаёт ружьё?'],
+    build: blanks([{ parts: ['v = ', { box: '2' }, ' м/с'], why: '0,01 · 800 = 4 · v ⇒ v = 2 м/с.', hint: 'Полный импульс до выстрела равен нулю.' }]),
+  }, {
+    id: 'p-rocket', prompt: ['Ракета 1000 кг выбросила разом 10 кг газа со скоростью 2000 м/с. Какую скорость получила ракета? (Изменением массы ракеты пренебречь.)'],
+    build: blanks([{ parts: ['v = ', { box: '20' }, ' м/с'], why: 'v = (m/M)·V = 10/1000 · 2000 = 20 м/с.', hint: 'v = (m/M)·V.' }]),
+  }, {
+    id: 'p-skater', prompt: ['Конькобежец на гладком льду бросает вперёд тяжёлый мяч. Что с ним произойдёт?'],
+    build: choice([['покатится назад'], ['останется на месте'], ['покатится вперёд за мячом']], 0,
+      'Импульс системы был нулём; мяч получил импульс вперёд — конькобежец такой же назад.',
+      [null, 'Без трения ничто не держит его на месте — сработает отдача.', 'Тогда импульс системы стал бы больше нуля без внешних сил.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

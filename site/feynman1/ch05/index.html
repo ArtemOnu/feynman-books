@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Время и расстояние</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 5, title: 'Время и расстояние', minutes: 12, language: 'ru', audio: false, next: '../ch06/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const SUP = s => String(s).replace('-', '⁻').replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
+const pow10 = e => e === 0 ? '1' : '10' + SUP(e);
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => txt(p, str, x, y, t0, { size, fill, anchor, font: MATH });
+// A vertical log ruler: exponent e → y. items: [[exponent, label, mark]]; labels alternate sides when crowded.
+function logRuler(p, x, e0, e1, y0, y1, step, unit, t0) {
+  const Y = e => y0 + (e - e0) / (e1 - e0) * (y1 - y0);
+  const g = G(p, { o: 0 }); show(g, t0);
+  path(g, `M${x} ${Y(e0)}V${Y(e1)}`, { stroke: COL.dim, 'stroke-width': 3 });
+  for (let e = Math.ceil(Math.min(e0, e1) / step) * step; e <= Math.max(e0, e1); e += step) {
+    path(g, `M${x - 10} ${Y(e)}H${x + 10}`, { stroke: COL.dim, 'stroke-width': 2 });
+    T(g, pow10(e), { x: x - 18, y: Y(e) + 8, size: 22, fill: COL.dim, anchor: 'end', font: MATH });
+  }
+  T(g, unit, { x, y: Math.min(Y(e0), Y(e1)) - 20, size: 22, fill: COL.dim, anchor: 'middle' });
+  return Y;
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Время и расстояние', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Большие идеи · Глава 5', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Время и расстояние', { x: 800, y: 440, size: 88, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Где? Когда? И как это измерить?', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['galileo', 'Опыт Галилея', (m, D) => {
+    const p = panel(0);
+    head(p, 'Шар на наклонной плоскости', .2);
+    const A = [180, 220], B = [1420, 560], L = Math.hypot(B[0] - A[0], B[1] - A[1]), ux = (B[0] - A[0]) / L, uy = (B[1] - A[1]) / L;
+    const ramp = G(p, { o: 0 }); show(ramp, m('ramp'));
+    path(ramp, `M${A[0]} ${A[1]}L${B[0]} ${B[1]}L${A[0]} ${B[1]}Z`, { stroke: COL.chalk, 'stroke-width': 3, fill: 'rgba(236,232,220,.04)' });
+    const unit = 70;   // pixels along the ramp per "1"
+    const bl = ball(p);
+    function ball(pp) { const g = G(pp, { o: 0 }); mk('circle', { r: 20, fill: COL.task }, g); return g; }
+    show(bl, m('ramp', .3));
+    const tp = m('pulse'), beat = 1.0;
+    const nx = uy, ny = -ux;   // normal pointing up from the ramp
+    const at = s => ({ x: A[0] + 40 * ux + s * ux + 22 * nx, y: A[1] + 40 * uy + s * uy + 22 * ny });
+    const tt = t => Math.max(0, Math.min(4.15, (t - tp) / beat));
+    prog(q => { const t = q * D, k = tt(t); put(bl, at(unit * k * k)); }, 0, D, lin);
+    [1, 2, 3, 4].forEach(k => {
+      const P = at(unit * k * k), t0 = tp + k * beat;
+      const tick = path(p, `M${P.x - 22 * nx + 14 * nx} ${P.y - 22 * ny + 14 * ny}L${P.x - 22 * nx - 14 * nx} ${P.y - 22 * ny - 14 * ny}`, { stroke: COL.int, 'stroke-width': 4 });
+      put(tick, { o: 0 }); show(tick, t0, .2);
+      txt(p, ['один', 'два', 'три', 'четыре'][k - 1], P.x + 46 * nx, P.y + 46 * ny, t0, { size: 24, fill: COL.int, anchor: 'middle' });
+      txt(p, String(k * k), P.x - 74 * nx, P.y - 74 * ny + 8, m('marks', k * .5), { size: 30, fill: COL.task, anchor: 'middle', font: MATH });
+    });
+    const heart = G(p, { x: 1300, y: 200, o: 0 }); show(heart, tp - .5);
+    path(heart, 'M0 18C-30 -6 -24 -30 -8 -30C0 -30 0 -22 0 -18C0 -22 0 -30 8 -30C24 -30 30 -6 0 18Z', { fill: COL.bad });
+    prog(q => { const t = q * D, ph = ((t - tp) % beat + beat) % beat; put(heart, { s: t > tp - .5 && t < tp + 4.5 * beat ? 1 + .25 * Math.exp(-ph * 8) : 1 }); }, 0, D, lin);
+    T(p, 'пульс', { x: 1300, y: 260, size: 22, fill: COL.dim, anchor: 'middle' });
+    eq(p, 's ∝ t²', 1000, 680, m('law'), { size: 48, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 580, w: 640, cls: 'side' }, [{
+    id: 'c-galileo', prompt: ['Через 1 удар пульса шар прошёл 1 деление. Сколько делений он пройдёт за 5 ударов?'],
+    build: blanks([{ parts: ['s = ', { box: '25' }, ' делений'], why: 's ∝ t²: 5² = 25.', hint: 'Отметки: 1, 4, 9, 16, … — квадраты чисел.' }]),
+  }], done) }],
+
+  ['time', 'Что такое время', (m, D) => {
+    const p = panel(0);
+    head(p, 'Время: сравнивая периодические процессы', .2);
+    // days on a timeline: noon marks
+    const tl = G(p, { o: 0 }); show(tl, m('periodic'));
+    path(tl, 'M120 260H1480', { stroke: COL.dim, 'stroke-width': 3 });
+    for (let k = 0; k < 6; k++) {
+      const x = 180 + k * 240;
+      const sun = G(tl, { x, y: 210 }); mk('circle', { r: 18, fill: COL.int }, sun);
+      path(tl, `M${x} 248V272`, { stroke: COL.int, 'stroke-width': 3 });
+      T(tl, 'полдень', { x, y: 300, size: 20, fill: COL.dim, anchor: 'middle' });
+    }
+    // an hourglass that flips
+    const hg = G(p, { x: 500, y: 520, o: 0 }); show(hg, m('sand'));
+    path(hg, 'M-60 -100H60L8 0L60 100H-60L-8 0Z', { stroke: COL.chalk, 'stroke-width': 3, fill: 'rgba(236,232,220,.05)' });
+    const top = mk('path', { d: '', fill: '#d9b36a' }, hg), bot = mk('path', { d: '', fill: '#d9b36a' }, hg);
+    const cnt = T(p, '', { x: 700, y: 530, size: 32, fill: COL.task, weight: 600 });
+    const ts = m('sand'), per = 2.4;
+    prog(q => {
+      const t = q * D, s = Math.max(0, t - ts), n = Math.floor(s / per), f = (s % per) / per;
+      const flip = n % 2;
+      put(hg, { r: 180 * flip + (f > .85 ? 180 * (f - .85) / .15 : 0) });
+      const h1 = 90 * (1 - Math.min(1, f / .85)), h2 = 90 * Math.min(1, f / .85);
+      top.setAttribute('d', `M${-8 - 52 * h1 / 100} ${-h1 + 0}H${8 + 52 * h1 / 100}L8 -2H-8Z`.replace(`${-h1 + 0}`, `${-h1}`));
+      bot.setAttribute('d', `M-60 100H60L${60 - 52 * h2 / 100} ${100 - h2}H${-60 + 52 * h2 / 100}Z`);
+      cnt.textContent = t > ts ? `переворотов: ${n}` : '';
+    }, 0, D, lin);
+    txt(p, 'от полудня до полудня — всегда одно и то же число', 700, 600, m('sand', 6), { size: 26, fill: COL.chalk });
+    txt(p, 'доказать периодичность нельзя —', 700, 660, m('agree'), { size: 26, fill: COL.bad });
+    txt(p, 'можно лишь проверить согласие процессов', 700, 700, m('agree'), { size: 26, fill: COL.good });
+  }],
+
+  ['short', 'Короткие времена', (m, D) => {
+    const p = panel(0);
+    head(p, 'Делим секунду', .2);
+    const tp = m('pendulum');
+    const piv = [220, 160], L = 220;
+    path(p, `M${piv[0] - 40} ${piv[1]}H${piv[0] + 40}`, { stroke: COL.dim, 'stroke-width': 4 });
+    const rod = path(p, '', { stroke: COL.chalk, 'stroke-width': 3 }), bob = G(p); mk('circle', { r: 18, fill: COL.task }, bob);
+    T(p, '3600 колебаний в час', { x: 220, y: 450, size: 24, fill: COL.task, anchor: 'middle' });
+    T(p, '→ период 1 с', { x: 220, y: 485, size: 24, fill: COL.task, anchor: 'middle' });
+    prog(q => { const t = q * D, a = .45 * Math.cos(Math.PI * t), x = piv[0] + L * Math.sin(a), y = piv[1] + L * Math.cos(a); rod.setAttribute('d', `M${piv[0]} ${piv[1]}L${x} ${y}`); put(bob, { x, y }); }, 0, D, lin);
+    // oscilloscope with two traces: one 10× faster
+    const ts = m('scope');
+    const sc = G(p, { o: 0 }); show(sc, ts);
+    mk('rect', { x: 460, y: 150, width: 800, height: 360, rx: 16, fill: '#0b1310', stroke: COL.dim, 'stroke-width': 3 }, sc);
+    for (let k = 1; k < 8; k++) path(sc, `M${460 + k * 100} 150V510`, { stroke: '#1e2d27', 'stroke-width': 1 });
+    path(sc, 'M460 330H1260', { stroke: '#1e2d27', 'stroke-width': 1 });
+    const tr1 = path(sc, '', { stroke: COL.good, 'stroke-width': 3 }), tr2 = path(sc, '', { stroke: COL.whole, 'stroke-width': 2 });
+    prog(q => {
+      const t = q * D, w = clamp01((t - ts) / 2.5) * 800;
+      let a = '', b = '';
+      for (let x = 0; x <= w; x += 2) { a += (a ? 'L' : 'M') + (460 + x) + ' ' + (250 - 60 * Math.sin(2 * Math.PI * x / 800)).toFixed(1); b += (b ? 'L' : 'M') + (460 + x) + ' ' + (420 - 45 * Math.sin(2 * Math.PI * x / 80)).toFixed(1); }
+      tr1.setAttribute('d', a); tr2.setAttribute('d', b);
+    }, 0, D, lin);
+    txt(p, 'за один период медленного — 10 периодов быстрого', 860, 560, ts + 3, { size: 26, fill: COL.chalk, anchor: 'middle' });
+    const tc = m('chain');
+    [0, -1, -2, -3, '…', -12].forEach((e, i) => {
+      const s = e === '…' ? '…' : `${pow10(e)} с`;
+      txt(p, s, 520 + i * 140, 660, tc + i * .5, { size: 30, fill: e === -12 ? COL.task : COL.chalk, anchor: 'middle', font: MATH });
+      if (i) { const v = G(p, { o: 0 }); vec(v, 520 + (i - 1) * 140 + 50, 650, 520 + i * 140 - 50, 650, COL.dim, { w: 2, head: 10 }); show(v, tc + i * .5); }
+    });
+  }],
+
+  ['pion', 'Время через расстояние', (m) => {
+    const p = panel(0);
+    head(p, 'Время жизни π⁰-мезона', .2);
+    const tt = m('track');
+    const em = G(p, { o: 0 }); show(em, .3);
+    mk('rect', { x: 150, y: 170, width: 1300, height: 380, rx: 12, fill: 'rgba(120,110,90,.18)', stroke: COL.faint, 'stroke-width': 2 }, em);
+    const R = rng(7);
+    for (let k = 0; k < 260; k++) mk('circle', { cx: 160 + R() * 1280, cy: 180 + R() * 360, r: 1.5 + R() * 1.5, fill: '#8f8a7a', opacity: .5 }, em);
+    T(em, 'фотоэмульсия под микроскопом', { x: 160, y: 590, size: 22, fill: COL.dim });
+    const birth = [380, 380], dec = [1100, 330];
+    const trk = path(p, `M${birth[0]} ${birth[1]}L${dec[0]} ${dec[1]}`, { stroke: COL.task, 'stroke-width': 4, 'stroke-dasharray': '3 6' }, { d: 0 });
+    draw(trk, tt, 1.6);
+    const star = (x, y, t0) => { const g = G(p, { x, y, o: 0, s: .3 }); for (let k = 0; k < 6; k++) path(g, `M0 0L${44 * Math.cos(k * 1.047)} ${44 * Math.sin(k * 1.047)}`, { stroke: COL.chalk, 'stroke-width': 2 }); tw(g, { o: 1, s: 1 }, t0, .4, back); };
+    star(birth[0], birth[1], tt - .3); star(dec[0], dec[1], tt + 1.6);
+    const ph = [[1300, 220], [1340, 470]].map(([x, y]) => path(p, `M${dec[0]} ${dec[1]}L${x} ${y}`, { stroke: COL.int, 'stroke-width': 2, 'stroke-dasharray': '10 8' }, { d: 0 }));
+    ph.forEach(e => draw(e, tt + 1.8, .8));
+    txt(p, '2 γ', 1360, 350, tt + 2.4, { size: 26, fill: COL.int, font: MATH });
+    path(p, `M${birth[0]} 470H${dec[0]}M${birth[0]} 460V480M${dec[0]} 460V480`, { stroke: COL.dim, 'stroke-width': 2 });
+    txt(p, 'l ≈ 10⁻⁷ м (увеличено)', (birth[0] + dec[0]) / 2, 510, tt + 1.8, { size: 26, fill: COL.dim, anchor: 'middle', font: MATH });
+    eq(p, 't = l / v ≈ 10⁻⁷ м / 3·10⁸ м/с ≈ 3·10⁻¹⁶ с', 800, 680, m('divide'), { size: 36, fill: COL.task, anchor: 'middle' });
+    txt(p, '(современное значение: 8,5·10⁻¹⁷ с)', 800, 720, m('divide', 2), { size: 22, fill: COL.faint, anchor: 'middle' });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 160, w: 1000, cls: 'side' }, [{
+    id: 'c-light', prompt: ['Свет (3·10⁸ м/с) проходит 30 см. Сколько это наносекунд (1 нс = 10⁻⁹ с)?'],
+    build: blanks([{ parts: ['t = ', { box: '1' }, ' нс'], why: 't = 0,3 м / 3·10⁸ м/с = 10⁻⁹ с = 1 нс.', hint: 't = l / v; 30 см = 0,3 м.' }]),
+  }], done) }],
+
+  ['long', 'Большие времена', (m) => {
+    const p = panel(0);
+    head(p, 'Радиоактивные часы', .2);
+    const O = [160, 600], W = 800, H = 380, Tp = W / 4.4;
+    const ax = G(p, { o: 0 }); show(ax, .3);
+    path(ax, `M${O[0]} ${O[1] - H - 30}V${O[1]}H${O[0] + W + 20}`, { stroke: COL.dim, 'stroke-width': 3 });
+    T(ax, 'активность', { x: O[0], y: O[1] - H - 44, size: 22, fill: COL.dim });
+    T(ax, 'время', { x: O[0] + W + 20, y: O[1] + 36, size: 22, fill: COL.dim, anchor: 'end' });
+    const tc = m('curve');
+    let d = '';
+    for (let x = 0; x <= W; x += 4) d += (d ? 'L' : 'M') + (O[0] + x) + ' ' + (O[1] - H * Math.pow(.5, x / Tp)).toFixed(1);
+    draw(path(p, d, { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), tc, 2.5);
+    [1, 2, 3].forEach(k => {
+      const x = O[0] + k * Tp, y = O[1] - H * Math.pow(.5, k);
+      const g = G(p, { o: 0 }); show(g, tc + .6 * k + .5);
+      path(g, `M${x} ${O[1]}V${y}H${O[0]}`, { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+      T(g, ['T', '2T', '3T'][k - 1], { x, y: O[1] + 34, size: 24, fill: COL.dim, anchor: 'middle', font: MATH });
+      T(g, ['1/2', '1/4', '1/8'][k - 1], { x: O[0] - 12, y: y + 8, size: 24, fill: COL.task, anchor: 'end', font: MATH });
+    });
+    T(p, '1', { x: O[0] - 12, y: O[1] - H + 8, size: 24, fill: COL.task, anchor: 'end', font: MATH });
+    eq(p, '(1/2)^(t/T) = B / A', 1040, 240, tc + 2.5, { size: 34 });
+    const tcb = m('carbon');
+    txt(p, '¹⁴C:  T ≈ 5730 лет', 1040, 340, tcb, { size: 30, fill: COL.irr, font: MATH });
+    txt(p, 'дерево, кость, ткань', 1040, 380, tcb + .5, { size: 24, fill: COL.dim });
+    const tu = m('uranium');
+    txt(p, '²³⁸U → ²⁰⁶Pb:  T ≈ 4,5·10⁹ лет', 1040, 470, tu, { size: 30, fill: COL.whole, font: MATH });
+    txt(p, 'возраст Земли ≈ 4,5 млрд лет', 1040, 520, tu + 1, { size: 28, fill: COL.good, weight: 600 });
+    txt(p, 'у Фейнмана: Земля 5,5 млрд лет, Вселенная 10–12 млрд;', 1040, 560, tu + 2, { size: 20, fill: COL.faint });
+    txt(p, 'сейчас: 4,54 и 13,8 млрд лет', 1040, 588, tu + 2, { size: 20, fill: COL.faint });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 660, w: 980, cls: 'side' }, [{
+    id: 'c-carbon', prompt: ['В древнем угле осталась 1/8 исходного ¹⁴C (T ≈ 5730 лет). Сколько ему лет?'],
+    build: choice([['≈ 17 000 лет'], ['≈ 46 000 лет'], ['≈ 5700 лет'], ['≈ 11 500 лет']], 0,
+      '1/8 = (1/2)³ — прошло 3 периода полураспада: 3 · 5730 ≈ 17 000 лет.',
+      [null, 'Это 8 периодов; а 1/8 — это три деления пополам.', 'За один период осталась бы половина.', 'За два периода осталась бы четверть.']),
+  }], done) }],
+
+  ['times', 'Шкала времён', (m) => {
+    const p = panel(0);
+    head(p, 'Шкала времён (в секундах)', .2);
+    const Y = logRuler(p, 300, 18, -24, 150, 720, 6, 'секунды', .3);
+    const items = [[-24, 'свет проходит ядро', 'small'], [-15, 'период колебаний атома', 'small'], [-12, 'вращение молекулы', 'small'], [-6, 'период радиоволны', 'small'],
+      [0, 'удар сердца', 'mid'], [-3, 'период звуковой волны', 'mid'], [5, 'сутки', 'mid'], [9, 'жизнь человека', 'mid'],
+      [11, 'возраст пирамид', 'big'], [13, 'первый человек', 'big'], [17.4, 'возраст Земли и Вселенной', 'big']];
+    const n = { small: 0, mid: 0, big: 0 };
+    items.forEach(([e, s, mk_]) => {
+      const t0 = m(mk_, n[mk_]++ * .6), y = Y(e);
+      const g = G(p, { o: 0, x: -20 }); tw(g, { o: 1, x: 0 }, t0, .5, out);
+      mk('circle', { cx: 300, cy: y, r: 7, fill: mk_ === 'small' ? COL.whole : mk_ === 'mid' ? COL.task : COL.good }, g);
+      const left = false;
+      path(g, `M310 ${y}H${left ? 560 : 360}`, { stroke: COL.faint, 'stroke-width': 1.5 });
+      T(g, s, { x: left ? 570 : 370, y: y + 8, size: 24, fill: COL.chalk });
+    });
+    txt(p, '≈ 42 порядка, от ядра до Вселенной', 1180, 420, m('big', 3), { size: 30, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['standard', 'Эталон времени', (m, D) => {
+    const p = panel(0);
+    head(p, 'Эталон секунды', .2);
+    const te = m('earth');
+    const E = G(p, { x: 330, y: 400, o: 0 }); show(E, te);
+    mk('circle', { r: 130, fill: '#3f7fb5', stroke: '#86c9e8', 'stroke-width': 3 }, E);
+    const land = G(E);
+    path(land, 'M-60 -80C-20 -100 30 -60 0 -20C-30 10 -90 -20 -60 -80Z', { fill: '#6fae6a' });
+    path(land, 'M30 30C70 20 90 60 60 90C30 100 10 60 30 30Z', { fill: '#6fae6a' });
+    prog(q => put(land, { r: q * D * 20 }), 0, D, lin);
+    eq(p, '1 с = 1/86 400 суток', 330, 600, te + .5, { size: 30, anchor: 'middle' });
+    txt(p, 'вращение неравномерно и замедляется', 330, 650, m('irregular'), { size: 24, fill: COL.bad, anchor: 'middle' });
+    const ta = m('atomic');
+    const at = G(p, { x: 1100, y: 380, o: 0 }); show(at, ta);
+    mk('circle', { r: 26, fill: COL.int }, at);
+    [0, 60, 120].forEach(r => { const o = mk('ellipse', { rx: 110, ry: 34, fill: 'none', stroke: COL.dim, 'stroke-width': 2, transform: `rotate(${r})` }, at); });
+    const wave = path(p, '', { stroke: COL.int, 'stroke-width': 3 });
+    prog(q => { const t = q * D; let d = ''; if (t > ta) for (let x = 0; x <= 520; x += 3) d += (d ? 'L' : 'M') + (840 + x) + ' ' + (600 + 26 * Math.sin(x / 9 - t * 10)).toFixed(1); wave.setAttribute('d', d); }, 0, D, lin);
+    eq(p, '1 с = 9 192 631 770 колебаний', 1100, 680, ta + 1, { size: 30, fill: COL.int, anchor: 'middle' });
+    txt(p, 'атом цезия-133 (с 1967 года)', 1100, 720, ta + 1.5, { size: 22, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['triang', 'Триангуляция', (m) => {
+    const p = panel(0);
+    head(p, 'Триангуляция', .2);
+    const Pa = [260, 580], Pb = [900, 580], S_ = [640, 230];
+    const tb = m('base'), ta = m('angles'), tx = m('apex');
+    draw(path(p, `M${Pa[0]} ${Pa[1]}L${Pb[0]} ${Pb[1]}`, { stroke: COL.chalk, 'stroke-width': 4 }, { d: 0 }), tb, .8);
+    txt(p, 'L — известная база', 580, 630, tb + .5, { size: 26, anchor: 'middle', fill: COL.dim });
+    const th = (P, sgn) => { const a = Math.atan2(S_[1] - P[1], S_[0] - P[0]); return a; };
+    [[Pa, 1, 'θ₁'], [Pb, -1, 'θ₂']].forEach(([P, s, lab], i) => {
+      const a = th(P), r = 70;
+      const g = G(p, { o: 0 }); show(g, ta + i * .6);
+      path(g, `M${P[0] + s * r} ${P[1]}A${r} ${r} 0 0 ${s > 0 ? 0 : 1} ${P[0] + r * Math.cos(a)} ${P[1] + r * Math.sin(a)}`, { stroke: COL.task, 'stroke-width': 3 });
+      T(g, lab, { x: P[0] + s * 95, y: P[1] - 22, size: 28, fill: COL.task, font: MATH, anchor: 'middle' });
+      draw(path(p, `M${P[0]} ${P[1]}L${P[0] + 200 * Math.cos(a)} ${P[1] + 200 * Math.sin(a)}`, { stroke: COL.task, 'stroke-width': 2, 'stroke-dasharray': '8 8' }, { d: 0 }), ta + i * .6, .6);
+    });
+    draw(path(p, `M${Pa[0]} ${Pa[1]}L${S_[0]} ${S_[1]}L${Pb[0]} ${Pb[1]}`, { stroke: COL.good, 'stroke-width': 3 }, { d: 0 }), tx, 1.2);
+    const sat = G(p, { x: S_[0], y: S_[1], o: 0 }); show(sat, tx + 1);
+    mk('rect', { x: -10, y: -10, width: 20, height: 20, fill: COL.chalk }, sat); path(sat, 'M-34 0H34', { stroke: COL.whole, 'stroke-width': 6 });
+    txt(p, 'спутник ≈ 5·10⁵ м', S_[0] + 50, S_[1] - 20, tx + 1.2, { size: 24, fill: COL.good });
+    txt(p, 'Луна ≈ 3,8·10⁸ м', S_[0] + 50, S_[1] + 16, tx + 2, { size: 24, fill: COL.good });
+    // parallax over Earth's orbit
+    const tp = m('parallax');
+    const pg = G(p, { o: 0 }); show(pg, tp);
+    const C = [1240, 560];
+    mk('ellipse', { cx: C[0], cy: C[1], rx: 170, ry: 50, fill: 'none', stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' }, pg);
+    mk('circle', { cx: C[0], cy: C[1], r: 18, fill: COL.int }, pg);
+    [[C[0] - 170, 'зима'], [C[0] + 170, 'лето']].forEach(([x, s]) => { mk('circle', { cx: x, cy: C[1], r: 9, fill: COL.whole }, pg); T(pg, s, { x, y: C[1] + 40, size: 22, fill: COL.whole, anchor: 'middle' }); });
+    const star = [C[0], 190];
+    path(pg, `M${C[0] - 170} ${C[1]}L${star[0]} ${star[1]}L${C[0] + 170} ${C[1]}`, { stroke: COL.task, 'stroke-width': 2 });
+    mk('circle', { cx: star[0], cy: star[1], r: 8, fill: COL.chalk }, pg);
+    T(pg, 'звезда', { x: star[0] + 16, y: star[1] + 6, size: 22, fill: COL.chalk });
+  }],
+
+  ['radar', 'Радиолокация', (m, D) => {
+    const p = panel(0);
+    head(p, 'Расстояние через время', .2);
+    const E = [220, 420], V = [1380, 420];
+    mk('circle', { cx: E[0], cy: E[1], r: 44, fill: '#3f7fb5' }, p);
+    mk('circle', { cx: V[0], cy: V[1], r: 40, fill: '#d9b36a' }, p);
+    T(p, 'Земля', { x: E[0], y: E[1] + 80, size: 24, fill: COL.dim, anchor: 'middle' });
+    T(p, 'Венера', { x: V[0], y: V[1] + 80, size: 24, fill: COL.dim, anchor: 'middle' });
+    const ts = m('send'), te = m('echo'), c = (V[0] - E[0] - 84) / 1.6;
+    const pulse = G(p, { o: 0 }); path(pulse, 'M0 -28A40 40 0 0 1 0 28', { stroke: COL.int, 'stroke-width': 4 });
+    const echo = G(p, { o: 0, r: 180 }); path(echo, 'M0 -28A40 40 0 0 1 0 28', { stroke: COL.task, 'stroke-width': 4 });
+    prog(q => {
+      const t = q * D;
+      const s1 = t - ts; put(pulse, { x: E[0] + 44 + c * Math.min(s1, 1.6), y: E[1], o: s1 > 0 && s1 < 1.65 ? 1 : 0 });
+      const s2 = t - ts - 1.6; put(echo, { x: V[0] - 40 - c * Math.min(Math.max(0, s2), 1.6), y: E[1], o: s2 > 0 && s2 < 1.65 ? 1 : 0 });
+    }, 0, D, lin);
+    const clk = T(p, '', { x: 800, y: 260, size: 34, fill: COL.task, anchor: 'middle', font: MATH });
+    prog(q => { const t = q * D, s = Math.min(3.2, Math.max(0, t - ts)); clk.textContent = t > ts ? `время: ${(s / 3.2 * 276).toFixed(0)} с` : ''; }, 0, D, lin);
+    eq(p, 'расстояние = c · t / 2', 800, 600, m('calc'), { size: 38, anchor: 'middle' });
+    eq(p, '= 3·10⁸ м/с · 276 с / 2 ≈ 4,1·10¹⁰ м', 800, 660, m('calc', 1), { size: 30, fill: COL.good, anchor: 'middle' });
+    txt(p, '(Венера в ближайшей точке, не в масштабе)', 800, 710, m('calc', 2), { size: 20, fill: COL.faint, anchor: 'middle' });
+  }],
+
+  ['q4', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 160, w: 1000, cls: 'side' }, [{
+    id: 'c-moon', prompt: ['Лазерный импульс вернулся от Луны через 2,56 с. Каково расстояние до Луны? (c = 3·10⁸ м/с)'],
+    build: choice([['≈ 3,84·10⁸ м'], ['≈ 7,68·10⁸ м'], ['≈ 1,17·10⁸ м'], ['≈ 3,84·10⁶ м']], 0,
+      'l = c · t / 2 = 3·10⁸ · 2,56 / 2 = 3,84·10⁸ м.',
+      [null, 'Сигнал прошёл путь туда и обратно — делите на 2.', 'Это t/c-подобная ошибка: надо умножать скорость на время.', 'Проверьте степень: 3·10⁸ · 1,28.']),
+  }], done) }],
+
+  ['far', 'Дальние расстояния', (m) => {
+    const p = panel(0);
+    head(p, 'Яркость, угловой размер и шкала расстояний', .2);
+    const tc = m('candle');
+    const lamp = G(p, { o: 0 }); show(lamp, tc);
+    [[160, 1, 300], [340, 2, 300], [620, 3, 300]].forEach(([x, k, y]) => {
+      const g = G(lamp, { x, y });
+      mk('circle', { r: 30 / k, fill: COL.int, opacity: 1 / (k * k) }, g);
+      T(g, k === 1 ? 'r' : k + 'r', { y: 70, size: 24, fill: COL.dim, anchor: 'middle', font: MATH });
+      T(g, k === 1 ? '1' : '1/' + k * k, { y: 105, size: 24, fill: COL.int, anchor: 'middle', font: MATH });
+    });
+    T(lamp, 'видимая яркость ∝ 1/r²', { x: 380, y: 470, size: 28, fill: COL.chalk, anchor: 'middle', font: MATH });
+    const tg = m('galaxy');
+    const gx = G(p, { o: 0 }); show(gx, tg);
+    const sp = (x, y, s) => { const g = G(gx, { x, y, s }); for (let a = 0; a < 2; a++) { let d = ''; for (let t = 0; t < 9; t += .2) { const r = 6 * t, ang = t * .7 + a * Math.PI; d += (d ? 'L' : 'M') + (r * Math.cos(ang)).toFixed(1) + ' ' + (r * Math.sin(ang) * .45).toFixed(1); } path(g, d, { stroke: '#c9b8ee', 'stroke-width': 3 / s }); } mk('ellipse', { rx: 12, ry: 7, fill: COL.chalk }, g); };
+    sp(220, 620, 1); sp(560, 620, .45);
+    T(gx, 'тот же размер — меньше угол → дальше', { x: 380, y: 700, size: 22, fill: COL.dim, anchor: 'middle' });
+    const td = m('dscale');
+    const Y = logRuler(p, 1000, 26, -15, 150, 720, 3, 'метры', td);
+    [[-15, 'ядро'], [-10, 'атом'], [-7, 'вирус'], [-3, 'крупинка соли'], [0, 'человек'], [5.7, 'спутник'], [8.6, 'до Луны'], [11.2, 'до Солнца'], [16.6, 'ближайшая звезда'], [20.4, 'центр Галактики'], [22.4, 'туманность Андромеды'], [26, 'видимая Вселенная']]
+      .forEach(([e, s], i) => { const y = Y(e); const g = G(p, { o: 0 }); show(g, td + .4 + i * .3); mk('circle', { cx: 1000, cy: y, r: 6, fill: COL.task }, g); T(g, s, { x: 1030, y: y + 8, size: 22, fill: COL.chalk }); });
+  }],
+
+  ['small', 'Малые расстояния', (m) => {
+    const p = panel(0);
+    head(p, 'Малые расстояния', .2);
+    const tm = m('micro');
+    const lens = G(p, { o: 0 }); show(lens, tm);
+    mk('ellipse', { cx: 220, cy: 300, rx: 30, ry: 100, fill: 'rgba(134,201,232,.2)', stroke: COL.whole, 'stroke-width': 3 }, lens);
+    T(lens, 'микроскоп: предел ≈ λ ≈ 5·10⁻⁷ м', { x: 300, y: 300, size: 26, fill: COL.whole });
+    const tx = m('xray');
+    const cr = G(p, { o: 0 }); show(cr, tx);
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) mk('circle', { cx: 330 + i * 40, cy: 430 + j * 40, r: 8, fill: COL.int }, cr);
+    path(cr, 'M120 470L320 490', { stroke: COL.real, 'stroke-width': 3 });
+    [-30, 0, 30].forEach(a => path(cr, `M560 500l${160 * Math.cos(a * Math.PI / 180)} ${160 * Math.sin(a * Math.PI / 180)}`, { stroke: COL.real, 'stroke-width': 2, 'stroke-dasharray': '6 6' }));
+    T(cr, 'рентген + кристалл → атом ≈ 10⁻¹⁰ м', { x: 330, y: 620, size: 24, fill: COL.real });
+    const tn = m('nuclei');
+    const pl = G(p, { o: 0 }); show(pl, tn);
+    mk('rect', { x: 900, y: 170, width: 420, height: 420, fill: 'rgba(236,232,220,.04)', stroke: COL.dim, 'stroke-width': 2 }, pl);
+    const R = rng(3), dots = [];
+    for (let k = 0; k < 420; k++) dots.push([905 + R() * 410, 175 + R() * 410]);
+    dots.forEach(([x, y]) => mk('circle', { cx: x, cy: y, r: 2.6, fill: COL.chalk }, pl));
+    T(pl, 'пластинка углерода 1 см: видны только ядра', { x: 1110, y: 620, size: 22, fill: COL.dim, anchor: 'middle' });
+    const tb = m('beam');
+    const hits = G(p);
+    for (let k = 0; k < 24; k++) {
+      const y = 190 + k * 16.5, blocked = dots.some(([dx, dy]) => Math.abs(dy - y) < 2.6) && k % 5 === 2;
+      const line = path(hits, `M760 ${y}H${blocked ? 1000 + (k * 37) % 300 : 1460}`, { stroke: blocked ? COL.bad : COL.task, 'stroke-width': 2 }, { d: 0 });
+      draw(line, tb + k * .08, .8);
+    }
+    eq(p, 'σ = πr² = (A/N) · (n₁ − n₂)/n₁', 1110, 680, tb + 2.5, { size: 30, anchor: 'middle', fill: COL.task });
+    txt(p, 'r ≈ (1–6)·10⁻¹⁵ м = 1–6 ферми', 1110, 720, tb + 3.5, { size: 24, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q5', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 150, w: 660, cls: 'side' }, [{
+    id: 'c-sigma', prompt: ['Из 10 000 частиц пучка сквозь пластинку прошли 9 990. Какая доля площади закрыта ядрами?'],
+    build: choice([['0,1 %'], ['1 %'], ['99,9 %'], ['10 %']], 0,
+      '(n₁ − n₂)/n₁ = 10 / 10 000 = 0,001 = 0,1 %.',
+      [null, 'Застряло 10 частиц из 10 000, а не 100.', 'Это доля прошедших — нам нужна доля застрявших.', 'Посчитайте: 10/10 000.']),
+  }], done) }],
+
+  ['limits', 'Пределы точности', (m) => {
+    const p = panel(0);
+    head(p, 'Пределы точности', .2);
+    eq(p, 'Δx ≥ h / Δp', 800, 280, m('dx'), { size: 56, anchor: 'middle', fill: COL.whole });
+    eq(p, 'Δt ≥ h / ΔE', 800, 420, m('dt'), { size: 56, anchor: 'middle', fill: COL.task });
+    txt(p, 'точнее «когда» — меньше знаем «что»', 800, 480, m('dt', 1.5), { size: 26, anchor: 'middle', fill: COL.dim });
+    txt(p, 'длины и времена зависят от наблюдателя — об этом позже', 800, 620, m('relative'), { size: 28, anchor: 'middle', fill: COL.chalk });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Время — сравнение периодических процессов; эталон — атомные часы.', 'w1'],
+      ['Короткие времена — через путь и скорость; долгие — по распаду.', 'w2'],
+      ['Расстояния: триангуляция, радар, яркость, угловой размер.', 'w3'],
+      ['Шкалы охватывают десятки порядков.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 160, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 160, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 220, size: 34, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-halflife', prompt: ['Активность образца за 15 дней упала в 8 раз. Каков период полураспада?'],
+    build: blanks([{ parts: ['T = ', { box: '5' }, ' дней'], why: '8 = 2³: прошло 3 периода; 15 / 3 = 5 дней.', hint: 'Во сколько раз за один период? В сколько периодов уложится падение в 8 раз?' }]),
+  }, {
+    id: 'p-day', prompt: ['Сколько секунд в сутках?'],
+    build: blanks([{ parts: [{ box: '86400' }, ' с'], why: '24 · 60 · 60 = 86 400.', hint: '24 часа по 60 минут по 60 секунд.' }]),
+  }, {
+    id: 'p-order', prompt: ['Расставьте по порядку: что длится дольше?'],
+    build: grid([
+      { parts: ['период звуковой волны (10⁻³ с) или удар сердца (1 с)?'], ans: ['b'], why: 'Удар сердца в тысячу раз дольше.' },
+      { parts: ['сутки (10⁵ с) или жизнь человека (10⁹ с)?'], ans: ['b'], why: 'Жизнь человека ≈ 2–3·10⁹ с.' },
+      { parts: ['колебание атома (10⁻¹⁵ с) или свет проходит ядро (10⁻²⁴ с)?'], ans: ['a'], why: 'Колебание атома в 10⁹ раз дольше.' },
+    ], [['a', 'первое', COL.whole, '1'], ['b', 'второе', COL.task, '2']], { text: true }),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-bright', prompt: ['Две одинаковые звёзды; одна кажется в 9 раз тусклее. Во сколько раз она дальше?'],
+    build: blanks([{ parts: ['в ', { box: '3' }, ' раза'], why: 'Яркость ∝ 1/r²: 9 = 3².', hint: 'Яркость убывает как квадрат расстояния.' }]),
+  }, {
+    id: 'p-orders', prompt: ['Во сколько раз расстояние до Солнца (1,5·10¹¹ м) больше расстояния до Луны (3,8·10⁸ м)? Округлите до целых.'],
+    build: blanks([{ parts: ['≈ ', { box: '395' }, ' раз'], test: ([x]) => x >= 390 && x <= 400, why: '1,5·10¹¹ / 3,8·10⁸ ≈ 395.', hint: 'Разделите мантиссы и вычтите показатели степеней.' }]),
+  }, {
+    id: 'p-microscope', prompt: ['Почему обычный микроскоп не покажет атомы?'],
+    build: choice([['атомы много меньше длины волны света'], ['атомы прозрачны'], ['атомы слишком быстро движутся']], 0,
+      'Свет (λ ≈ 5·10⁻⁷ м) не различает предметы меньше длины волны, а атом ≈ 10⁻¹⁰ м.',
+      [null, 'Дело не в прозрачности: свет просто не различает деталей меньше длины волны.', 'Даже неподвижный атом не был бы виден.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

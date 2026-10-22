@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Работа и потенциальная энергия (II)</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 14, title: 'Работа и потенциальная энергия (II)', minutes: 14, language: 'ru', audio: false };
+
+/* ---------- chapter drawing helpers ---------- */
+const KE = COL.task, PE = COL.whole;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+function ballEl(p, colr, r, { x = 0, y = 0, o = 1 } = {}) { const g = G(p, { x, y, o }); mk('circle', { r, fill: colr, stroke: COL.board, 'stroke-width': 2 }, g); return g; }
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Работа и потенциальная энергия (II)', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Силы и работа · Глава 14', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Работа и потенциальная энергия', { x: 800, y: 430, size: 76, weight: 600, anchor: 'middle' });
+    T(g, 'часть II', { x: 800, y: 500, size: 36, fill: COL.dim, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Смысл главных идей — без лишних доказательств', 800, 590, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['work', 'Работа', (m) => {
+    const p = panel(0);
+    head(p, 'Работа', .2);
+    eq(p, 'W = ∫ F · ds', 800, 200, .3, { size: 52, fill: COL.task, anchor: 'middle' });
+    const tc = m('comp'), O = [300, 520];
+    const g = G(p, { o: 0 }); show(g, tc);
+    vec(g, O[0], O[1], O[0] + 400, O[1], COL.whole, { w: 4 }); T(g, 'Δs', { x: O[0] + 410, y: O[1] + 8, size: 28, fill: COL.whole, font: MATH });
+    vec(g, O[0], O[1], O[0] + 260, O[1] - 200, COL.bad, { w: 4 }); T(g, 'F', { x: O[0] + 270, y: O[1] - 210, size: 28, fill: COL.bad, font: MATH });
+    path(g, `M${O[0] + 260} ${O[1] - 200}V${O[1]}`, { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    path(g, `M${O[0]} ${O[1] + 16}H${O[0] + 260}`, { stroke: COL.good, 'stroke-width': 6 });
+    T(g, 'работает эта часть', { x: O[0] + 130, y: O[1] + 52, size: 24, fill: COL.good, anchor: 'middle' });
+    const g2 = G(p, { o: 0 }); show(g2, tc + 2);
+    vec(g2, 900, 520, 1150, 520, COL.whole, { w: 4 }); vec(g2, 1020, 520, 1020, 360, COL.bad, { w: 4 });
+    T(g2, 'F ⟂ Δs: W = 0', { x: 1030, y: 580, size: 26, fill: COL.dim, anchor: 'middle', font: MATH });
+    eq(p, 'W = Fₓ Δx + F_y Δy + F_z Δz', 800, 690, m('xyz'), { size: 34, anchor: 'middle' });
+  }],
+
+  ['muscle', 'Мышцы и работа', (m, D) => {
+    const p = panel(0);
+    head(p, 'Держать груз — не работа', .2);
+    const th = m('hold');
+    const man = G(p, { x: 300, y: 600, o: 0 }); show(man, th);
+    mk('circle', { cy: -260, r: 30, fill: COL.chalk }, man);
+    path(man, 'M0 -230V-90M0 -90L-40 0M0 -90L40 0M0 -200L-70 -150L-60 -100M0 -200L70 -150L60 -100', { stroke: COL.chalk, 'stroke-width': 8 });
+    const kb = G(man, { y: -80 }); mk('rect', { x: -90, y: -10, width: 180, height: 50, rx: 14, fill: '#55665f' }, kb); T(kb, '32 кг', { y: 24, size: 24, fill: COL.chalk, anchor: 'middle' });
+    prog(q => { const t = q * D; put(kb, { x: t > th ? 3 * Math.sin(t * 40) : 0 }); }, 0, D, lin);
+    T(p, 'W = F · 0 = 0', { x: 300, y: 690, size: 28, fill: COL.bad, anchor: 'middle', font: MATH });
+    const tbl = G(p, { o: 0 }); show(tbl, th + 2.5);
+    mk('rect', { x: 560, y: 520, width: 220, height: 16, fill: '#7a5a3a' }, tbl); path(tbl, 'M580 536V600M760 536V600', { stroke: '#7a5a3a', 'stroke-width': 10 });
+    mk('rect', { x: 580, y: 470, width: 180, height: 50, rx: 14, fill: '#55665f' }, tbl);
+    T(tbl, 'стол держит даром', { x: 670, y: 640, size: 24, fill: COL.good, anchor: 'middle' });
+    const tf = m('fibres');
+    const fb = G(p, { o: 0 }); show(fb, tf);
+    const fibres = Array.from({ length: 10 }, (_, k) => path(fb, `M900 ${220 + k * 22}H1300`, { stroke: COL.bad, 'stroke-width': 8 }));
+    prog(q => { const t = q * D; fibres.forEach((f, k) => { const on = Math.sin(t * 7 + k * 2.1) > .3; f.setAttribute('d', `M${on ? 940 : 900} ${220 + k * 22}H${on ? 1260 : 1300}`); }); }, 0, D, lin);
+    T(fb, 'волокна сокращаются по очереди → тепло', { x: 1100, y: 470, size: 24, fill: COL.bad, anchor: 'middle' });
+    const tc = m('clam');
+    const cl = G(p, { x: 1100, y: 620, o: 0 }); show(cl, tc);
+    path(cl, 'M-120 0Q0 -60 120 0Z', { fill: '#c8c4b8', stroke: COL.chalk, 'stroke-width': 2 }); path(cl, 'M-120 0Q0 60 120 0Z', { fill: '#a8a498', stroke: COL.chalk, 'stroke-width': 2 });
+    T(cl, 'моллюск «застывает»', { y: 90, size: 24, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 160, y: 110, w: 1280, cls: 'side' }, [{
+    id: 'c-work', prompt: ['Совершает ли сила работу?'],
+    build: grid([
+      { parts: ['вы держите сумку неподвижно'], ans: ['n'], why: 'Перемещения нет — работы нет.' },
+      { parts: ['вы поднимаете сумку на стол'], ans: ['y'], why: 'Сила и перемещение направлены вверх.' },
+      { parts: ['нить маятника тянет груз'], ans: ['n'], why: 'Натяжение перпендикулярно скорости.' },
+      { parts: ['трение тормозит брусок'], ans: ['y'], why: 'Да, отрицательную: сила против движения.' },
+    ], [['y', 'да', COL.good, '1'], ['n', 'нет', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['constraint', 'Связи', (m, D) => {
+    const p = panel(0);
+    head(p, 'Движение со связями', .2);
+    const Y = x => 420 + 140 * Math.sin((x - 150) / 180);
+    let d = ''; for (let x = 150; x <= 900; x += 6) d += (d ? 'L' : 'M') + x + ' ' + Y(x).toFixed(1);
+    path(p, d, { stroke: COL.chalk, 'stroke-width': 5 });
+    const b = G(p); mk('rect', { x: -26, y: -40, width: 52, height: 40, rx: 4, fill: COL.task }, b);
+    const fv = G(p);
+    const tt = m('track');
+    prog(q => {
+      const t = q * D, x = 200 + 600 * (.5 - .5 * Math.cos(Math.max(0, t - tt) * .5));
+      const sl = (Y(x + 1) - Y(x - 1)) / 2, n = Math.hypot(1, sl), a = Math.atan(sl) * 180 / Math.PI;
+      put(b, { x: x + 2 * sl / n, y: Y(x) - 2 / n, r: a });
+      fv.replaceChildren();
+      if (t > m('normal')) { vec(fv, x, Y(x) - 20, x + 90 * sl / n, Y(x) - 20 - 90 / n, COL.good, { w: 3, head: 11 }); vec(fv, x + 140 / n * .6, Y(x) - 20 + 140 * sl / n * .6, x + 140 / n, Y(x) - 20 + 140 * sl / n, COL.whole, { w: 3, head: 11 }); }
+      if (t > m('only')) vec(fv, x, Y(x) - 20, x, Y(x) + 70, COL.bad, { w: 3, head: 11 });
+    }, 0, D, lin);
+    const piv = [1250, 160], L = 280;
+    const str = path(p, '', { stroke: COL.chalk, 'stroke-width': 2.5 }), bob = ballEl(p, COL.task, 22);
+    path(p, `M${piv[0] - 40} ${piv[1]}H${piv[0] + 40}`, { stroke: COL.dim, 'stroke-width': 4 });
+    prog(q => { const t = q * D, a = .6 * Math.cos(1.8 * t), x = piv[0] + L * Math.sin(a), y = piv[1] + L * Math.cos(a); str.setAttribute('d', `M${piv[0]} ${piv[1]}L${x} ${y}`); put(bob, { x, y }); }, 0, D, lin);
+    txt(p, 'реакция и натяжение ⟂ движению → W = 0', 800, 690, m('normal', 1), { size: 28, fill: COL.good, anchor: 'middle' });
+    txt(p, 'работает только тяжесть', 800, 735, m('only'), { size: 26, fill: COL.bad, anchor: 'middle' });
+  }],
+
+  ['conservative', 'Консервативные силы', (m) => {
+    const p = panel(0);
+    head(p, 'Консервативные силы', .2);
+    const A = [220, 600], B = [820, 260], P = [260, 260];
+    mk('circle', { cx: A[0], cy: A[1], r: 8, fill: COL.chalk }, p); T(p, '1', { x: A[0] - 26, y: A[1] + 10, size: 28, fill: COL.chalk, font: MATH });
+    mk('circle', { cx: B[0], cy: B[1], r: 8, fill: COL.chalk }, p); T(p, '2', { x: B[0] + 16, y: B[1] - 10, size: 28, fill: COL.chalk, font: MATH });
+    const tp = m('paths');
+    draw(path(p, `M${A[0]} ${A[1]}C400 700 700 520 ${B[0]} ${B[1]}`, { stroke: COL.whole, 'stroke-width': 3 }, { d: 0 }), tp, 1.2);
+    draw(path(p, `M${A[0]} ${A[1]}C200 380 500 120 ${B[0]} ${B[1]}`, { stroke: COL.good, 'stroke-width': 3 }, { d: 0 }), tp + .8, 1.2);
+    txt(p, 'A', 520, 600, tp + 1, { size: 26, fill: COL.whole, font: MATH }); txt(p, 'B', 380, 300, tp + 1.8, { size: 26, fill: COL.good, font: MATH });
+    txt(p, 'работа одна и та же', 960, 220, tp + 2, { size: 28, fill: COL.task });
+    const tv = m('via');
+    const pp = G(p, { o: 0 }); show(pp, tv);
+    mk('circle', { cx: P[0], cy: P[1], r: 8, fill: COL.int }, pp); T(pp, 'P', { x: P[0] - 30, y: P[1] - 10, size: 28, fill: COL.int, font: MATH });
+    path(pp, `M${P[0]} ${P[1]}L${A[0]} ${A[1]}M${P[0]} ${P[1]}L${B[0]} ${B[1]}`, { stroke: COL.int, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    eq(p, 'U(x) = −∫ₚˣ F · ds', 960, 310, tv + 1, { size: 32, fill: COL.int });
+    eq(p, '∫₁² F · ds = U(1) − U(2)', 960, 400, m('u'), { size: 34 });
+    eq(p, 'T + U = const', 960, 500, m('const'), { size: 48, fill: COL.good });
+    txt(p, 'U — с точностью до постоянной', 960, 560, m('const', 3), { size: 24, fill: COL.dim });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 940, y: 600, w: 620, cls: 'side' }, [{
+    id: 'c-path', prompt: ['По пути A сила тяготения совершила 50 Дж от 1 до 2. Сколько по пути B?'],
+    build: blanks([{ parts: [{ box: '50' }, ' Дж'], why: 'Тяготение консервативно: работа не зависит от пути.', hint: 'Консервативная сила — работа зависит только от концов.' }]),
+  }], done) }],
+
+  ['escape', 'Вторая космическая', (m, D) => {
+    const p = panel(0);
+    head(p, 'С какой скоростью покинуть Землю', .2);
+    const E = [220, 440];
+    ballEl(p, '#3f7fb5', 90, { x: E[0], y: E[1] });
+    const ts = m('start'), tr = m('result'), to = m('orbit');
+    const rk = G(p, { x: E[0] + 100, y: E[1], o: 0 }); show(rk, ts);
+    path(rk, 'M-14 -10H14L26 0L14 10H-14Z', { fill: COL.chalk });
+    prog(q => { const t = q * D, s = Math.max(0, t - ts - .5), x = E[0] + 100 + 1100 * (1 - 1 / (1 + s * .6)); put(rk, { x }); }, 0, D, lin);
+    eq(p, '½ m v² − G M m / a = 0 + 0', 520, 230, ts, { size: 34 });
+    txt(p, 'на бесконечности: v ≈ 0, U = 0', 520, 290, m('inf'), { size: 26, fill: COL.dim });
+    eq(p, 'v² = 2GM/a = 2 g a', 520, 380, tr, { size: 38, fill: COL.task });
+    eq(p, 'v = √(2 · 9,8 · 6,37·10⁶) ≈ 11,2 км/с', 520, 450, tr + 1.5, { size: 32, fill: COL.good });
+    const orb = G(p, { o: 0 }); show(orb, to);
+    mk('circle', { cx: E[0], cy: E[1], r: 130, fill: 'none', stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '8 8' }, orb);
+    const sat = ballEl(orb, COL.int, 9);
+    prog(q => { const t = q * D, a = 1.2 * (t - to); put(sat, { x: E[0] + 130 * Math.cos(a), y: E[1] - 130 * Math.sin(a) }); }, 0, D, lin);
+    eq(p, 'по кругу: v = √(g a) ≈ 7,9 км/с', 520, 560, to + .5, { size: 32, fill: COL.int });
+    txt(p, 'улететь — вдвое больше энергии', 520, 620, to + 2, { size: 26, fill: COL.dim });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 940, y: 610, w: 620, cls: 'side' }, [{
+    id: 'c-escape', prompt: ['Во сколько раз вторая космическая скорость больше первой?'],
+    build: choice([['в √2 ≈ 1,41 раза'], ['в 2 раза'], ['в 4 раза']], 0,
+      '√(2ga) / √(ga) = √2. Энергия же — ровно вдвое больше.',
+      [null, 'Вдвое больше энергия, а скорость — в √2.', 'Это квадрат отношения... но и он равен 2, а не 4.']),
+  }], done) }],
+
+  ['molecules', 'Энергия двух атомов', (m) => {
+    const p = panel(0);
+    head(p, 'Потенциальная энергия двух атомов', .2);
+    const X = r => 160 + (r - .8) * 420, Y = u => 400 - u * 180;
+    const ax = G(p, { o: 0 }); show(ax, .3);
+    path(ax, `M160 ${Y(1.4)}V${Y(-1.2)}M160 ${Y(0)}H${X(3) + 20}`, { stroke: COL.dim, 'stroke-width': 2 });
+    T(ax, 'U(r)', { x: 170, y: Y(1.4) - 10, size: 24, fill: COL.dim, font: MATH }); T(ax, 'r', { x: X(3) + 28, y: Y(0) + 8, size: 26, fill: COL.dim, font: MATH });
+    const U = r => Math.pow(1 / r, 12) - 2 * Math.pow(1 / r, 6);
+    let d = ''; for (let r = .9; r <= 3; r += .01) d += (d ? 'L' : 'M') + X(r).toFixed(1) + ' ' + Y(Math.max(-1.2, Math.min(1.4, U(r)))).toFixed(1);
+    draw(path(p, d, { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), m('far'), 2);
+    txt(p, '∝ −1/r⁶', X(2.2), Y(-.3), m('far', 1.5), { size: 26, fill: COL.whole, font: MATH });
+    const tw_ = m('well');
+    const wl = G(p, { o: 0 }); show(wl, tw_);
+    path(wl, `M${X(1)} ${Y(-1)}V${Y(0) + 40}`, { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '5 5' }); T(wl, 'd', { x: X(1), y: Y(0) + 70, size: 28, fill: COL.good, font: MATH, anchor: 'middle' });
+    const pair = G(p, { o: 0 }); show(pair, tw_ + 1);
+    atom(pair, 'O', { x: 1180, y: 300, r: 34 }); atom(pair, 'O', { x: 1250, y: 300, r: 34 }); T(pair, 'O₂', { x: 1215, y: 380, size: 28, fill: COL.bad, anchor: 'middle', font: MATH });
+    const tb = m('break');
+    const br = G(p, { o: 0 }); show(br, tb);
+    vec(br, X(1) + 60, Y(-1), X(1) + 60, Y(0) - 4, COL.int, { w: 3, head: 11 }); vec(br, X(1) + 60, Y(0) - 4, X(1) + 60, Y(-1), COL.int, { w: 3, head: 11 });
+    T(br, 'энергия разрыва', { x: X(1) + 76, y: Y(-1.15), size: 24, fill: COL.int });
+    txt(p, 'в квантовой механике говорят об энергии, а не о силе', 800, 680, m('qm'), { size: 26, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['noncons', 'Неконсервативные силы', (m, D) => {
+    const p = panel(0);
+    head(p, 'Трение: энергия уходит в тепло', .2);
+    path(p, 'M120 440H900', { stroke: COL.dim, 'stroke-width': 4 });
+    const b = G(p, { x: 200, y: 395 }); mk('rect', { x: -50, y: -45, width: 100, height: 90, rx: 6, fill: COL.task }, b);
+    const R = rng(5), atoms_ = Array.from({ length: 30 }, (_, k) => ({ x: 140 + (k % 15) * 50, y: 460 + Math.floor(k / 15) * 30, ph: R() * 6 }));
+    const dots = atoms_.map(a => mk('circle', { cx: a.x, cy: a.y, r: 6, fill: COL.dim }, p));
+    const ts = m('slide'), ta = m('atoms');
+    const set = (() => { const g = G(p, { o: 0 }); show(g, ts); const k = mk('rect', { x: 1100, y: 600, width: 80, height: 0, fill: KE }, g), h = mk('rect', { x: 1220, y: 600, width: 80, height: 0, fill: COL.bad }, g);
+      T(g, 'Eк', { x: 1140, y: 636, size: 24, fill: KE, anchor: 'middle', font: MATH }); T(g, 'тепло', { x: 1260, y: 636, size: 22, fill: COL.bad, anchor: 'middle' });
+      return f => { k.setAttribute('height', 260 * (1 - f)); k.setAttribute('y', 600 - 260 * (1 - f)); h.setAttribute('height', 260 * f); h.setAttribute('y', 600 - 260 * f); }; })();
+    prog(q => {
+      const t = q * D, s = clamp01((t - ts) / 4), f = 1 - (1 - s) ** 2;
+      put(b, { x: 200 + 560 * f });
+      set(s >= 1 ? 1 : 1 - (1 - s) ** 2);
+      const amp = t > ta ? 6 * smooth(ta, ta + 2, t) : 1.5 * f;
+      dots.forEach((dd, i) => { const a = atoms_[i]; dd.setAttribute('cx', a.x + amp * Math.sin(t * 13 + a.ph)); dd.setAttribute('cy', a.y + amp * Math.cos(t * 11 + a.ph)); dd.setAttribute('fill', t > ta ? COL.bad : COL.dim); });
+    }, 0, D, lin);
+    txt(p, 'фундаментальные силы — консервативны', 520, 640, m('deep'), { size: 28, fill: COL.good, anchor: 'middle' });
+    txt(p, 'энергия «теряется», когда мы не видим деталей', 520, 690, m('deep', 1.5), { size: 24, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['potential', 'Потенциал', (m) => {
+    const p = panel(0);
+    head(p, 'Потенциал Ψ', .2);
+    eq(p, 'U = m Ψ,   Ψ(P) = Σ (−G mᵢ / rᵢₚ)', 120, 210, m('psi'), { size: 34, fill: COL.task });
+    txt(p, 'скаляры складываются без направлений', 120, 270, m('sum'), { size: 26, fill: COL.dim });
+    const ts = m('shell');
+    const X = r => 200 + r * 220, Y = v => 380 - v * 260;
+    const ax = G(p, { o: 0 }); show(ax, ts);
+    path(ax, `M200 ${Y(.2)}V${Y(-1.1)}M200 ${Y(0)}H${X(5) + 20}`, { stroke: COL.dim, 'stroke-width': 2 });
+    T(ax, 'Ψ(r)', { x: 210, y: Y(.2) - 8, size: 24, fill: COL.dim, font: MATH }); T(ax, 'r', { x: X(5) + 30, y: Y(0) + 8, size: 26, fill: COL.dim, font: MATH });
+    path(ax, `M${X(1)} ${Y(0) - 8}v16`, { stroke: COL.dim, 'stroke-width': 2 }); T(ax, 'a', { x: X(1), y: Y(0) - 16, size: 24, fill: COL.dim, font: MATH, anchor: 'middle' });
+    let d = `M200 ${Y(-1)}L${X(1)} ${Y(-1)}`; for (let r = 1; r <= 5; r += .05) d += `L${X(r).toFixed(1)} ${Y(-1 / r).toFixed(1)}`;
+    draw(path(p, d, { stroke: COL.whole, 'stroke-width': 4 }, { d: 0 }), ts + .5, 2);
+    txt(p, 'внутри: Ψ = −Gm/a = const → поля нет', 340, Y(-1) + 50, ts + 2.5, { size: 26, fill: COL.good });
+    txt(p, 'снаружи: Ψ = −Gm/r', X(2.4), Y(-.5) - 10, ts + 2.5, { size: 26, fill: COL.whole });
+  }],
+
+  ['gradient', 'Сила из потенциала', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сила — минус градиент', .2);
+    const ts = m('step');
+    eq(p, 'ΔW = Fₓ Δx = −ΔU', 120, 220, ts, { size: 36 });
+    eq(p, 'Fₓ = −∂U/∂x,  F_y = −∂U/∂y,  F_z = −∂U/∂z', 120, 300, m('partial'), { size: 32, fill: COL.task });
+    eq(p, 'F = −∇U,   C = −∇Ψ', 120, 390, m('grad'), { size: 44, fill: COL.good });
+    // contour map of U and a ball rolling downhill
+    const C = [1150, 470];
+    const cm = G(p, { o: 0 }); show(cm, m('grad', .5));
+    [1, 2, 3, 4, 5].forEach(k => mk('ellipse', { cx: C[0], cy: C[1], rx: 50 * k, ry: 34 * k, fill: 'none', stroke: COL.whole, 'stroke-width': 2, opacity: 1 - k * .15 }, cm));
+    T(cm, 'линии равной U (яма в центре)', { x: C[0], y: C[1] + 220, size: 22, fill: COL.dim, anchor: 'middle' });
+    const b = ballEl(p, COL.task, 12, { o: 0 }); show(b, m('grad', 1));
+    const fv = G(p);
+    prog(q => { const t = q * D, s = smooth(m('grad', 1), m('grad', 6), t), x = C[0] + 230 * (1 - s), y = C[1] - 130 * (1 - s);
+      put(b, { x, y }); fv.replaceChildren(); if (t > m('grad', 1) && s < .95) { const gx = (x - C[0]) / 2500, gy = (y - C[1]) / 1156, n = Math.hypot(gx, gy); vec(fv, x, y, x - 70 * gx / n, y - 70 * gy / n, COL.bad, { w: 3, head: 11 }); } }, 0, D, lin);
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 120, y: 470, w: 760, cls: 'side' }, [{
+    id: 'c-grad', prompt: ['U = ½ k x². Чему равна сила Fₓ?'],
+    build: choice([['−k x'], ['k x'], ['½ k x'], ['−½ k x²']], 0,
+      'Fₓ = −dU/dx = −kx — закон Гука.',
+      [null, 'Не забудьте минус: сила направлена туда, где U убывает.', 'Производная x² равна 2x, а не x.', 'Это −U, а нужна производная.']),
+  }], done) }],
+
+  ['capacitor', 'Конденсатор', (m) => {
+    const p = panel(0);
+    head(p, 'Потенциал и напряжение', .2);
+    const tf = m('field');
+    const cp = G(p, { o: 0 }); show(cp, tf);
+    path(cp, 'M200 200H700M200 560H700', { stroke: COL.chalk, 'stroke-width': 6 });
+    for (let x = 230; x <= 680; x += 50) { T(cp, '+', { x, y: 186, size: 28, fill: COL.bad, anchor: 'middle', weight: 700 }); T(cp, '−', { x, y: 600, size: 28, fill: COL.whole, anchor: 'middle', weight: 700 }); vec(cp, x, 215, x, 545, COL.int, { w: 2, head: 10 }); }
+    T(cp, '1', { x: 720, y: 210, size: 28, fill: COL.dim, font: MATH }); T(cp, '2', { x: 720, y: 570, size: 28, fill: COL.dim, font: MATH });
+    path(cp, 'M760 200V560M750 200H770M750 560H770', { stroke: COL.dim, 'stroke-width': 2 }); T(cp, 'd', { x: 780, y: 390, size: 28, fill: COL.dim, font: MATH });
+    const tm = m('move');
+    const q = G(p, { x: 450, y: 230, o: 0 }); show(q, tm);
+    mk('circle', { r: 16, fill: COL.task }, q); T(q, 'q', { y: 7, size: 20, fill: COL.board, anchor: 'middle', font: MATH, weight: 700 });
+    tw(q, { y: 530 }, tm + .5, 3);
+    eq(p, 'E = σ / ε₀', 900, 240, tf + .5, { size: 36, fill: COL.int });
+    eq(p, 'W = q (φ₁ − φ₂) = q σ d / ε₀', 900, 340, tm + 1, { size: 32 });
+    eq(p, 'Δφ = σ d / ε₀  — напряжение, В', 900, 430, m('volt'), { size: 32, fill: COL.task });
+    txt(p, 'магнитная сила работы не совершает', 900, 520, m('volt', 2), { size: 26, fill: COL.dim });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['W = ∫ F · ds; держать груз — не работа.', 'w1'],
+      ['Консервативные силы: T + U = const.', 'w2'],
+      ['Вторая космическая √(2ga) ≈ 11,2 км/с.', 'w3'],
+      ['F = −∇U, поле C = −∇Ψ.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-moon', prompt: ['Вторая космическая для Луны: g = 1,6 м/с², a = 1,74·10⁶ м. Примерно сколько км/с?'],
+    build: choice([['≈ 2,4 км/с'], ['≈ 1,7 км/с'], ['≈ 11,2 км/с'], ['≈ 5,6 км/с']], 0,
+      'v = √(2ga) = √(2 · 1,6 · 1,74·10⁶) ≈ 2360 м/с ≈ 2,4 км/с.',
+      [null, 'Это √(ga) — первая космическая, без двойки.', 'Это для Земли.', 'Проверьте: 2 · 1,6 · 1,74·10⁶ ≈ 5,6·10⁶, а корень — ≈ 2360.']),
+  }, {
+    id: 'p-bag', prompt: ['Вы несёте сумку 10 кг по горизонтальному коридору 20 м с постоянной скоростью. Какую работу совершает ваша сила, держащая сумку (вертикальная)?'],
+    build: blanks([{ parts: ['W = ', { box: '0' }, ' Дж'], why: 'Сила вертикальна, перемещение горизонтально: cos 90° = 0.', hint: 'W = F s cos θ.' }]),
+  }, {
+    id: 'p-energy', prompt: ['Камень брошен вниз с моста со скоростью 5 м/с с высоты 20 м (g = 10 м/с²). Скорость у воды?'],
+    build: blanks([{ parts: ['v = ', { box: '21' }, ' м/с'], test: ([x]) => Math.abs(x - 20.6) < .6, why: 'v² = 25 + 2·10·20 = 425, v ≈ 20,6 ≈ 21 м/с.', hint: 'T + U = const: v² = v₀² + 2gh.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-cap', prompt: ['Заряд 2·10⁻⁶ Кл перенесли между пластинами с разностью потенциалов 100 В. Какую работу совершило поле?'],
+    build: choice([['2·10⁻⁴ Дж'], ['2·10⁻⁸ Дж'], ['50 Дж'], ['200 Дж']], 0,
+      'W = q Δφ = 2·10⁻⁶ · 100 = 2·10⁻⁴ Дж.',
+      [null, 'Это q/Δφ — нужно умножать.', 'Это Δφ/q·10⁻⁶ — проверьте степени.', 'Забыт множитель 10⁻⁶.']),
+  }, {
+    id: 'p-shellforce', prompt: ['Внутри сферического слоя потенциал постоянен. Что это значит для силы?'],
+    build: choice([['силы нет'], ['сила максимальна'], ['сила направлена наружу']], 0,
+      'F = −∇U: если U не меняется, производные равны нулю — силы нет.',
+      [null, 'Сила — это скорость изменения U; постоянная U даёт ноль.', 'Ни в какую сторону U не убывает — силы нет.']),
+  }, {
+    id: 'p-grad', prompt: ['U = −G M m / r. Сила F_r = −dU/dr равна…'],
+    build: choice([['−G M m / r² (к центру)'], ['G M m / r² (наружу)'], ['−G M m / r']], 0,
+      'dU/dr = G M m / r², значит F_r = −G M m / r² — притяжение к центру.',
+      [null, 'Знак: тяготение притягивает.', 'Это сама U; нужна производная.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

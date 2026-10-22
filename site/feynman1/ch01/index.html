@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Атомы в движении</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 1, title: 'Атомы в движении', minutes: 16, language: 'ru', audio: false, next: '../ch02/' };
+
+/* ---------- chapter drawing helpers ---------- */
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Атомы в движении', (m, D) => {
+    const bg = G(scene, { o: 0 });
+    const it = gas(bg, 22, [40, 40, 1560, 860], 3, { kinds: ['H2O', 'O2', 'N2', 'CO2'], speed: [30, 70] });
+    motion(it, (q, t) => gasAt(q, t, [40, 40, 1560, 860]), 0, D + 1);
+    tw(bg, { o: .28 }, 0, 1.2);
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Картина мира · Глава 1', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Атомы в движении', { x: 800, y: 440, size: 92, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Одна фраза, в которой больше всего знаний о мире', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8); hide(bg, D - .9, .8);
+  }],
+
+  ['approx', 'Законы — приближения', (m) => {
+    const p = panel(0);
+    head(p, 'Масса тела и его скорость', .2);
+    const O = [200, 640], W = 800, H = 150, X_ = b => O[0] + W * b, Y_ = g => O[1] - (g - 1) * H;
+    const ax = G(p, { o: 0 }); show(ax, .2);
+    path(ax, `M${O[0]} ${Y_(4.2)}V${O[1]}H${X_(1.08)}`, { stroke: COL.dim, 'stroke-width': 3 });
+    path(ax, `M${X_(1)} ${O[1] - 280}V${O[1]}`, { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '8 8' });
+    [[0, '0'], [.5, '0,5c'], [1, 'c']].forEach(([b, s]) => T(ax, s, { x: X_(b), y: O[1] + 42, size: 28, fill: COL.dim, anchor: 'middle', font: MATH }));
+    [1, 2, 3, 4].forEach(g => T(ax, String(g), { x: O[0] - 22, y: Y_(g) + 10, size: 28, fill: COL.dim, anchor: 'end', font: MATH }));
+    italic(T(ax, 'v', { x: X_(1.08) + 14, y: O[1] + 10, size: 32, fill: COL.dim, font: MATH }));
+    italic(T(ax, 'm / m₀', { x: O[0] - 20, y: Y_(4.2) - 18, size: 32, fill: COL.dim, font: MATH }));
+    const law = path(p, `M${X_(0)} ${Y_(1)}H${X_(1.05)}`, { stroke: COL.whole, 'stroke-width': 6 }, { d: 0 });
+    draw(law, m('law'), 1.2);
+    txt(p, '«закон»: m = const', X_(.62), Y_(1) - 22, m('law', .8), { size: 30, fill: COL.whole, font: MATH });
+    let d = '';
+    for (let b = 0; b <= .9682; b += .004) d += (d ? 'L' : 'M') + X_(b).toFixed(1) + ' ' + Y_(1 / Math.sqrt(1 - b * b)).toFixed(1);
+    const curve = path(p, d, { stroke: COL.task, 'stroke-width': 6 }, { d: 0 });
+    draw(curve, m('curve'), 2.4);
+    italic(txt(p, 'm = m₀ / √(1 − v²/c²)', X_(.52), Y_(3.3), m('curve', 1.8), { size: 34, fill: COL.task, font: MATH, anchor: 'end' }));
+    // magnifier at v = 100 km/s, practically at the origin
+    const lens = G(p, { x: O[0] + 4, y: O[1], s: 0, o: 0 });
+    mk('circle', { r: 30, fill: 'none', stroke: COL.chalk, 'stroke-width': 3 }, lens);
+    pop(lens, m('zoom'));
+    const box = G(p, { o: 0 }); show(box, m('zoom', .5));
+    mk('rect', { x: 1080, y: 200, width: 440, height: 300, rx: 18, fill: 'rgba(10,16,14,.55)', stroke: COL.faint, 'stroke-width': 2 }, box);
+    path(box, `M${O[0] + 30} ${O[1] - 12}L1080 500`, { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '6 8' });
+    [['v = 100 км/с', COL.chalk], ['v / c ≈ 0,00033', COL.dim], ['m / m₀ − 1 ≈ 6·10⁻⁸', COL.task], ['прибор этого не заметит', COL.dim]]
+      .forEach(([s, c], i) => T(box, s, { x: 1110, y: 262 + i * 66, size: i === 3 ? 28 : 34, fill: c, font: i === 3 ? UI : MATH }));
+    txt(p, 'Опыт — единственный судья «истины»', 800, 740, m('judge'), { size: 38, fill: COL.good, anchor: 'middle', weight: 600 });
+  }],
+
+  ['sentence', 'Атомная гипотеза', (m, D) => {
+    const p = panel(0);
+    head(p, 'Если бы от всей науки осталась одна фраза…', .2);
+    const lines = ['Все тела состоят из атомов — маленьких телец,', 'которые находятся в беспрерывном движении,',
+      'притягиваются на небольшом расстоянии,', 'но отталкиваются, если их плотнее прижать друг к другу.'];
+    const Y = [210, 340, 470, 600], SX = 1360;
+    lines.forEach((s, i) => {
+      const g = G(p, { o: 0, x: -20 });
+      T(g, String(i + 1), { x: 96, y: Y[i] + 10, size: 30, fill: COL.task, weight: 700 });
+      T(g, s, { x: 140, y: Y[i] + 10, size: 34, weight: 500 });
+      tw(g, { o: 1, x: 0 }, m('p' + (i + 1)), .7, out);
+    });
+    // 1: a cluster of atoms
+    const c1 = G(p, { x: SX, y: Y[0], o: 0, s: 1.5 }); show(c1, m('p1', .3));
+    [[-30, 0], [0, 0], [30, 0], [-15, -26], [15, -26], [-15, 26], [15, 26]].forEach(([x, y]) => atom(c1, 'C', { x, y, r: 15 }));
+    // 2: one atom that never stops
+    const c2 = G(p, { x: SX, y: Y[1], o: 0, s: 1.5 }); show(c2, m('p2', .3));
+    const a2 = atom(c2, 'C', { r: 15 });
+    motion([{ el: a2, x0: 0, y0: 0, ph: 1, w: 9 }], (q, t) => wobble(q, t, 9), 0, D);
+    // 3: two atoms at a distance pull together
+    const c3 = G(p, { x: SX, y: Y[2], o: 0, s: 1.5 }); show(c3, m('p3', .3));
+    const l3 = atom(c3, 'C', { x: -70, r: 15 }), r3 = atom(c3, 'C', { x: 70, r: 15 });
+    const v3 = G(c3, { o: 0 }); vec(v3, -48, 0, -14, 0, COL.good, { w: 3, head: 12 }); vec(v3, 48, 0, 14, 0, COL.good, { w: 3, head: 12 });
+    show(v3, m('p3', .6));
+    tw(l3, { x: -36 }, m('p3', 1.2), 1.4); tw(r3, { x: 36 }, m('p3', 1.2), 1.4); hide(v3, m('p3', 2.4), .4);
+    // 4: pressed together, they push apart
+    const c4 = G(p, { x: SX, y: Y[3], o: 0, s: 1.5 }); show(c4, m('p4', .3));
+    const l4 = atom(c4, 'C', { x: -12, r: 15 }), r4 = atom(c4, 'C', { x: 12, r: 15 });
+    const v4 = G(c4, { o: 0 }); vec(v4, -26, 0, -70, 0, COL.bad, { w: 3, head: 12 }); vec(v4, 26, 0, 70, 0, COL.bad, { w: 3, head: 12 });
+    show(v4, m('p4', .6));
+    tw(l4, { x: -32 }, m('p4', 1.1), .5, out); tw(r4, { x: 32 }, m('p4', 1.1), .5, out);
+  }],
+
+  ['q1', 'Быстрая проверка', (m, D) => {
+    const p = panel(0);
+    const drop = G(p, { x: 430, y: 430, o: 0 }); show(drop, .2);
+    path(drop, 'M0 -260C70 -150 220 -40 220 70A220 220 0 0 1 -220 70C-220 -40 -70 -150 0 -260Z', { stroke: WATER, 'stroke-width': 4, fill: 'rgba(134,201,232,.08)' });
+    const cg = G(drop);
+    const clipId = 'dropclip'; const c = mk('clipPath', { id: clipId }, drop);
+    mk('path', { d: 'M0 -256C68 -148 216 -40 216 70A216 216 0 0 1 -216 70C-216 -40 -68 -148 0 -256Z' }, c);
+    cg.setAttribute('clip-path', `url(#${clipId})`);
+    const it = waterBox(cg, -230, -260, 230, 300, 50, 11);
+    motion(it, (q, t) => ({ ...wobble(q, t, 4), r: q.r0 + 18 * Math.sin(q.w * .7 * t + q.ph) }), 0, D + 1);
+    T(drop, 'капля воды (увеличена в 10⁹ раз)', { y: 345, size: 26, fill: COL.dim, anchor: 'middle' });
+  }, { ask: done => quiz({ x: 800, y: 120, w: 720, cls: 'side' }, [{
+    id: 'c-drop', prompt: ['Какая часть атомной гипотезы объясняет, почему капля воды держится и не разлетается на части?'],
+    build: choice([['состоят из атомов'], ['находятся в беспрерывном движении'], ['притягиваются на небольшом расстоянии'], ['отталкиваются, если их прижать']], 2,
+      'Притяжение соседних молекул удерживает их вместе — поэтому капля сохраняет объём и не растекается.',
+      ['Это верно, но само по себе не говорит, что держит атомы вместе.', 'Движение, наоборот, растаскивает молекулы: при нагреве вода испаряется.', null,
+        'Отталкивание объясняет, почему каплю трудно сжать, а не почему она держится вместе.']),
+  }], done) }],
+
+  ['zoom', 'Капля в миллиард раз', (m, D) => {
+    const p = panel(0);
+    head(p, 'Увеличиваем каплю воды', .2);
+    const CX = [220, 590, 960, 1330], CY = 380, R = 150;
+    const frames = CX.map(x => { const g = G(p, { o: 0 }); mk('circle', { cx: x, cy: CY, r: R, fill: 'rgba(10,16,14,.35)', stroke: COL.dim, 'stroke-width': 3 }, g); return g; });
+    const clips = CX.map(x => clipCircle(frames[CX.indexOf(x)], x, CY, R - 2));
+    // 1: the real drop
+    mk('circle', { cx: CX[0], cy: CY, r: 9, fill: WATER }, clips[0]);
+    T(frames[0], '0,5 см', { x: CX[0], y: CY + R + 46, size: 30, anchor: 'middle', font: MATH });
+    show(frames[0], .2);
+    // 2: room-sized, with a paramecium
+    mk('rect', { x: CX[1] - R, y: CY - R, width: 2 * R, height: 2 * R, fill: 'rgba(134,201,232,.18)' }, clips[1]);
+    const para = G(clips[1], { x: CX[1], y: CY, r: -20 });
+    mk('ellipse', { rx: 70, ry: 30, fill: 'rgba(143,214,176,.35)', stroke: COL.irr, 'stroke-width': 3 }, para);
+    for (let k = 0; k < 28; k++) { const a = k / 28 * 6.283; path(para, `M${74 * Math.cos(a)} ${33 * Math.sin(a)}l${10 * Math.cos(a)} ${10 * Math.sin(a)}`, { stroke: COL.irr, 'stroke-width': 2 }); }
+    mk('circle', { cx: 10, cy: 0, r: 10, fill: COL.irr, opacity: .6 }, para);
+    T(frames[1], '10 м · парамеция', { x: CX[1], y: CY + R + 46, size: 30, anchor: 'middle' });
+    motion([{ el: para }], (q, t) => ({ x: CX[1] + 30 * Math.sin(t * .6), y: CY + 12 * Math.sin(t * .9), r: -20 + 12 * Math.sin(t * .5) }), 0, D);
+    // 3: stadium crowd
+    const Rr = rng(5), crowd = [];
+    for (let k = 0; k < 420; k++) {
+      const x0 = CX[2] - R + Rr() * 2 * R, y0 = CY - R + Rr() * 2 * R;
+      crowd.push({ el: put(mk('circle', { r: 3.2, fill: Rr() < .5 ? COL.chalk : COL.bad, opacity: .8 }, clips[2]), { x: x0, y: y0 }), x0, y0, ph: Rr() * 6.28, w: 14 });
+    }
+    motion(crowd, (q, t) => wobble(q, t, 1.6), 0, D);
+    T(frames[2], '20 км · «стадион»', { x: CX[2], y: CY + R + 46, size: 30, anchor: 'middle' });
+    // 4: molecules
+    const it = waterBox(clips[3], CX[3] - R, CY - R, CX[3] + R, CY + R, 52, 7, .85);
+    motion(it, (q, t) => ({ ...wobble(q, t, 4), r: q.r0 + 18 * Math.sin(q.w * .7 * t + q.ph) }), 0, D);
+    T(frames[3], '5000 км · молекулы', { x: CX[3], y: CY + R + 46, size: 30, anchor: 'middle' });
+    // magnifications
+    const K = ['× 2000', '× 2000', '× 250'];
+    ['z1', 'z2', 'z3'].forEach((mk_, i) => {
+      const a = G(p, { o: 0 });
+      vec(a, CX[i] + R - 20, CY - R + 10, CX[i + 1] - R + 20, CY - R + 10, COL.task, { w: 3, head: 14 });
+      T(a, K[i], { x: (CX[i] + CX[i + 1]) / 2, y: CY - R - 22, size: 32, fill: COL.task, anchor: 'middle', font: MATH, weight: 600 });
+      show(a, m(mk_)); show(frames[i + 1], m(mk_, .4), .8);
+    });
+    const tot = G(p, { o: 0 });
+    T(tot, '2000 · 2000 · 250 = 1 000 000 000 = 10⁹', { x: 800, y: 680, size: 40, fill: COL.task, anchor: 'middle', font: MATH, weight: 600 });
+    tw(tot, { o: 1 }, m('total'), .7);
+  }],
+
+  ['size', 'Размер атома', (m) => {
+    const p = panel(0);
+    head(p, 'Насколько мал атом?', .2);
+    const r1 = G(p, { o: 0 }); show(r1, .3);
+    T(r1, 'радиус атома ≈ (1–2)·10⁻⁸ см', { x: 96, y: 200, size: 40, font: MATH });
+    const ang = txt(p, '= 1–2 Å (ангстрема)', 690, 200, m('ang'), { size: 40, fill: COL.task, font: MATH });
+    // apple drawing
+    const apple = (g, x, y, r) => {
+      const a = G(g, { x, y, s: r / 50 });
+      path(a, 'M0 -38C-30 -58 -56 -30 -50 2C-44 38 -16 52 0 44C16 52 44 38 50 2C56 -30 30 -58 0 -38Z', { fill: '#e06a5a', stroke: '#a8473c', 'stroke-width': 3 });
+      path(a, 'M0 -38C2 -50 6 -58 10 -62', { stroke: '#7a5a3a', 'stroke-width': 4 });
+      path(a, 'M8 -52C20 -64 34 -60 38 -54C28 -46 16 -46 8 -52Z', { fill: COL.irr });
+      return a;
+    };
+    const earth = (g, x, y, r) => {
+      const e = G(g, { x, y });
+      mk('circle', { r, fill: '#3f7fb5', stroke: '#86c9e8', 'stroke-width': 3 }, e);
+      path(e, `M${-r * .5} ${-r * .55}C${-r * .1} ${-r * .7} ${r * .1} ${-r * .3} ${-r * .15} ${-r * .05}C${-r * .4} ${r * .2} ${-r * .75} ${0} ${-r * .5} ${-r * .55}Z`, { fill: '#6fae6a' });
+      path(e, `M${r * .2} ${r * .1}C${r * .6} ${0} ${r * .7} ${r * .4} ${r * .45} ${r * .65}C${r * .2} ${r * .7} ${r * .05} ${r * .4} ${r * .2} ${r * .1}Z`, { fill: '#6fae6a' });
+      return e;
+    };
+    const rowA = G(p, { o: 0 }), rowB = G(p, { o: 0 });
+    atom(rowA, 'C', { x: 330, y: 360, r: 5 });
+    vec(rowA, 380, 360, 640, 360, COL.task, { w: 3, head: 14 });
+    T(rowA, '× ~10⁸', { x: 510, y: 338, size: 30, fill: COL.task, anchor: 'middle', font: MATH });
+    apple(rowA, 760, 360, 62);
+    T(rowA, 'атом', { x: 330, y: 432, size: 28, fill: COL.dim, anchor: 'middle' });
+    T(rowA, 'яблоко', { x: 760, y: 452, size: 28, fill: COL.dim, anchor: 'middle' });
+    apple(rowB, 330, 590, 9);
+    vec(rowB, 380, 590, 640, 590, COL.task, { w: 3, head: 14 });
+    T(rowB, '× ~10⁸', { x: 510, y: 568, size: 30, fill: COL.task, anchor: 'middle', font: MATH });
+    earth(rowB, 820, 590, 125);
+    T(rowB, 'яблоко', { x: 330, y: 650, size: 28, fill: COL.dim, anchor: 'middle' });
+    T(rowB, 'Земля', { x: 990, y: 700, size: 28, fill: COL.dim, anchor: 'middle' });
+    show(rowB, m('apple'), .8); show(rowA, m('apple', 2.2), .8);
+    txt(p, 'атом : яблоко ≈ яблоко : Земля', 1060, 380, m('apple', 3.4), { size: 34, fill: COL.chalk, font: MATH });
+    txt(p, '8 см · 1,6·10⁸ ≈ 12 700 км', 1060, 440, m('apple', 4), { size: 28, fill: COL.dim, font: MATH });
+    txt(p, '(рисунок не в масштабе)', 1060, 490, m('apple', 4), { size: 24, fill: COL.faint });
+    return ang;
+  }],
+
+  ['water', 'Капля воды', (m, D) => {
+    const p = panel(0);
+    head(p, 'Вода, увеличенная в миллиард раз', .2);
+    const beaker = G(p, { o: 0 }); show(beaker, .2);
+    path(beaker, 'M120 150V640Q120 660 140 660H800Q820 660 820 640V150', { stroke: COL.dim, 'stroke-width': 4 });
+    const liq = G(beaker);
+    const it = waterBox(liq, 132, 250, 808, 650, 50, 21);
+    S.water = { it, p, beaker, liq, T0: D };
+    motion(it, (q, t) => ({ ...wobble(q, t, 4), r: q.r0 + 20 * Math.sin(q.w * .7 * t + q.ph) }), 0, D);
+    // the detail molecule
+    const big = G(p, { x: 1210, y: 360, o: 0, s: .2 });
+    mol(big, 'H2O', { s: 4.2 });
+    tw(big, { o: 1, s: 1 }, m('mol'), .8, back);
+    const lab = G(p, { o: 0 }); show(lab, m('mol', .6));
+    T(lab, 'O', { x: 1210, y: 300, size: 40, fill: '#1d2b27', anchor: 'middle', weight: 700, font: MATH });
+    T(lab, 'H', { x: 1120, y: 420, size: 34, fill: '#1d2b27', anchor: 'middle', weight: 700, font: MATH });
+    T(lab, 'H', { x: 1300, y: 420, size: 34, fill: '#1d2b27', anchor: 'middle', weight: 700, font: MATH });
+    chem(lab, 'H2O', { x: 1000, y: 260, size: 44, weight: 600 });
+    const ang = G(p, { o: 0 }); show(ang, m('angle'));
+    const Ox = 1210, Oy = 360 - 6 * 4.2, hx = 21.4 * 4.2, hy = 16.4 * 4.2;
+    path(ang, `M${Ox - hx} ${Oy + hy}L${Ox} ${Oy}L${Ox + hx} ${Oy + hy}`, { stroke: COL.board, 'stroke-width': 4, opacity: .8 });
+    const ra = 46, ux = hx / Math.hypot(hx, hy), uy = hy / Math.hypot(hx, hy);
+    path(ang, `M${Ox - ux * ra} ${Oy + uy * ra}A${ra} ${ra} 0 0 0 ${Ox + ux * ra} ${Oy + uy * ra}`, { stroke: COL.board, 'stroke-width': 4 });
+    T(ang, '≈ 105°', { x: Ox, y: Oy + hy + 120, size: 32, fill: COL.task, anchor: 'middle', font: MATH, weight: 600 });
+    path(ang, `M${Ox} ${Oy + 54}V${Oy + hy + 88}`, { stroke: COL.task, 'stroke-width': 2, 'stroke-dasharray': '4 6' });
+    const nx = uy, ny = -ux, off = 92;   // the bond-length dimension line, outside the molecule
+    path(ang, `M${Ox + nx * off} ${Oy + ny * off}L${Ox + hx + nx * off} ${Oy + hy + ny * off}`, { stroke: COL.whole, 'stroke-width': 3 });
+    path(ang, `M${Ox} ${Oy}L${Ox + nx * (off + 10)} ${Oy + ny * (off + 10)}M${Ox + hx} ${Oy + hy}L${Ox + hx + nx * (off + 10)} ${Oy + hy + ny * (off + 10)}`, { stroke: COL.whole, 'stroke-width': 1.5, 'stroke-dasharray': '4 6' });
+    T(ang, '0,957 Å', { x: Ox + hx / 2 + nx * (off + 22), y: Oy + hy / 2 + ny * (off + 22), size: 30, fill: COL.whole, font: MATH });
+    txt(p, 'дрожат · толкаются · держатся вместе', 470, 712, m('jostle'), { size: 30, fill: COL.task, anchor: 'middle' });
+    S.water.right = [big, lab, ang];
+  }],
+
+  ['heat', 'Теплота и пар', (m, D) => {
+    const { it, p, T0 } = S.water;
+    S.water.right.forEach(e => hide(e, 0, .5));
+    hide(S.panel.lastChild, 0, .4);
+    S.panel = p;   // keep the beaker on screen
+    const flame = G(p, { o: 0 });
+    for (let k = 0; k < 7; k++) path(flame, `M${210 + k * 85} 712C${190 + k * 85} 690 ${222 + k * 85} 676 ${210 + k * 85} 660C${236 + k * 85} 684 ${232 + k * 85} 700 ${210 + k * 85} 712Z`, { fill: COL.task, stroke: COL.nat, 'stroke-width': 2 });
+    show(flame, m('heat'));
+    const th = m('heat'), ts = m('steam');
+    const R = rng(77);
+    const fly = it.filter(q => q.y0 < 300).map(q => ({ q, t1: ts + R() * 6, vx: (R() - .5) * 240, vy: -(240 + R() * 160) }));
+    const fset = new Map(fly.map(f => [f.q, f]));
+    motion(it, (q, t) => {
+      const T_ = T0 + t, amp = 4 + 9 * smooth(th, th + 3, t), f = fset.get(q);
+      const base = { ...wobble(q, T_, amp), r: q.r0 + (20 + 40 * smooth(th, th + 3, t)) * Math.sin(q.w * .7 * T_ + q.ph) };
+      if (!f || t < f.t1) return base;
+      const s = t - f.t1;
+      return { x: base.x + f.vx * s, y: base.y + f.vy * s, r: base.r + 120 * s, o: clamp01(1 - (110 - (base.y + f.vy * s)) / 60) };
+    }, 0, D);
+    const tx = G(p);
+    txt(tx, 'Теплота = движение молекул', 900, 260, .3, { size: 38, weight: 600 });
+    txt(tx, 'нагрев → размах колебаний растёт', 900, 340, th + .5, { size: 30, fill: COL.task });
+    txt(tx, 'притяжения не хватает → пар', 900, 410, ts + .5, { size: 30, fill: WATER });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {
+    const p = panel(0);
+    const g = G(p, { o: 0 }); show(g, .2);
+    T(g, '0,5 см  → × 2000 →  × 2000 →  × 250 →  ?', { x: 800, y: 260, size: 44, anchor: 'middle', font: MATH });
+    T(g, 'капля', { x: 400, y: 320, size: 26, fill: COL.dim, anchor: 'middle' });
+  }, { ask: done => quiz({ x: 300, y: 380, w: 1000, cls: 'side' }, [{
+    id: 'c-zoom', prompt: ['Каким станет размер капли после всех трёх увеличений?'],
+    build: blanks([{ parts: ['0,5 см · 2000 · 2000 · 250 = ', { box: '5000' }, ' км'],
+      why: 'Полное увеличение 10⁹: 0,5 см · 10⁹ = 5·10⁸ см = 5·10⁶ м = 5000 км.',
+      hint: '0,5 см · 2000 = 10 м. Продолжайте в метрах, а в конце переведите в километры.' }]),
+  }], done) }],
+
+  ['pressure', 'Давление газа', (m, D) => {
+    const p = panel(0);
+    head(p, 'Газ в цилиндре с поршнем', .2);
+    const cyl = (x1, x2, n, seed, t0) => {
+      const g = G(p, { o: 0 });
+      path(g, `M${x1} 190V640H${x2}V190`, { stroke: COL.dim, 'stroke-width': 4 });
+      const pist = G(g);
+      mk('rect', { x: x1 + 4, y: 196, width: x2 - x1 - 8, height: 30, fill: '#55665f', stroke: COL.dim, 'stroke-width': 2 }, pist);
+      mk('rect', { x: (x1 + x2) / 2 - 8, y: 120, width: 16, height: 76, fill: '#55665f' }, pist);
+      const box = [x1 + 14, 240, x2 - 14, 628];
+      const it = gas(g, n, box, seed, { speed: [180, 340], s: .6 });
+      const cnt = T(g, 'ударов: 0', { x: x2, y: 160, size: 28, fill: COL.task, font: UI, weight: 600, anchor: 'end' });
+      motion(it, (q, t) => gasAt(q, t, box), t0, D - t0 + 1);
+      prog(q => {
+        const t = q * (D - t0 + 1);
+        let n_ = 0;
+        for (const it_ of it) n_ += touches(it_.y0, it_.vy, t, box[1], box[3]);
+        cnt.textContent = 'ударов: ' + n_;
+        put(pist, { y: -Math.min(4, n_ % 3) });
+      }, t0, D - t0 + 1, lin);
+      show(g, t0);
+      return g;
+    };
+    cyl(140, 560, 24, 31, .2);
+    txt(p, 'сила F ∝ число ударов', 800, 300, m('hits', 1), { size: 32, anchor: 'middle' });
+    txt(p, 'давление  P = F / S', 800, 390, m('area'), { size: 36, anchor: 'middle', fill: COL.whole, font: MATH });
+    cyl(1040, 1460, 48, 32, m('dense'));
+    txt(p, 'молекул вдвое больше →', 800, 480, m('dense', 1), { size: 28, anchor: 'middle' });
+    txt(p, 'ударов вдвое больше', 800, 520, m('dense', 1), { size: 28, anchor: 'middle' });
+    txt(p, 'P ∝ n', 800, 610, m('dense', 3), { size: 48, anchor: 'middle', fill: COL.task, font: MATH, weight: 600 });
+  }],
+
+  ['compress', 'Сжатие и расширение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Удар о движущийся поршень', .2);
+    const cyl = G(p, { o: 0 }); show(cyl, .2);
+    path(cyl, 'M1100 250H110V520H1100', { stroke: COL.dim, 'stroke-width': 4 });
+    const pist = G(p, { x: 1000, o: 0 }); show(pist, .2);
+    mk('rect', { x: 0, y: 256, width: 28, height: 258, fill: '#55665f', stroke: COL.dim, 'stroke-width': 2 }, pist);
+    mk('rect', { x: 28, y: 377, width: 120, height: 16, fill: '#55665f' }, pist);
+    const r = 14, k = .5, Y = 385;
+    // run 1: piston moves in at u = 60, ball at v = 300 (pixels per second); run 2: piston moves out
+    const t1 = m('piston'), t2 = m('cool');
+    const u = 60, v = 300;
+    const tc1 = (1000 - r - 300) / (v + u), tc2 = (820 - r - 300) / (v - u);
+    const pistX = t => t < t1 ? 1000 : t < t2 ? 1000 - u * Math.min(t - t1, 3) : 820 + u * Math.min(t - t2, 3);
+    const ball1 = atom(p, 'He', { x: 300, y: Y, o: 0 }), ball2 = atom(p, 'He', { x: 300, y: Y, o: 0 });
+    const vA = G(p, { o: 0 }), vB = G(p, { o: 0 }), uA = G(p, { o: 0 }), vC = G(p, { o: 0 }), vD = G(p, { o: 0 }), uB = G(p, { o: 0 });
+    vec(vA, 0, 0, v * k, 0, COL.chalk, { w: 4 }); T(vA, 'v', { x: v * k / 2, y: -16, size: 30, anchor: 'middle', font: MATH });
+    vec(vB, 0, 0, -(v + 2 * u) * k, 0, COL.task, { w: 5 }); T(vB, 'v + 2u', { x: -(v + 2 * u) * k / 2, y: -16, size: 30, fill: COL.task, anchor: 'middle', font: MATH });
+    vec(uA, 0, 0, -u * k, 0, COL.whole, { w: 4, head: 10 }); T(uA, 'u', { x: -u * k / 2, y: -16, size: 30, fill: COL.whole, anchor: 'middle', font: MATH });
+    vec(vC, 0, 0, v * k, 0, COL.chalk, { w: 4 }); T(vC, 'v', { x: v * k / 2, y: -16, size: 30, anchor: 'middle', font: MATH });
+    vec(vD, 0, 0, -(v - 2 * u) * k, 0, COL.whole, { w: 5 }); T(vD, 'v − 2u', { x: -(v - 2 * u) * k / 2, y: -16, size: 30, fill: COL.whole, anchor: 'middle', font: MATH });
+    vec(uB, 0, 0, u * k, 0, COL.whole, { w: 4, head: 10 }); T(uB, 'u', { x: u * k / 2, y: -16, size: 30, fill: COL.whole, anchor: 'middle', font: MATH });
+    prog(q => {
+      const t = q * (D + 1);
+      put(pist, { x: pistX(t) });
+      // ball 1
+      const s1 = t - t1;
+      const x1 = s1 < 0 ? 300 : s1 < tc1 ? 300 + v * s1 : Math.max(110 + r, 300 + v * tc1 - (v + 2 * u) * (s1 - tc1));
+      const o1 = clamp01((t - .3) / .5);
+      put(ball1, { x: x1 }); put(vA, { x: x1 + r + 6, y: Y - 40, o: s1 < tc1 ? o1 : 0 });
+      put(vB, { x: x1 - r - 6, y: Y - 40, o: s1 >= tc1 && t < t2 ? 1 : 0 });
+      put(uA, { x: pistX(t) - 10, y: Y + 80, o: t >= t1 && t < t2 ? 1 : 0 });
+      put(ball1, { o: t < t2 ? o1 : Math.max(0, 1 - (t - t2) * 2) });
+      // ball 2
+      const s2 = t - t2;
+      const x2 = s2 < tc2 ? 300 + v * Math.max(0, s2) : 300 + v * tc2 - (v - 2 * u) * (s2 - tc2);
+      put(ball2, { x: Math.max(110 + r, x2), o: s2 < 0 ? 0 : 1 });
+      put(vC, { x: x2 + r + 6, y: Y - 40, o: s2 >= 0 && s2 < tc2 ? 1 : 0 });
+      put(vD, { x: Math.max(110 + r, x2) - r - 6, y: Y - 40, o: s2 >= tc2 ? 1 : 0 });
+      put(uB, { x: pistX(t) + 40, y: Y + 80, o: s2 >= 0 ? 1 : 0 });
+    }, 0, D + 1, lin);
+    txt(p, 'поршень навстречу:', 1160, 300, m('faster'), { size: 28, fill: COL.dim });
+    txt(p, 'v′ = v + 2u', 1160, 350, m('faster', .5), { size: 38, fill: COL.task, font: MATH, weight: 600 });
+    txt(p, 'сжатие → газ нагревается', 1160, 400, m('faster', 2.5), { size: 26, fill: COL.task });
+    txt(p, 'поршень уходит:', 1160, 480, m('cool'), { size: 28, fill: COL.dim });
+    txt(p, 'v′ = v − 2u', 1160, 530, m('cool', .5), { size: 38, fill: COL.whole, font: MATH, weight: 600 });
+    txt(p, 'расширение → остывает', 1160, 580, m('cool', 2.5), { size: 26, fill: COL.whole });
+    txt(p, 'в системе поршня мяч отскакивает с той же скоростью v + u', 605, 650, m('faster', 3), { size: 26, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {
+    const p = panel(0);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M120 300H700V460H120', { stroke: COL.dim, 'stroke-width': 4 });
+    mk('rect', { x: 600, y: 306, width: 24, height: 148, fill: '#55665f' }, g);
+    atom(g, 'He', { x: 300, y: 380 });
+    vec(g, 322, 380, 460, 380, COL.chalk); T(g, 'v = 400 м/с', { x: 390, y: 350, size: 26, anchor: 'middle', font: MATH });
+    vec(g, 600, 500, 540, 500, COL.whole); T(g, 'u = 10 м/с', { x: 570, y: 545, size: 26, fill: COL.whole, anchor: 'middle', font: MATH });
+  }, { ask: done => quiz({ x: 800, y: 150, w: 720, cls: 'side' }, [{
+    id: 'c-piston', prompt: ['Молекула летит со скоростью 400 м/с прямо на поршень, который движется ей навстречу со скоростью 10 м/с. С какой скоростью она отскочит? (Поршень гораздо тяжелее молекулы, удар упругий.)'],
+    build: blanks([{ parts: ['v′ = ', { box: '420' }, ' м/с'],
+      why: 'v′ = v + 2u = 400 + 2·10 = 420 м/с: в системе поршня 410 м/с туда и обратно, плюс скорость поршня.',
+      hint: 'Перейдите в систему поршня: там молекула подлетает со скоростью v + u и отлетает с той же скоростью.' }]),
+  }], done) }],
+
+  ['ice', 'Лёд', (m, D) => {
+    const p = panel(0);
+    head(p, 'Охлаждаем: вода → лёд', .2);
+    const CX = 470, CY = 400, a = 62;
+    // honeycomb: vertices around a hexagon centred on (0, 0)
+    const V = [], key = (x, y) => Math.round(x) + ',' + Math.round(y);
+    const seen = new Set();
+    for (let i = -5; i <= 5; i++) for (let j = -5; j <= 5; j++) {
+      const cx = i * Math.sqrt(3) * a + j * Math.sqrt(3) * a / 2, cy = j * 1.5 * a;
+      for (let k = 0; k < 6; k++) {
+        const x = cx + a * Math.cos((60 * k + 30) * Math.PI / 180), y = cy + a * Math.sin((60 * k + 30) * Math.PI / 180);
+        if (Math.hypot(x, y) < 285 && !seen.has(key(x, y))) { seen.add(key(x, y)); V.push([x, y]); }
+      }
+    }
+    const nb = v => V.filter(w => Math.abs(Math.hypot(w[0] - v[0], w[1] - v[1]) - a) < 1);
+    const ghost = G(p, { x: CX, y: CY, o: 0 });
+    const lat = G(p, { x: CX, y: CY });
+    for (const v of V) for (const w of nb(v)) if (w[0] > v[0] || (w[0] === v[0] && w[1] > v[1])) path(ghost, `M${v[0]} ${v[1]}L${w[0]} ${w[1]}`, { stroke: COL.faint, 'stroke-width': 2 });
+    const R = rng(9);
+    const it = V.map(v => {
+      const ns = nb(v);
+      // the molecule's two H point along two bonds: its bisector is opposite the remaining bond
+      const third = ns.length ? ns[Math.floor(R() * ns.length)] : [v[0], v[1] + 1];
+      const r1 = Math.atan2(third[1] - v[1], third[0] - v[0]) * 180 / Math.PI + 90;
+      const ang = R() * 6.283, rad = 270 * Math.sqrt(R());
+      return { el: mol(lat, 'H2O', { s: .8 }), lx: v[0], ly: v[1], lr: r1, x0: Math.cos(ang) * rad * .95, y0: Math.sin(ang) * rad * .95, r0: R() * 360, ph: R() * 6.28, w: 5 + R() * 4 };
+    });
+    const tc = m('cool'), tl = m('lattice'), tm = m('melt');
+    motion(it, (q, t) => {
+      const amp = 9 - 5 * smooth(tc, tc + 3, t) - 2 * smooth(tl, tl + 3, t) + 10 * smooth(tm, tm + 5, t);
+      const f = smooth(tl, tl + 3.5, t) * (1 - smooth(tm + 5, tm + 8, t));
+      const w = wobble({ ...q, x0: 0, y0: 0 }, t, amp);
+      const bx = q.x0 + (q.lx - q.x0) * f, by = q.y0 + (q.ly - q.y0) * f;
+      const rr = q.r0 + (q.lr - q.r0) * f + (1 - f) * 25 * Math.sin(t * .8 + q.ph);
+      return { x: bx + w.x, y: by + w.y, r: rr };
+    }, 0, D);
+    // rotation by 120° maps the lattice onto itself
+    tw(lat, { r: 120 }, m('rotate', 1), 3);
+    tw(ghost, { o: 1 }, m('rotate'), .6); hide(ghost, m('voids', -1), .6);
+    const holes = G(p, { x: CX, y: CY, o: 0 });
+    for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) {
+      const cx = i * Math.sqrt(3) * a + j * Math.sqrt(3) * a / 2, cy = j * 1.5 * a;
+      if (Math.hypot(cx, cy) > 200) continue;
+      let d = '';
+      for (let k = 0; k < 6; k++) d += (k ? 'L' : 'M') + (cx + a * .55 * Math.cos((60 * k + 30) * Math.PI / 180)).toFixed(1) + ' ' + (cy + a * .55 * Math.sin((60 * k + 30) * Math.PI / 180)).toFixed(1);
+      path(holes, d + 'Z', { fill: 'rgba(134,201,232,.28)', stroke: WATER, 'stroke-width': 2 });
+    }
+    show(holes, m('voids', .3)); hide(holes, m('melt'), .6);
+    const L = (s, y, mark, c = COL.chalk) => txt(p, s, 900, y, m(mark, .3), { size: 28, fill: c });
+    L('у каждого атома — своё место: кристалл', 200, 'lattice');
+    L('поворот на 120° — та же картина', 260, 'rotate', COL.task);
+    L('много пустот → лёд легче воды', 320, 'voids', WATER);
+    L('нагрев → размах колебаний → плавление', 380, 'melt', COL.task);
+    L('при 0 К движение не исчезает: гелий', 440, 'helium', COL.int);
+    L('остаётся жидким без сильного сжатия', 480, 'helium', COL.int);
+    // ice floating in water
+    const fl = G(p, { o: 0 }); show(fl, m('voids', 1.2));
+    path(fl, 'M1000 540V700H1440V540', { stroke: COL.dim, 'stroke-width': 3 });
+    mk('rect', { x: 1003, y: 556, width: 434, height: 141, fill: 'rgba(134,201,232,.25)' }, fl);
+    const cube = G(fl, { x: 1220, y: 560 });
+    mk('rect', { x: -50, y: -14, width: 100, height: 100, rx: 8, fill: 'rgba(236,232,220,.55)', stroke: COL.chalk, 'stroke-width': 2 }, cube);
+    motion([{ el: cube }], (q, t) => ({ x: 1220, y: 560 + 3 * Math.sin(t * 1.4), r: 2 * Math.sin(t * .9) }), m('voids', 1.2), D);
+    T(fl, 'лёд плавает: под водой ≈ 9/10', { x: 1220, y: 524, size: 24, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['q4', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 220, y: 110, w: 1160, cls: 'side' }, [{
+    id: 'c-tf', prompt: ['Верно или неверно?'],
+    build: grid([
+      { parts: ['Лёд плотнее жидкой воды.'], ans: ['f'], why: 'Неверно: в решётке льда много пустот, поэтому лёд легче воды и плавает.' },
+      { parts: ['При медленном сжатии газ нагревается.'], ans: ['t'], why: 'Верно: молекулы отскакивают от наступающего поршня быстрее.' },
+      { parts: ['При абсолютном нуле атомы полностью останавливаются.'], ans: ['f'], why: 'Неверно: остаётся минимальное движение — его хватает, чтобы гелий не замёрз.' },
+      { parts: ['Если вдвое увеличить число молекул в том же объёме при той же температуре, давление удвоится.'], ans: ['t'], why: 'Верно: ударов о поршень станет вдвое больше, P ∝ n.' },
+    ], [['t', 'Верно', COL.good, '1'], ['f', 'Неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['evap', 'Испарение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Поверхность воды и воздух над ней', .2);
+    const jar = G(p, { o: 0 }); show(jar, .2);
+    path(jar, 'M100 150V690H1110V150', { stroke: COL.dim, 'stroke-width': 4 });
+    const lid = G(p, { o: 0 }); show(lid, .2);
+    mk('rect', { x: 86, y: 132, width: 1038, height: 18, rx: 6, fill: '#55665f', stroke: COL.dim, 'stroke-width': 2 }, lid);
+    const tw_ = m('wind'), tl = m('leave'), tb = m('back');
+    tw(lid, { y: -60, o: 0 }, tw_, 1);
+    const liq = G(p);
+    const W = waterBox(liq, 112, 470, 1098, 690, 50, 41);
+    // the surface row leaves one by one; returning vapour fills the holes
+    const top = W.filter(q => q.y0 < 515).sort((a, b) => a.x0 - b.x0);
+    const R = rng(55), AIR = [112, 170, 1098, 440];
+    const leaveT = [0, 3, 6, 9, 12].map(s => tl + s).concat(Array.from({ length: 12 }, (_, i) => tw_ + .4 + i * 1.15));
+    const order = [3, 11, 7, 15, 1, 18, 9, 5, 13, 0, 16, 10, 2, 17, 6, 14, 4, 12, 8];
+    const leavers = leaveT.map((t, i) => ({ q: top[order[i % order.length] % top.length], t, vx: (R() - .5) * 300, vy: -(260 + R() * 100) }));
+    const lmap = new Map(leavers.map(l => [l.q, l]));
+    const backT = [0, 2.5, 5, 7.5].map(s => tb + s);
+    const air = gas(p, 16, AIR, 61, { kinds: ['N2', 'N2', 'O2', 'N2', 'H2O'], s: .8 });
+    const vap = air.filter((_, i) => i % 5 === 4);   // the H2O ones
+    const ret = backT.map((t, i) => ({ q: vap[i % vap.length], t, to: leavers[i].q }));
+    const rmap = new Map(ret.map(r => [r.q, r]));
+    const wind = t => Math.max(0, t - tw_);
+    const airPos = (q, t) => {
+      const g = gasAt(q, t, AIR);
+      const s = wind(t);
+      return { ...g, x: g.x + 420 * s * s / (1 + s), o: clamp01(1 - (g.x + 420 * s * s / (1 + s) - 1100) / 80) };
+    };
+    motion(air, (q, t) => {
+      const r = rmap.get(q);
+      if (r && t >= r.t) {
+        const from = gasAt(q, r.t, AIR), to = { x: r.to.x0, y: r.to.y0 };
+        const f = smooth(r.t, r.t + 1, t), w = wobble({ ...r.to, x0: 0, y0: 0 }, t, 3);
+        return { x: from.x + (to.x - from.x) * f + w.x * f, y: from.y + (to.y - from.y) * f + w.y * f, r: from.r, o: 1 };
+      }
+      return airPos(q, t);
+    }, 0, D);
+    motion(W, (q, t) => {
+      const l = lmap.get(q), base = { ...wobble(q, t, 3), r: q.r0 + 18 * Math.sin(q.w * .7 * t + q.ph) };
+      if (!l || t < l.t) return base;
+      const s = t - l.t, s1 = (q.y0 - 440) / -l.vy;
+      const y = s < s1 ? q.y0 + l.vy * s : bounce(440, l.vy, s - s1, 170, 440);
+      const x = bounce(q.x0, l.vx, s, 112, 1098) + (t > tw_ ? 420 * wind(t) * wind(t) / (1 + wind(t)) * smooth(0, 1, s) : 0);
+      // a returning vapour molecule takes this place again (its own item), so the leaver is hidden once it is in the air
+      return { x, y, r: base.r + 90 * s, o: clamp01(1 - (x - 1100) / 80) };
+    }, 0, D);
+    // counters
+    const cnt = G(p, { o: 0 }); show(cnt, tl);
+    const c1 = T(cnt, '', { x: 1160, y: 200, size: 32, fill: COL.task, weight: 600 });
+    const c2 = T(cnt, '', { x: 1160, y: 250, size: 32, fill: WATER, weight: 600 });
+    prog(q => {
+      const t = q * D;
+      c1.textContent = 'вылетело: ' + leaveT.filter(x => x <= t).length;
+      c2.textContent = 'вернулось: ' + ret.filter(r => r.t + 1 <= t).length;
+    }, 0, D, lin);
+    txt(p, 'закрыто: вылет = возврат', 1160, 330, m('back', 6), { size: 26, fill: COL.dim });
+    const wg = G(p, { o: 0 }); show(wg, tw_);
+    for (let k = 0; k < 3; k++) vec(wg, 120, 200 + k * 80, 300, 200 + k * 80, COL.chalk, { w: 3, head: 14 });
+    T(wg, 'ветер', { x: 210, y: 186, size: 26, fill: COL.dim, anchor: 'middle' });
+    hide(wg, tw_ + 5);
+    txt(p, 'дуем: вылет > возврат', 1160, 390, tw_ + .5, { size: 26, fill: COL.task });
+    txt(p, 'улетают самые быстрые →', 1160, 470, m('cool', .3), { size: 26 });
+    txt(p, 'вода остывает', 1160, 510, m('cool', .3), { size: 30, fill: WATER, weight: 600 });
+    // a thermometer dropping
+    const th = G(p, { o: 0 }); show(th, m('cool', .3));
+    mk('rect', { x: 1400, y: 540, width: 26, height: 150, rx: 13, fill: 'none', stroke: COL.dim, 'stroke-width': 3 }, th);
+    mk('circle', { cx: 1413, cy: 700, r: 22, fill: COL.bad }, th);
+    const lvl = mk('rect', { x: 1406, y: 570, width: 14, height: 130, fill: COL.bad }, th);
+    tw(lvl, { a_y: 630, a_height: 70 }, m('cool', 1), 4);
+  }],
+
+  ['salt', 'Растворение соли', (m, D) => {
+    const p = panel(0);
+    head(p, 'Кристаллик соли в воде', .2);
+    mk('rect', { x: 100, y: 120, width: 820, height: 590, rx: 12, fill: 'rgba(134,201,232,.06)', stroke: COL.faint, 'stroke-width': 2 }, p);
+    const sp = 54, X0 = 170, Y0_ = 440;
+    const ions = [];
+    const wat = G(p);
+    const crys = G(p, { o: 0 }); show(crys, .2);
+    for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) {
+      const na = (i + j) % 2 === 0, x = X0 + i * sp, y = Y0_ + j * sp;
+      ions.push({ el: atom(crys, na ? 'Na' : 'Cl', { x, y, charge: na ? '+' : '−' }), x0: x, y0: y, na, ph: i * 1.7 + j, w: 8 });
+    }
+    // water around the crystal (not where the crystal is)
+    const W = waterBox(wat, 110, 130, 910, 700, 84, 71, .75).filter(q => !(q.x0 > X0 - 50 && q.x0 < X0 + 4 * sp + 50 && q.y0 > Y0_ - 50 && q.y0 < Y0_ + 4 * sp + 50));
+    W.forEach(q => put(q.el, { o: 0 }));
+    W.forEach(q => tw(q.el, { o: .75 }, .3, .6));
+    motion(W, (q, t) => ({ ...wobble(q, t, 4), r: q.r0 + 20 * Math.sin(q.w * .7 * t + q.ph) }), 0, D);
+    // three corner ions leave with a shell of oriented water molecules
+    const ti = m('ions'), tb = m('balance');
+    const go = [[4, 0, [700, 220]], [4, 4, [760, 610]], [0, 0, [380, 230]]].map(([i, j, to], k) => ({ ion: ions[i * 5 + j], to, t: ti + 1 + k * 2.2 }));
+    const shellOf = ion => {
+      const g = G(p, { o: 0 });
+      for (let k = 0; k < 4; k++) {
+        const a = k * Math.PI / 2 + .4, dx = Math.cos(a) * 52, dy = Math.sin(a) * 52;
+        const phi = Math.atan2(-dy, -dx) * 180 / Math.PI;   // direction from the molecule to the ion
+        mol(g, 'H2O', { x: dx, y: dy, r: ion.na ? phi + 90 : phi - 90, s: .7 });
+      }
+      return g;
+    };
+    go.forEach(gq => { gq.shell = shellOf(gq.ion); });
+    motion(go.map(gq => ({ el: gq.ion.el, gq })), (q, t) => {
+      const { gq } = q, f = smooth(gq.t, gq.t + 4, t), back_ = gq === go[2] ? smooth(tb + 1, tb + 5, t) : 0;
+      const ff = f * (1 - back_);
+      const x = gq.ion.x0 + (gq.to[0] - gq.ion.x0) * ff + 6 * Math.sin(t * 2 + gq.ion.ph) * ff;
+      const y = gq.ion.y0 + (gq.to[1] - gq.ion.y0) * ff + 6 * Math.cos(t * 1.7 + gq.ion.ph) * ff;
+      put(gq.shell, { x, y, o: ff, r: 20 * Math.sin(t * .7 + gq.ion.ph) });
+      return { x, y };
+    }, 0, D);
+    // detail: hydrated ions, drawn larger
+    const det = G(p, { o: 0 }); show(det, m('orient'));
+    const ring = (cx, cy, na) => {
+      atom(det, na ? 'Na' : 'Cl', { x: cx, y: cy, r: na ? 30 : 46, charge: na ? '+' : '−' });
+      for (let k = 0; k < 6; k++) {
+        const a = k * Math.PI / 3 + Math.PI / 6, d = na ? 86 : 104, dx = Math.cos(a) * d, dy = Math.sin(a) * d;
+        const phi = Math.atan2(-dy, -dx) * 180 / Math.PI;
+        mol(det, 'H2O', { x: cx + dx, y: cy + dy, r: na ? phi + 90 : phi - 90, s: 1 });
+      }
+      T(det, na ? 'к Na⁺ — кислородом' : 'к Cl⁻ — водородом', { x: cx, y: cy + (na ? 170 : 190), size: 26, fill: COL.dim, anchor: 'middle' });
+    };
+    ring(1075, 300, true); ring(1375, 300, false);
+    const leg = G(p, { o: 0 }); show(leg, m('ions'));
+    atom(leg, 'Na', { x: 1000, y: 600, charge: '+' }); T(leg, 'Na⁺ натрий', { x: 1030, y: 610, size: 28, font: UI });
+    atom(leg, 'Cl', { x: 1250, y: 600, charge: '−' }); T(leg, 'Cl⁻ хлор', { x: 1290, y: 610, size: 28, font: UI });
+    txt(p, 'растворение ⇄ кристаллизация', 1220, 680, tb + .3, { size: 30, fill: COL.task, anchor: 'middle', weight: 600 });
+  }],
+
+  ['q5', 'Быстрая проверка', () => {
+    const p = panel(0);
+    const XS = [300, 800, 1300];
+    S.q5 = XS.map((cx, i) => {
+      const g = G(p, { o: 0 }); show(g, .2 + i * .15);
+      const cy = 300;
+      atom(g, 'Na', { x: cx, y: cy, r: 30, charge: '+' });
+      for (let k = 0; k < 4; k++) {
+        const a = k * Math.PI / 2 + .3, dx = Math.cos(a) * 100, dy = Math.sin(a) * 100;
+        const phi = Math.atan2(-dy, -dx) * 180 / Math.PI;
+        const r = i === 0 ? phi - 90 : i === 1 ? phi + 90 : [phi + 90, phi - 90, phi, phi + 180][k];
+        mol(g, 'H2O', { x: cx + dx, y: cy + dy, r, s: 1.2 });
+      }
+      T(g, 'АБВ'[i], { x: cx, y: cy + 190, size: 36, fill: COL.dim, anchor: 'middle', weight: 600 });
+      return g;
+    });
+  }, { ask: done => quiz({ x: 220, y: 560, w: 1160, cls: 'side' }, [{
+    id: 'c-ion', prompt: ['Щёлкните по рисунку, где молекулы воды правильно повёрнуты к иону натрия Na⁺.'],
+    build: pickEls(S.q5.map((el, i) => ({ el, box: [[300, 800, 1300][i] - 170, 120, 340, 400], label: 'Рисунок ' + 'АБВ'[i] })), 1,
+      'Na⁺ заряжен положительно и притягивает отрицательный конец молекулы воды — кислород.',
+      i => i === 0 ? 'Так вода окружает ион хлора Cl⁻: положительные водороды тянутся к отрицательному иону.' : 'Ориентация не случайна: ион притягивает противоположно заряженный конец молекулы.'),
+  }], done) }],
+
+  ['chem', 'Химическая реакция', (m, D) => {
+    const p = panel(0);
+    head(p, 'Уголь горит в кислороде', .2);
+    const surf = G(p, { o: 0 }); show(surf, .2);
+    const C = [];
+    for (let row = 0; row < 4; row++) for (let i = 0; i < 15 - (row ? 0 : 0); i++) {
+      const x = 170 + i * 42 + (row % 2) * 21, y = 540 + row * 38;
+      const a = atom(surf, 'C', { x, y });
+      C.push({ el: a, x, y, row, i });
+    }
+    const top = C.filter(c => c.row === 0);
+    const c6 = top[6], c8 = top[8];
+    const tg = m('grab'), tf = m('fly'), tc = m('co2');
+    const Oa = atom(p, 'O', { o: 0 }), Ob = atom(p, 'O', { o: 0 }), Oc = atom(p, 'O', { o: 0 }), Od = atom(p, 'O', { o: 0 });
+    show(Oa, .3); show(Ob, .3);
+    // CO molecules end horizontal: C at (x, y), O at (x + 28, y); then a second O joins at (x − 28, y)
+    const P1 = [720, 230], P2 = [1000, 330];
+    const tracks = [
+      { el: Oa, f: [[0, 1100, 200], [tg, 1100 - 0, 200], [tg + 1.8, c6.x, c6.y - 32], [tf, c6.x, c6.y - 32], [tf + 1.3, P1[0] + 28, P1[1]]] },
+      { el: Ob, f: [[0, 1128, 200], [tg, 1128, 200], [tg + 1.8, c8.x, c8.y - 32], [tf + .4, c8.x, c8.y - 32], [tf + 1.7, P2[0] + 28, P2[1]]] },
+      { el: c6.el, f: [[0, c6.x, c6.y], [tf, c6.x, c6.y], [tf + 1.3, P1[0], P1[1]]] },
+      { el: c8.el, f: [[0, c8.x, c8.y], [tf + .4, c8.x, c8.y], [tf + 1.7, P2[0], P2[1]]] },
+      { el: Oc, f: [[0, 1480, 260], [tc, 1480, 260], [tc + 2, P1[0] - 28, P1[1]]] },
+      { el: Od, f: [[0, 1508, 260], [tc, 1508, 260], [tc + 2.3, P2[0] - 28, P2[1]]] },
+    ];
+    show(Oc, tc - .6); show(Od, tc - .6);
+    motion(tracks, (q, t) => {
+      const pos = kf(t, q.f);
+      // the free O₂ jiggles while it drifts in
+      const j = t < tg + 1.8 && (q.el === Oa || q.el === Ob) ? 4 * Math.sin(t * 6) : 0;
+      return { x: pos.x, y: pos.y + j };
+    }, 0, D);
+    // heat: speed lines and a glow where CO left
+    const glow = G(p, { o: 0 });
+    mk('ellipse', { cx: (c6.x + c8.x) / 2, cy: 520, rx: 150, ry: 60, fill: COL.task, opacity: .25 }, glow);
+    for (let k = 0; k < 5; k++) path(glow, `M${c6.x - 60 + k * 40} 500C${c6.x - 70 + k * 40} 470 ${c6.x - 40 + k * 40} 450 ${c6.x - 50 + k * 40} 420`, { stroke: COL.task, 'stroke-width': 3 });
+    show(glow, tf + .3, .3); tw(glow, { o: .5 }, tf + 2, 1.5);
+    const lines = G(p, { o: 0 });
+    path(lines, `M${c6.x} ${c6.y - 40}L${P1[0] - 30} ${P1[1] + 30}`, { stroke: COL.task, 'stroke-width': 3, 'stroke-dasharray': '10 14' });
+    path(lines, `M${c8.x} ${c8.y - 40}L${P2[0] - 30} ${P2[1] + 30}`, { stroke: COL.task, 'stroke-width': 3, 'stroke-dasharray': '10 14' });
+    show(lines, tf + .2, .3); hide(lines, tf + 2.5, .8);
+    const co = [[P1, tf + 1.5], [P2, tf + 1.9]].map(([P_, t0]) => { const e = txt(p, 'CO', P_[0] + 14, P_[1] - 40, t0, { size: 30, fill: COL.task, anchor: 'middle', font: MATH, weight: 600 }); hide(e, tc + 1.8, .4); return e; });
+    [[P1, tc + 2.2], [P2, tc + 2.5]].forEach(([P_, t0]) => txt(p, 'CO₂', P_[0], P_[1] - 40, t0, { size: 30, fill: COL.good, anchor: 'middle', font: MATH, weight: 600 }));
+    const eq1 = G(p, { o: 0 }); show(eq1, tf + 1);
+    T(eq1, '2C + O₂ → 2CO + тепло', { x: 1110, y: 520, size: 36, font: MATH });
+    const eq2 = G(p, { o: 0 }); show(eq2, tc + 2.6);
+    T(eq2, '2CO + O₂ → 2CO₂ + тепло', { x: 1110, y: 590, size: 36, font: MATH, fill: COL.good });
+    const lg = G(p, { o: 0 }); show(lg, .3);
+    atom(lg, 'C', { x: 1180, y: 110 }); T(lg, 'углерод', { x: 1210, y: 120, size: 26, fill: COL.dim });
+    atom(lg, 'O', { x: 1380, y: 110 }); T(lg, 'кислород', { x: 1410, y: 120, size: 26, fill: COL.dim });
+    txt(p, 'реакция: атомы меняют партнёров', 1110, 660, tc + 4, { size: 28, fill: COL.task });
+  }],
+
+  ['smell', 'Запах фиалок', (m, D) => {
+    const p = panel(0);
+    head(p, 'Как запах попадает в нос', .2);
+    const scene_ = G(p);
+    // violets
+    const fl = G(scene_, { o: 0 }); show(fl, .2);
+    [[200, 560], [290, 600], [370, 545]].forEach(([x, y]) => {
+      path(fl, `M${x} ${y + 10}C${x - 6} ${y + 60} ${x + 4} ${y + 100} ${x} ${y + 140}`, { stroke: '#6fae6a', 'stroke-width': 5 });
+      for (let k = 0; k < 5; k++) { const a = k * 72 * Math.PI / 180; mk('ellipse', { cx: x + Math.cos(a) * 16, cy: y + Math.sin(a) * 16, rx: 15, ry: 10, transform: `rotate(${k * 72} ${x + Math.cos(a) * 16} ${y + Math.sin(a) * 16})`, fill: '#9b7fd9' }, fl); }
+      mk('circle', { cx: x, cy: y, r: 6, fill: COL.int }, fl);
+    });
+    // a nose in profile
+    const nose = G(scene_, { o: 0 }); show(nose, .2);
+    path(nose, 'M1480 170C1460 230 1420 290 1360 360C1350 380 1370 395 1395 392C1420 390 1440 400 1450 420', { stroke: COL.chalk, 'stroke-width': 5 });
+    T(nose, 'нос', { x: 1430, y: 470, size: 26, fill: COL.dim, anchor: 'middle' });
+    // air
+    const AIR = [100, 130, 1500, 700];
+    const air = gas(scene_, 26, AIR, 17, { kinds: ['N2', 'N2', 'O2', 'N2'], s: .6, speed: [120, 240] });
+    air.forEach(q => put(q.el, { o: .5 }));
+    motion(air, (q, t) => ({ ...gasAt(q, t, AIR), o: .5 }), 0, D);
+    // random walk of the odour molecule from the flowers to the nose
+    const R = rng(4), pts = [[290, 540]];
+    for (let k = 1; k < 70; k++) {
+      const [x, y] = pts[k - 1], tx = 1380, ty = 375, f = k / 70;
+      const step = 46, a = R() * 6.283;
+      pts.push([x + Math.cos(a) * step + (tx - x) * f * .12, y + Math.sin(a) * step + (ty - y) * f * .12]);
+    }
+    pts.push([1380, 375]);
+    const tw0 = m('walk'), dur = 8;
+    const trail = path(scene_, 'M' + pts.map(q => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join('L'), { stroke: '#9b7fd9', 'stroke-width': 3, opacity: .7 }, { d: 0 });
+    draw(trail, tw0, dur);
+    const od = G(scene_, { o: 0 }); show(od, tw0 - .3);
+    mk('circle', { r: 13, fill: '#9b7fd9', stroke: COL.chalk, 'stroke-width': 2 }, od);
+    // keep the molecule at the end of the drawn trail
+    const segL = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1])), total = segL.reduce((a, b) => a + b);
+    prog(q => {
+      let d = q * total, i = 0;
+      while (i < segL.length - 1 && d > segL[i]) { d -= segL[i]; i++; }
+      const f = Math.min(1, d / segL[i]);
+      put(od, { x: pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, y: pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f });
+    }, tw0, dur, io);
+    tw(scene_, { o: .18 }, m('formula'), .8);
+    // α-ionone, skeletal formula
+    const F_ = G(p, { x: 0, y: 0 });
+    const c = [800, 420], rr = 70, Pk = k => [c[0] + rr * Math.cos(k * Math.PI / 3), c[1] + rr * Math.sin(k * Math.PI / 3)];
+    const [C1, C2, C3, C4, C5, C6] = [0, 1, 2, 3, 4, 5].map(Pk);
+    const seg = (a, b, t0, dbl) => {
+      draw(path(F_, `M${a[0]} ${a[1]}L${b[0]} ${b[1]}`, { stroke: COL.chalk, 'stroke-width': 5 }, { d: 0 }), t0, .35);
+      if (dbl) {
+        const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy), nx = -dy / L * 11, ny = dx / L * 11;
+        const sx = dbl === -1 ? -nx : nx, sy = dbl === -1 ? -ny : ny;
+        draw(path(F_, `M${a[0] + sx + dx * .15} ${a[1] + sy + dy * .15}L${b[0] + sx - dx * .15} ${b[1] + sy - dy * .15}`, { stroke: COL.chalk, 'stroke-width': 5 }, { d: 0 }), t0 + .2, .3);
+      }
+    };
+    const t0 = m('formula', .6);
+    const ring = [[C1, C2], [C2, C3, -1], [C3, C4], [C4, C5], [C5, C6], [C6, C1]];
+    ring.forEach(([a, b, d], i) => seg(a, b, t0 + i * .25, d));
+    const arm = (A, ang, len = 60) => [A[0] + len * Math.cos(ang * Math.PI / 180), A[1] + len * Math.sin(ang * Math.PI / 180)];
+    const t1 = t0 + 1.8;
+    seg(C2, arm(C2, 60), t1);                    // methyl on C2
+    seg(C6, arm(C6, 270), t1 + .2); seg(C6, arm(C6, 330), t1 + .35);   // two methyls on C6
+    const Ca = [C1[0] + 60, C1[1] - 35], Cb = [Ca[0] + 60, Ca[1] + 35], Cc = [Cb[0] + 60, Cb[1] - 35], Om = [Cc[0], Cc[1] - 70], Cd = [Cc[0] + 60, Cc[1] + 35];
+    seg(C1, Ca, t1 + .6); seg(Ca, Cb, t1 + .85, 1); seg(Cb, Cc, t1 + 1.1); seg(Cc, Om, t1 + 1.35, 1); seg(Cc, Cd, t1 + 1.6);
+    const ol = G(F_, { o: 0 }); show(ol, t1 + 1.6);
+    mk('circle', { cx: Om[0], cy: Om[1] - 4, r: 22, fill: '#1d2b27' }, ol);
+    T(ol, 'O', { x: Om[0], y: Om[1] + 8, size: 36, fill: EL.O.fill, anchor: 'middle', font: MATH, weight: 700 });
+    txt(p, 'α-ионон, C₁₃H₂₀O — одна из молекул запаха фиалок', 800, 610, t1 + 2.2, { size: 30, anchor: 'middle' });
+    txt(p, '4-(2,6,6-триметилциклогекс-2-ен-1-ил)бут-3-ен-2-он', 800, 660, t1 + 3.2, { size: 26, fill: COL.dim, anchor: 'middle', font: MATH });
+    txt(p, 'каждый излом — атом углерода; водороды не рисуют', 800, 220, t1 + 4, { size: 26, fill: COL.faint, anchor: 'middle' });
+  }],
+
+  ['brown', 'Броуновское движение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Крупинка среди молекул воды', .2);
+    const BOX = [100, 130, 1500, 700];
+    const small = gas(p, 90, BOX, 23, { el: 'H', s: .6, speed: [200, 380] });
+    small.forEach(q => put(q.el, { o: .7 }));
+    motion(small, (q, t) => ({ ...gasAt(q, t, BOX), o: .7 }), 0, D);
+    const tk = m('kick'), tp = m('path');
+    const R = rng(12), pts = [[800, 415]];
+    for (let k = 1; k < 80; k++) { const a = R() * 6.283, s = 10 + R() * 16; pts.push([pts[k - 1][0] + Math.cos(a) * s, pts[k - 1][1] + Math.sin(a) * s]); }
+    const step = .22, posAt = t => {
+      if (t <= tk) return { x: pts[0][0], y: pts[0][1] };
+      const u = (t - tk) / step, i = Math.min(pts.length - 2, Math.floor(u)), f = io(Math.min(1, u - i));
+      return { x: pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, y: pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f };
+    };
+    const trace = path(p, '', { stroke: COL.task, 'stroke-width': 3, opacity: .8 });
+    const ball = atom(p, 'B', { x: 800, y: 415, o: 0 }); show(ball, .2);
+    prog(q => {
+      const t = q * D, b = posAt(t);
+      put(ball, b);
+      if (t < tp) { trace.setAttribute('d', ''); return; }
+      let d = 'M' + pts[0].join(' ');
+      for (let i = 1; i < pts.length && tk + i * step <= t; i++) d += 'L' + pts[i][0].toFixed(1) + ' ' + pts[i][1].toFixed(1);
+      trace.setAttribute('d', d + 'L' + b.x.toFixed(1) + ' ' + b.y.toFixed(1));
+    }, 0, D, lin);
+    txt(p, 'удары с разных сторон не уравновешиваются в каждый момент', 800, 180, tk + 2, { size: 28, fill: COL.chalk, anchor: 'middle' });
+    txt(p, 'Перрен (1908) по такому движению определил число Авогадро', 800, 690, tp + 4, { size: 26, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Любой закон природы — приближение; судья — опыт.', 'w1'],
+      ['Атомы движутся, притягиваются издали и отталкиваются вблизи.', 'w2'],
+      ['Теплота — движение атомов, давление — их удары.', 'w3'],
+      ['Химическая реакция — атомы меняют партнёров.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-angstrom', prompt: ['Один ангстрем — это…'],
+    build: choice([[$m('10', E('−6'), ' см')], [$m('10', E('−8'), ' см')], [$m('10', E('−8'), ' м')], [$m('10', E('−10'), ' см')]], 1,
+      '1 Å = 10⁻⁸ см = 10⁻¹⁰ м. Радиус атома — 1–2 Å.',
+      ['10⁻⁶ см — это 100 Å, в сто раз больше.', null, '10⁻⁸ м = 10⁻⁶ см = 100 Å. В метрах ангстрем равен 10⁻¹⁰ м.', 'Это в сто раз меньше: 10⁻¹⁰ — это ангстрем в метрах, а не в сантиметрах.']),
+  }, {
+    id: 'p-billion', prompt: ['Каплю размером 0,5 см увеличили в миллиард раз. Каким стал её размер?'],
+    build: blanks([{ parts: ['0,5 см · 10', E('9'), ' = ', { box: '5000' }, ' км'], why: '0,5 см · 10⁹ = 5·10⁸ см = 5·10⁶ м = 5000 км.', hint: '1 км = 10⁵ см.' }]),
+  }, {
+    id: 'p-force', prompt: ['При той же температуре молекул в том же объёме стало втрое больше, а поршень заменили на вдвое больший по площади. Во сколько раз выросла сила, действующая на поршень?'],
+    build: blanks([{ parts: ['F′ / F = ', { box: '6' }], why: 'Давление выросло втрое (P ∝ n), а F = P·S — ещё вдвое: 3 · 2 = 6.', hint: 'Сначала найдите, во сколько раз выросло давление, затем умножьте на изменение площади.' }]),
+  }], done, 'Практика по главе   1 из 3') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-alcohol', prompt: ['Почему капля спирта на коже холодит?'],
+    build: choice([['Улетают самые быстрые молекулы, и средняя энергия оставшихся падает'], ['Спирт сам по себе холоднее кожи'], ['Молекулы спирта отнимают тепло у воздуха'], ['В воздухе молекулы спирта замедляются']], 0,
+      'Испарение уносит самые энергичные молекулы — оставшаяся жидкость и кожа под ней остывают.',
+      [null, 'Даже спирт комнатной температуры холодит — дело в испарении.', 'Воздух тут ни при чём: остывает сама жидкость, потому что её покидают быстрые молекулы.', 'То, что происходит в воздухе, не меняет энергию оставшейся жидкости.']),
+  }, {
+    id: 'p-compress', prompt: ['Поршень медленно вдвигают в цилиндр с газом. Что происходит с температурой газа?'],
+    build: choice([['повышается'], ['не меняется'], ['понижается']], 0,
+      'Молекулы отскакивают от наступающего поршня быстрее (v + 2u), средняя скорость растёт — газ нагревается.',
+      [null, 'Каждый отскок от движущегося навстречу поршня добавляет молекуле скорость 2u.', 'Понижается температура при расширении, когда поршень уходит.']),
+  }, {
+    id: 'p-phys-chem', prompt: ['Физический это процесс или химическая реакция?'],
+    build: grid([
+      { parts: ['лёд тает'], ans: ['ph'], why: 'Физический: молекулы воды остаются теми же, разрушается только порядок.' },
+      { parts: ['соль растворяется в воде'], ans: ['ph'], why: 'Физический: ионы Na⁺ и Cl⁻ уходят в воду, но не меняют партнёров по реакции.' },
+      { parts: ['уголь горит'], ans: ['ch'], why: 'Химическая реакция: углерод соединяется с кислородом в CO и CO₂.' },
+      { parts: ['вода испаряется'], ans: ['ph'], why: 'Физический: молекулы H₂O просто улетают в воздух.' },
+      { parts: ['CO соединяется с кислородом в CO₂'], ans: ['ch'], why: 'Химическая реакция: атомы меняют партнёров.' },
+    ], [['ph', 'физический', COL.whole, '1'], ['ch', 'химический', COL.task, '2']], { text: true }),
+  }], done, 'Практика по главе   2 из 3') }],
+
+  ['final3', 'Практика 3', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-oxygen', prompt: ['Сколько молекул O₂ нужно, чтобы сжечь 4 атома углерода?'],
+    build: blanks([
+      { parts: ['до углекислого газа: ', { box: '4' }, ' молекулы кислорода'], why: 'C + O₂ → CO₂: на каждый атом углерода — одна молекула O₂.', hint: 'В CO₂ на один атом углерода приходятся два атома кислорода — целая молекула O₂.' },
+      { parts: ['до угарного газа: ', { box: '2' }, ' молекулы кислорода'], why: '2C + O₂ → 2CO: одной молекулы O₂ хватает на два атома углерода.', hint: 'В CO на один атом углерода — один атом кислорода, а молекула O₂ содержит два.' },
+    ]),
+  }, {
+    id: 'p-brown', prompt: ['Броуновское движение крупинки в воде вызвано…'],
+    build: choice([['неодинаковыми ударами молекул воды с разных сторон'], ['течениями в воде'], ['тем, что крупинка живая'], ['притяжением крупинки к стенкам сосуда']], 0,
+      'В каждый момент удары с разных сторон не уравновешиваются — крупинку толкает то туда, то сюда.',
+      [null, 'Движение сохраняется и в совершенно спокойной воде, а соседние крупинки движутся независимо.', 'Броун сначала тоже так думал, но так же движутся и частички неживой пыли.', 'Притяжение к стенкам дало бы направленное движение, а не беспорядочное.']),
+  }, {
+    id: 'p-bigger', prompt: ['Как изменится броуновское движение, если взять крупинку побольше?'],
+    build: choice([['станет слабее'], ['станет сильнее'], ['не изменится']], 0,
+      'Чем крупнее крупинка, тем больше ударов приходится на неё одновременно и тем лучше они уравновешиваются, а масса растёт — она мечется слабее.',
+      [null, 'Ударов станет больше, но они лучше уравновешивают друг друга, а масса крупинки растёт.', 'Дисбаланс ударов и масса зависят от размера крупинки.']),
+  }], done, 'Практика по главе   3 из 3') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

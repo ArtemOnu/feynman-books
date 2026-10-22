@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Линейные системы и обзор</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 25, title: 'Линейные системы и обзор', minutes: 14, language: 'ru', audio: false };
+
+/* ---------- chapter drawing helpers ---------- */
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+const curve = (fn, x0, y0, sx, sy, t1, n = 300) => { let d = ''; for (let k = 0; k <= n; k++) { const t = t1 * k / n; d += (d ? 'L' : 'M') + (x0 + t * sx).toFixed(1) + ' ' + (y0 - sy * fn(t)).toFixed(1); } return d; };
+const fa = t => .9 * Math.sin(1.2 * t), fb = t => .5 * Math.sin(4.3 * t + .7);
+function box(p, x, y, w, s, c) { const g = G(p); mk('rect', { x: x - w / 2, y: y - 28, width: w, height: 56, rx: 8, fill: 'rgba(10,16,14,.6)', stroke: c, 'stroke-width': 3 }, g); subify(T(g, s, { x, y: y + 10, size: 28, fill: c, anchor: 'middle', font: MATH })); return g; }
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Линейные системы и обзор', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Колебания · Глава 25', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Линейные системы и обзор', { x: 800, y: 440, size: 84, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Почему физики так любят линейные уравнения', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['linear', 'Линейный оператор', (m) => {
+    const p = panel(0);
+    head(p, 'Линейный оператор', .2);
+    eq(p, 'L(x) = F(t)', 800, 240, .4, { size: 48, anchor: 'middle', fill: COL.task });
+    eq(p, 'L = m d²/dt² + γm d/dt + k', 800, 340, m('op'), { size: 38, anchor: 'middle' });
+    eq(p, 'L(ax + by) = a L(x) + b L(y)', 800, 470, m('prop'), { size: 42, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['free', 'Свободные и переходные решения', (m, D) => {
+    const p = panel(0);
+    head(p, 'Установившееся + переходное', .2);
+    eq(p, 'L(x₁) = 0,  L(x₂) = 0  ⇒  L(αx₁ + βx₂) = 0', 800, 210, m('two'), { size: 32, anchor: 'middle' });
+    eq(p, 'L(x_Д + x₁) = F + 0 = F', 800, 270, m('add'), { size: 32, anchor: 'middle', fill: COL.task });
+    const ta = m('add');
+    const ax = G(p, { o: 0 }); show(ax, ta); path(ax, 'M160 520H1440M160 380V660', { stroke: COL.dim, 'stroke-width': 2 });
+    draw(path(p, curve(t => .5 * Math.sin(2 * t), 160, 520, 40, 120, 32), { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' }, { d: 0 }), ta + .3, 1.5);
+    draw(path(p, curve(t => .5 * Math.sin(2 * t) + Math.exp(-t / 5) * Math.cos(5 * t), 160, 520, 40, 120, 32), { stroke: COL.task, 'stroke-width': 3.5 }, { d: 0 }), ta + 1, 3);
+    txt(p, 'переходное затухает — остаётся установившееся', 800, 720, ta + 3, { size: 26, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 160, w: 1000, cls: 'side' }, [{
+    id: 'c-lin', prompt: ['Какое из уравнений линейно по x?'],
+    build: grid([
+      { parts: ['ẍ + 3ẋ + 2x = sin t'], ans: ['y'], why: 'Все члены — первой степени по x.' },
+      { parts: ['ẍ + x² = 0'], ans: ['n'], why: 'x² — нелинейный член.' },
+      { parts: ['θ̈ = −(g/L) sin θ'], ans: ['n'], why: 'sin θ нелинеен; при малых θ ≈ θ.' },
+      { parts: ['L q̈ + R q̇ + q/C = V(t)'], ans: ['y'], why: 'Линейно по q.' },
+    ], [['y', 'линейное', COL.good, '1'], ['n', 'нет', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['super', 'Суперпозиция', (m) => {
+    const p = panel(0);
+    head(p, 'Принцип суперпозиции', .2);
+    const row = (y, fn, c, lab, t0) => { const g = G(p, { o: 0 }); show(g, t0); path(g, `M180 ${y}H1400`, { stroke: COL.faint, 'stroke-width': 1.5 }); T(g, lab, { x: 160, y: y + 8, size: 26, fill: c, anchor: 'end', font: MATH }); draw(path(p, curve(fn, 180, y, 40, 70, 30), { stroke: c, 'stroke-width': 3 }, { d: 0 }), t0 + .2, 1.5); };
+    row(230, fa, COL.whole, 'x_a', m('fa')); row(400, fb, COL.task, 'x_b', m('fb'));
+    row(600, t => fa(t) + fb(t), COL.good, 'x_a + x_b', m('sum'));
+    eq(p, 'L(x_a + x_b) = F_a + F_b', 800, 720, m('sum', 1), { size: 32, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['radio', 'Радиоприёмник', (m, D) => {
+    const p = panel(0);
+    head(p, 'Как радио выбирает станцию', .2);
+    const X = f => 200 + (f - 400) * 2.2, Y0 = 600;
+    const ax = G(p, { o: 0 }); show(ax, m('two'));
+    path(ax, `M${X(400)} ${Y0}H${X(1000)}`, { stroke: COL.dim, 'stroke-width': 2 });
+    [550, 780].forEach((f, i) => { path(ax, `M${X(f)} ${Y0}V${Y0 - 80}`, { stroke: [COL.whole, COL.task][i], 'stroke-width': 6 }); T(ax, f + ' кГц', { x: X(f), y: Y0 + 34, size: 22, fill: [COL.whole, COL.task][i], anchor: 'middle' }); });
+    const cv = path(p, '', { stroke: COL.good, 'stroke-width': 3 }); put(cv, { o: 0 }); show(cv, m('res'));
+    const lab = T(p, '', { x: 1300, y: 300, size: 28, fill: COL.good });
+    prog(q => { const t = q * D, f0 = t < m('tune') ? 780 : 780 - 230 * smooth(m('tune'), m('tune') + 3, t);
+      let d = ''; for (let f = 400; f <= 1000; f += 2) { const r = 1 / Math.sqrt(((f * f - f0 * f0) / (f0 * f0)) ** 2 + (.03 * f / f0) ** 2); d += (d ? 'L' : 'M') + X(f).toFixed(1) + ' ' + (Y0 - Math.min(400, r * 12)).toFixed(1); }
+      cv.setAttribute('d', d); lab.textContent = t > m('res') ? `слышим ${Math.round(f0)} кГц` : ''; }, 0, D, lin);
+  }],
+
+  ['fourier', 'Фурье и Грин', (m) => {
+    const p = panel(0);
+    head(p, 'Два общих метода', .2);
+    const ts = m('sines');
+    txt(p, 'Фурье: сумма синусоид', 420, 180, ts, { size: 28, fill: COL.whole, anchor: 'middle' });
+    [1, 2, 3].forEach((k, i) => draw(path(p, curve(t => Math.sin(k * t) / k, 120, 260 + i * 80, 50, 30, 12.5), { stroke: COL.whole, 'stroke-width': 2 }, { d: 0 }), ts + i * .5, 1));
+    draw(path(p, curve(t => Math.sin(t) + Math.sin(2 * t) / 2 + Math.sin(3 * t) / 3, 120, 560, 50, 50, 12.5), { stroke: COL.task, 'stroke-width': 3 }, { d: 0 }), ts + 2, 1.2);
+    const tp = m('pulses');
+    txt(p, 'Грин: последовательность ударов', 1150, 180, tp, { size: 28, fill: COL.good, anchor: 'middle' });
+    const g = G(p, { o: 0 }); show(g, tp);
+    path(g, 'M820 420H1480', { stroke: COL.dim, 'stroke-width': 2 });
+    for (let k = 0; k < 22; k++) { const x = 840 + k * 28, h = 120 * Math.sin(Math.PI * k / 22) + 20; path(g, `M${x} 420V${420 - h}`, { stroke: COL.good, 'stroke-width': 6 }); }
+    draw(path(p, curve(t => Math.exp(-t / 3) * Math.sin(2 * t), 840, 600, 40, 80, 15), { stroke: COL.good, 'stroke-width': 3 }, { d: 0 }), tp + 1.5, 1.5);
+    txt(p, 'отклик на один удар — функция Грина', 1150, 700, tp + 2, { size: 24, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 300, y: 600, w: 1000, cls: 'side' }, [{
+    id: 'c-sup', prompt: ['Сила F₁ даёт отклик x₁ = 2 cos t, сила F₂ — x₂ = sin 3t. Каков отклик на силу 3F₁ + F₂?'],
+    build: choice([['6 cos t + sin 3t'], ['2 cos t + sin 3t'], ['6 cos t + 3 sin 3t']], 0, 'Линейность: 3x₁ + x₂.', [null, 'Сила F₁ взята трижды — и отклик трижды.', 'F₂ взята один раз.']),
+  }], done) }],
+
+  ['why', 'Почему линейность', (m, D) => {
+    const p = panel(0);
+    head(p, 'Почему линейные системы так важны', .2);
+    txt(p, '1. Мы умеем их решать', 140, 240, m('solve'), { size: 32 });
+    txt(p, '2. Основные законы линейны: Максвелл, квантовая механика', 140, 310, m('laws'), { size: 32 });
+    txt(p, '3. Малые отклонения почти всегда линейны', 140, 380, m('small'), { size: 32, fill: COL.task });
+    const ts = m('small'), X = a => 300 + a * 300, Y = v => 620 - v * 140;
+    const g = G(p, { o: 0 }); show(g, ts + .5); path(g, `M${X(0)} ${Y(0)}H${X(1.6)}M${X(0)} ${Y(0)}V${Y(1.15)}`, { stroke: COL.dim, 'stroke-width': 2 });
+    draw(path(p, curve(a => a, X(0), Y(0), 300, 140, 1.5), { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' }, { d: 0 }), ts + .8, 1);
+    draw(path(p, curve(Math.sin, X(0), Y(0), 300, 140, 1.5), { stroke: COL.task, 'stroke-width': 3 }, { d: 0 }), ts + 1.2, 1);
+    eq(p, 'sin θ ≈ θ', X(1.6) + 40, Y(.9), ts + 2, { size: 32, fill: COL.task });
+  }],
+
+  ['physics', 'Физика колебаний', (m) => {
+    const p = panel(0);
+    head(p, 'Колебания без математики', .2);
+    txt(p, 'по инерции проскакивает равновесие', 140, 220, m('inertia'), { size: 28 });
+    const tr = m('ratio');
+    const ax = G(p, { o: 0 }); show(ax, tr); path(ax, 'M140 450H860', { stroke: COL.dim, 'stroke-width': 2 });
+    draw(path(p, curve(t => Math.pow(.8, t / 6.283) * Math.cos(t), 140, 450, 22, 130, 32), { stroke: COL.task, 'stroke-width': 3 }, { d: 0 }), tr + .3, 2);
+    [0, 1, 2, 3].forEach(k => txt(p, `${(Math.pow(.8, k) * 100).toFixed(0)}%`, 140 + k * 6.283 * 22, 300, tr + 1 + k * .4, { size: 22, fill: COL.good, anchor: 'middle' }));
+    eq(p, 'A = A₀ aⁿ  →  e^{−ct}', 140, 650, tr + 3, { size: 32, fill: COL.good });
+    const tp = m('peak'), X = w => 950 + w * 250, Y0 = 600;
+    path(p, `M${X(0)} ${Y0}H${X(2.2)}`, { stroke: COL.dim, 'stroke-width': 2 }).style.opacity = 1;
+    [[.05, COL.whole], [.2, COL.task], [.6, COL.good]].forEach(([g, c], i) => { let d = ''; for (let w = 0; w <= 2.2; w += .005) d += (d ? 'L' : 'M') + X(w).toFixed(1) + ' ' + (Y0 - Math.min(380, 22 / Math.sqrt((1 - w * w) ** 2 + (g * w) ** 2))).toFixed(1); draw(path(p, d, { stroke: c, 'stroke-width': 3 }, { d: 0 }), tp + i * .7, 1.2); });
+    txt(p, 'трение срезает вершину', 1220, 180, tp + 2.5, { size: 26, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['analog', 'Аналогии', (m) => {
+    const p = panel(0);
+    head(p, 'Механика ↔ электричество', .2);
+    [['m', 'L'], ['γm', 'R'], ['k', '1/C'], ['F', 'V'], ['x', 'q']].forEach(([a, b], i) => {
+      eq(p, a, 400, 230 + i * 60, m('map', i * .3), { size: 34, anchor: 'end', fill: COL.whole }); txt(p, '↔', 480, 230 + i * 60, m('map', i * .3), { size: 30, anchor: 'middle', fill: COL.dim }); eq(p, b, 560, 230 + i * 60, m('map', i * .3 + .2), { size: 34, fill: COL.task });
+    });
+    const tc = m('car');
+    const car = G(p, { x: 1100, y: 330, o: 0 }); show(car, tc);
+    mk('rect', { x: -150, y: -50, width: 300, height: 70, rx: 18, fill: COL.task }, car);
+    [-90, 90].forEach(x => { mk('circle', { cx: x, cy: 110, r: 34, fill: COL.dim }, car); path(car, `M${x} 20V76`, { stroke: COL.chalk, 'stroke-width': 4, 'stroke-dasharray': '6 4' }); });
+    path(p, 'M880 480q60 -40 120 0t120 0t120 0t120 0', { stroke: COL.dim, 'stroke-width': 3 });
+    const kn = G(p, { o: 0 }); show(kn, tc + 2);
+    [['R', '№ 10 — амортизатор'], ['1/C', '№ 17 — пружина']].forEach(([s, d], i) => { mk('circle', { cx: 920, cy: 590 + i * 70, r: 22, fill: 'none', stroke: COL.good, 'stroke-width': 3 }, kn); T(kn, s + ': ' + d, { x: 960, y: 598 + i * 70, size: 24, fill: COL.good }); });
+    txt(p, 'аналоговая вычислительная машина', 1100, 760 - 20, tc + 3, { size: 26, fill: COL.chalk, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 580, w: 680, cls: 'side' }, [{
+    id: 'c-an', prompt: ['Хотим имитировать цепью более мягкую пружину автомобиля. Что меняем?'],
+    build: choice([['увеличиваем ёмкость C'], ['увеличиваем сопротивление R'], ['уменьшаем ёмкость C']], 0, 'Жёсткость k ↔ 1/C: мягче пружина — меньше 1/C — больше C.', [null, 'R — аналог трения (амортизатора).', 'Меньше C — жёстче пружина.']),
+  }], done) }],
+
+  ['imped', 'Импедансы', (m) => {
+    const p = panel(0);
+    head(p, 'Сложные цепи: импедансы', .2);
+    eq(p, 'V̂ = Ẑ Î,   Ẑ = R + iωL + 1/(iωC)', 800, 210, m('z'), { size: 34, anchor: 'middle' });
+    const ts = m('series');
+    const s = G(p, { o: 0 }); show(s, ts);
+    path(s, 'M180 360H260M380 360H460M580 360H660', { stroke: COL.dim, 'stroke-width': 3 }); box(s, 320, 360, 120, 'Z₁', COL.whole); box(s, 520, 360, 120, 'Z₂', COL.whole);
+    eq(p, 'Z_s = Z₁ + Z₂', 420, 460, ts + .5, { size: 34, anchor: 'middle', fill: COL.whole });
+    const tp = m('parallel');
+    const q = G(p, { o: 0 }); show(q, tp);
+    path(q, 'M900 360H960V300H1040M1160 300H1240V360H1300M960 360V420H1040M1160 420H1240V360', { stroke: COL.dim, 'stroke-width': 3 });
+    box(q, 1100, 300, 120, 'Z₁', COL.task); box(q, 1100, 420, 120, 'Z₂', COL.task);
+    eq(p, '1/Z_p = 1/Z₁ + 1/Z₂', 1100, 520, tp + .5, { size: 34, anchor: 'middle', fill: COL.task });
+    txt(p, 'Кирхгоф: Σ токов в узле = 0,  Σ напряжений по контуру = 0', 800, 640, m('kirch'), { size: 28, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 300, y: 560, w: 1000, cls: 'side' }, [{
+    id: 'c-par', prompt: ['Два резистора по 6 Ом соединены параллельно. Общее сопротивление?'],
+    build: blanks([{ parts: ['R = ', { box: '3' }, ' Ом'], why: '1/R = 1/6 + 1/6 = 1/3.', hint: 'Складываются обратные величины.' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['L(x_a + x_b) = F_a + F_b — суперпозиция.', 'w1'],
+      ['Решение = установившееся + переходное.', 'w2'],
+      ['Фурье и Грин сводят сложное к простому.', 'w3'],
+      ['Импедансы: Z₁ + Z₂ и 1/Z₁ + 1/Z₂.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      subify(T(g, str, { x: 260, size: 36, weight: 600 }));
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-amp', prompt: ['За каждый цикл амплитуда составляет 90% предыдущей. Сколько процентов останется после 3 циклов? (до десятых)'],
+    build: blanks([{ parts: [{ box: '72,9' }, ' %'], why: '0,9³ = 0,729.', hint: 'A = A₀ aⁿ.' }]),
+  }, {
+    id: 'p-sinapprox', prompt: ['При каком малом угле (в радианах) sin θ отличается от θ меньше чем на 1%? Выберите.'],
+    build: choice([['θ = 0,2'], ['θ = 0,5'], ['θ = 1']], 0, 'sin 0,2 = 0,1987 — отличие 0,7%; при 0,5 уже 4%.', [null, 'sin 0,5 = 0,479 — отличие 4%.', 'sin 1 = 0,84 — отличие 16%.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-ser', prompt: ['Резисторы 2, 3 и 5 Ом соединены последовательно. Общее сопротивление?'],
+    build: blanks([{ parts: ['R = ', { box: '10' }, ' Ом'], why: '2 + 3 + 5 = 10.', hint: 'Последовательно — складываются.' }]),
+  }, {
+    id: 'p-par2', prompt: ['3 Ом и 6 Ом параллельно. Общее сопротивление?'],
+    build: blanks([{ parts: ['R = ', { box: '2' }, ' Ом'], why: '1/3 + 1/6 = 1/2.', hint: '1/R = 1/R₁ + 1/R₂.' }]),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

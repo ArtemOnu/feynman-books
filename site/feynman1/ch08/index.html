@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Движение</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 8, title: 'Движение', minutes: 14, language: 'ru', audio: false, next: '../ch09/' };
+
+/* ---------- chapter data and helpers ---------- */
+const CAR = [[0, 0], [1, 380], [2, 1350], [3, 2550], [4, 2850], [5, 3150], [6, 4050], [7, 5550], [8, 7050], [9, 7500]];
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+// Axes: data (u, v) → screen; returns { X, Y, g }.
+function graph(p, x0, y0, w, h, umax, vmax, { uStep, vStep, uLab, vLab, t0 = .2, fmt = String } = {}) {
+  const X = u => x0 + u / umax * w, Y = v => y0 - v / vmax * h;
+  const g = G(p, { o: 0 }); show(g, t0);
+  path(g, `M${x0} ${y0 - h - 20}V${y0}H${x0 + w + 20}`, { stroke: COL.dim, 'stroke-width': 2.5 });
+  for (let u = uStep; u <= umax + 1e-9; u += uStep) { path(g, `M${X(u)} ${y0}v8`, { stroke: COL.dim, 'stroke-width': 2 }); T(g, fmt(u), { x: X(u), y: y0 + 32, size: 20, fill: COL.dim, anchor: 'middle', font: MATH }); }
+  for (let v = vStep; v <= vmax + 1e-9; v += vStep) { path(g, `M${x0} ${Y(v)}h-8`, { stroke: COL.dim, 'stroke-width': 2 }); T(g, fmt(v), { x: x0 - 14, y: Y(v) + 7, size: 20, fill: COL.dim, anchor: 'end', font: MATH }); }
+  T(g, uLab, { x: x0 + w + 20, y: y0 + 60, size: 22, fill: COL.dim, anchor: 'end' });
+  T(g, vLab, { x: x0 + 8, y: y0 - h - 30, size: 22, fill: COL.dim });
+  return { X, Y, g };
+}
+const fn = (A, f, u0, u1, n = 80) => { let d = ''; for (let k = 0; k <= n; k++) { const u = u0 + (u1 - u0) * k / n; d += (d ? 'L' : 'M') + A.X(u).toFixed(1) + ' ' + A.Y(f(u)).toFixed(1); } return d; };
+// Smooth-ish curve through the car's table (monotone cubic interpolation).
+function carAt(t) {
+  const i = Math.min(8, Math.max(0, Math.floor(t))), f = t - i;
+  const s = k => CAR[Math.max(0, Math.min(9, k))][1];
+  const m0 = (s(i + 1) - s(i - 1)) / 2, m1 = (s(i + 2) - s(i)) / 2;
+  const h00 = 2 * f ** 3 - 3 * f * f + 1, h10 = f ** 3 - 2 * f * f + f, h01 = -2 * f ** 3 + 3 * f * f, h11 = f ** 3 - f * f;
+  return Math.max(s(i), Math.min(s(i + 1), h00 * s(i) + h10 * m0 + h01 * s(i + 1) + h11 * m1));
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Движение', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Механика · Глава 8', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Движение', { x: 800, y: 440, size: 96, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Скорость как производная, путь как интеграл', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['table', 'Автомобиль', (m, D) => {
+    const p = panel(0);
+    head(p, 'Расписание движения автомобиля', .2);
+    const tc = m('car');
+    const road = G(p, { o: 0 }); show(road, .3);
+    path(road, 'M120 200H1480', { stroke: COL.faint, 'stroke-width': 3 });
+    [0, 2000, 4000, 6000].forEach(s => { const x = 140 + s / 7500 * 1300; path(road, `M${x} 190V210`, { stroke: COL.dim, 'stroke-width': 2 }); T(road, s + ' м', { x, y: 240, size: 20, fill: COL.dim, anchor: 'middle' }); });
+    const car = G(p, { x: 140, y: 182 }); mk('rect', { x: -26, y: -16, width: 52, height: 22, rx: 6, fill: COL.task }, car); mk('circle', { cx: -14, cy: 8, r: 6, fill: COL.dim }, car); mk('circle', { cx: 14, cy: 8, r: 6, fill: COL.dim }, car);
+    const tab = G(p, { o: 0 }); show(tab, tc);
+    T(tab, 't, мин', { x: 190, y: 310, size: 22, fill: COL.dim, anchor: 'end' }); T(tab, 's, м', { x: 300, y: 310, size: 22, fill: COL.dim, anchor: 'end' });
+    const rows = CAR.map(([t, s], i) => { const r = G(tab, { o: 0 }); T(r, String(t), { x: 190, y: 345 + i * 36, size: 24, anchor: 'end', font: MATH }); T(r, String(s), { x: 300, y: 345 + i * 36, size: 24, anchor: 'end', font: MATH }); return r; });
+    const tg = m('graph');
+    const A = graph(p, 520, 700, 880, 400, 10, 7500, { uStep: 2, vStep: 1500, uLab: 'время, мин', vLab: 'расстояние, м', t0: tg });
+    const dots = CAR.map(([t, s]) => put(mk('circle', { cx: A.X(t), cy: A.Y(s), r: 6, fill: COL.task }, p), { o: 0 }));
+    const curve = path(p, fn(A, carAt, 0, 9, 180), { stroke: COL.task, 'stroke-width': 3 }, { d: 0 });
+    draw(curve, tg + 4.5, 2);
+    const rate = .6;
+    prog(q => {
+      const t = q * D, tm = Math.min(9, Math.max(0, (t - tc) / rate));
+      put(car, { x: 140 + carAt(tm) / 7500 * 1300 });
+      rows.forEach((r, i) => put(r, { o: tm >= i ? 1 : 0 }));
+      dots.forEach((d, i) => put(d, { o: t > tg + i * .4 ? 1 : 0 }));
+    }, 0, D, lin);
+    const tr = m('read');
+    txt(p, 'светофор', A.X(4.5), A.Y(3000) - 30, tr + 2, { size: 22, fill: COL.bad, anchor: 'middle' });
+    txt(p, 'остановлен', A.X(9), A.Y(7500) - 24, tr + 4, { size: 22, fill: COL.bad, anchor: 'middle' });
+  }],
+
+  ['ball', 'Падающий шар', (m, D) => {
+    const p = panel(0);
+    head(p, 'Падающий шар', .2);
+    const td = m('drop'), S = 2.6;   // px per metre
+    const tower = G(p, { o: 0 }); show(tower, .3);
+    path(tower, 'M180 150V650', { stroke: COL.dim, 'stroke-width': 2 });
+    [0, 5, 20, 45, 80, 125, 180].forEach(s => { path(tower, `M170 ${160 + s * S}H190`, { stroke: COL.dim, 'stroke-width': 2 }); T(tower, s + ' м', { x: 160, y: 166 + s * S, size: 20, fill: COL.dim, anchor: 'end' }); });
+    const b = G(p, { x: 230, y: 160 }); mk('circle', { r: 14, fill: COL.whole }, b);
+    const A = graph(p, 620, 650, 760, 440, 6, 180, { uStep: 1, vStep: 40, uLab: 't, с', vLab: 's, м', t0: td });
+    const dots = [0, 1, 2, 3, 4, 5, 6].map(t => put(mk('circle', { cx: A.X(t), cy: A.Y(5 * t * t), r: 7, fill: COL.whole }, p), { o: 0 }));
+    const lbl = [1, 2, 3, 4, 5, 6].map(t => put(T(p, String(5 * t * t), { x: A.X(t) - 14, y: A.Y(5 * t * t) - 14, size: 20, fill: COL.whole, anchor: 'end', font: MATH }), { o: 0 }));
+    prog(q => {
+      const t = q * D, s = Math.max(0, Math.min(6, (t - td) / 1.1));
+      put(b, { y: 160 + 5 * s * s * S });
+      dots.forEach((d, i) => put(d, { o: s >= i ? 1 : 0 })); lbl.forEach((d, i) => put(d, { o: s >= i + 1 ? 1 : 0 }));
+    }, 0, D, lin);
+    draw(path(p, fn(A, t => 5 * t * t, 0, 6), { stroke: COL.whole, 'stroke-width': 3 }, { d: 0 }), m('formula'), 1.2);
+    eq(p, 's = 5t²', 900, 260, m('formula', .5), { size: 52, fill: COL.task });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 820, y: 300, w: 560, cls: 'side' }, [{
+    id: 'c-ball', prompt: ['По формуле s = 5t²: сколько метров пролетит шар за 7 секунд?'],
+    build: blanks([{ parts: ['s = ', { box: '245' }, ' м'], why: '5 · 7² = 5 · 49 = 245 м.', hint: 'Сначала возведите 7 в квадрат.' }]),
+  }], done) }],
+
+  ['zeno', 'Ахиллес и черепаха', (m, D) => {
+    const p = panel(0);
+    head(p, 'Парадокс Зенона', .2);
+    const X = s => 160 + s * 10;   // 1 m = 10 px
+    path(p, `M${X(0)} 420H${X(125)}`, { stroke: COL.dim, 'stroke-width': 3 });
+    [0, 50, 100].forEach(s => T(p, s + ' м', { x: X(s), y: 455, size: 20, fill: COL.dim, anchor: 'middle' }));
+    const ach = G(p, { x: X(0), y: 400 }); mk('circle', { r: 16, fill: COL.task }, ach); T(ach, 'А', { y: -28, size: 22, fill: COL.task, anchor: 'middle', weight: 700 });
+    const tur = G(p, { x: X(100), y: 405 }); mk('ellipse', { rx: 18, ry: 11, fill: COL.irr }, tur); T(tur, 'Ч', { y: -26, size: 22, fill: COL.irr, anchor: 'middle', weight: 700 });
+    const ta = m('achilles'), tc = m('catch');
+    // Zeno steps: Achilles reaches where the tortoise was; each step takes geometric time
+    const stepT = k => 1.2 * (1 - Math.pow(.6, k)) / .4;   // display time to finish k steps
+    const pos = n => 100 * (1 - Math.pow(.1, n)) / .9;      // Achilles after n steps
+    const marks = G(p);
+    prog(q => {
+      const t = q * D, s = t - ta;
+      if (t < tc) {
+        let n = 0; while (n < 12 && stepT(n + 1) < s) n++;
+        const f = s < 0 ? 0 : clamp01((s - stepT(n)) / (stepT(n + 1) - stepT(n)));
+        const a = s < 0 ? 0 : pos(n) + (pos(n + 1) - pos(n)) * f, tt = 100 + a / 10;
+        put(ach, { x: X(a) }); put(tur, { x: X(tt) });
+      } else {
+        const f = smooth(tc, tc + 2, t), xs = 1000 / 9;
+        put(ach, { x: X(pos(12) + (xs - pos(12)) * f + (f >= 1 ? (t - tc - 2) * 0 : 0)) }); put(tur, { x: X(xs) });
+      }
+    }, 0, D, lin);
+    const rows = [['100 м', '10 м'], ['10 м', '1 м'], ['1 м', '0,1 м'], ['0,1 м', '0,01 м']];
+    rows.forEach(([a, b], i) => eq(p, `Ахиллес +${a}  →  черепаха +${b}`, 160, 540 + i * 40, ta + stepT(i + 1), { size: 26, fill: i % 2 ? COL.chalk : COL.dim }));
+    eq(p, '100 + 10 + 1 + 0,1 + … = 111,1… м', 900, 560, m('sum'), { size: 32, fill: COL.task });
+    txt(p, 'бесконечно много отрезков — конечная сумма', 900, 610, m('sum', 1), { size: 24, fill: COL.dim });
+    eq(p, 'догонит через 111 1/9 м', 900, 680, tc + 1, { size: 34, fill: COL.good });
+  }],
+
+  ['speed', '«90 километров в час»', (m) => {
+    const p = panel(0);
+    head(p, 'Что значит «90 км в час»?', .2);
+    const tp = m('police');
+    const b1 = G(p, { o: 0 }); show(b1, tp);
+    mk('rect', { x: 140, y: 170, width: 600, height: 90, rx: 20, fill: 'rgba(10,16,14,.6)', stroke: COL.whole, 'stroke-width': 2 }, b1);
+    T(b1, '«Вы ехали 90 км в час!»', { x: 440, y: 226, size: 30, fill: COL.whole, anchor: 'middle' });
+    const b2 = G(p, { o: 0 }); show(b2, tp + 1.8);
+    mk('rect', { x: 800, y: 270, width: 660, height: 90, rx: 20, fill: 'rgba(10,16,14,.6)', stroke: COL.rat, 'stroke-width': 2 }, b2);
+    T(b2, '«Невозможно, я ехала 7 минут!»', { x: 1130, y: 326, size: 30, fill: COL.rat, anchor: 'middle' });
+    const ts = m('small');
+    [['за 1 ч', '90 км', '90 км/ч'], ['за 1 с', '25 м', '25 м/с = 90 км/ч'], ['за 0,001 с', '2,5 см', 'то же']].forEach(([a, b, c], i) => {
+      const y = 470 + i * 70;
+      eq(p, a, 300, y, ts + i * 1.4, { size: 30, anchor: 'end', fill: COL.dim });
+      eq(p, b, 520, y, ts + i * 1.4 + .3, { size: 30, anchor: 'end' });
+      eq(p, '→  ' + c, 580, y, ts + i * 1.4 + .6, { size: 30, fill: COL.task });
+    });
+    eq(p, 'v = путь / время,  время → 0', 800, 700, ts + 5, { size: 36, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['limit', 'Предел', (m, D) => {
+    const p = panel(0);
+    head(p, 'Скорость шара в момент t = 5 с', .2);
+    const A = graph(p, 140, 690, 640, 500, 6, 180, { uStep: 1, vStep: 40, uLab: 't, с', vLab: 's, м', t0: .3 });
+    path(p, fn(A, t => 5 * t * t, 0, 6), { stroke: COL.whole, 'stroke-width': 3 });
+    mk('circle', { cx: A.X(5), cy: A.Y(125), r: 7, fill: COL.task }, p);
+    const sec = path(p, '', { stroke: COL.task, 'stroke-width': 3 });
+    const dot2 = mk('circle', { r: 6, fill: COL.task }, p);
+    const ts = m('sec'), tt = m('tenth'), th = m('thou'), te = m('exact');
+    prog(q => {
+      const t = q * D;
+      let e = t < ts ? 0 : t < tt ? 1 : t < th ? 1 - .9 * smooth(tt, tt + 1.5, t) : t < te ? .1 - .099 * smooth(th, th + 1.5, t) : .001;
+      if (t < ts) { sec.setAttribute('d', ''); put(dot2, { o: 0 }); return; }
+      const s1 = 5 * (5 + e) ** 2, k = (s1 - 125) / e;
+      const tA = 3.6, tB = 6;
+      sec.setAttribute('d', `M${A.X(tA)} ${A.Y(125 + k * (tA - 5))}L${A.X(tB)} ${A.Y(125 + k * (tB - 5))}`);
+      dot2.setAttribute('cx', A.X(5 + e)); dot2.setAttribute('cy', A.Y(s1)); put(dot2, { o: 1 });
+    }, 0, D, lin);
+    const rows = [['Δt', 'Δs', 'Δs/Δt'], ['1 с', '55 м', '55 м/с'], ['0,1 с', '5,05 м', '50,5 м/с'], ['0,001 с', '0,050005 м', '50,005 м/с'], ['→ 0', '', '50 м/с']];
+    rows.forEach((r, i) => r.forEach((c, j) => {
+      const t0 = i === 0 ? ts : [ts, tt, th, te][i - 1] + .5;
+      eq(p, c, 1000 + j * 200, 220 + i * 70, t0, { size: i ? 28 : 24, anchor: 'end', fill: i === 0 ? COL.dim : i === 4 ? COL.good : COL.chalk });
+    }));
+    txt(p, 'наклон касательной = скорость', 1100, 620, te + 1, { size: 28, fill: COL.task, anchor: 'middle' });
+    txt(p, '(у Фейнмана: «за секунду 45 м» — это 4-я → 5-я с)', 1100, 670, te + 2, { size: 20, fill: COL.faint, anchor: 'middle' });
+  }],
+
+  ['deriv', 'Производная', (m) => {
+    const p = panel(0);
+    head(p, 'Производная', .2);
+    eq(p, 's + Δs = 5(t + Δt)² = 5t² + 10tΔt + 5Δt²', 140, 230, m('ds'), { size: 34 });
+    eq(p, 'Δs / Δt = 10t + 5Δt', 140, 310, m('ten'), { size: 38, fill: COL.task });
+    const strike = path(p, 'M392 298H470', { stroke: COL.bad, 'stroke-width': 4 }, { d: 0 }); draw(strike, m('lim', .3), .4);
+    eq(p, 'v = ds/dt = lim (Δs/Δt) = 10t', 140, 400, m('lim', .8), { size: 40, fill: COL.good });
+    const tr = m('rules');
+    const tab = G(p, { o: 0 }); show(tab, tr);
+    mk('rect', { x: 900, y: 460, width: 560, height: 250, rx: 16, fill: 'rgba(10,16,14,.5)', stroke: COL.faint, 'stroke-width': 2 }, tab);
+    [['s = tⁿ', 'ds/dt = n·tⁿ⁻¹'], ['s = c·u', 'ds/dt = c·du/dt'], ['s = u + v', 'ds/dt = du/dt + dv/dt'], ['s = c', 'ds/dt = 0']].forEach(([a, b], i) => {
+      T(tab, a, { x: 930, y: 512 + i * 56, size: 28, font: MATH }); T(tab, b, { x: 1120, y: 512 + i * 56, size: 28, font: MATH, fill: COL.task });
+    });
+    eq(p, 'пример: s = At³ + Bt + C', 140, 520, tr + 2, { size: 30 });
+    eq(p, 'v = 3At² + B', 140, 580, tr + 3, { size: 34, fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 140, y: 640, w: 700, cls: 'side' }, [{
+    id: 'c-deriv', prompt: ['s = 4t³. Чему равна скорость в момент t = 2 с?'],
+    build: blanks([{ parts: ['v = 12t² = ', { box: '48' }], why: 'ds/dt = 3 · 4t² = 12t²; при t = 2: 12 · 4 = 48.', hint: '(tⁿ)′ = n·tⁿ⁻¹.' }]),
+  }], done) }],
+
+  ['integral', 'Путь как интеграл', (m, D) => {
+    const p = panel(0);
+    head(p, 'Путь — площадь под графиком скорости', .2);
+    const A = graph(p, 160, 680, 900, 440, 4, 40, { uStep: 1, vStep: 10, uLab: 't, с', vLab: 'v, м/с', t0: m('vt') });
+    const v = t => 10 * t;
+    draw(path(p, fn(A, v, 0, 4), { stroke: COL.whole, 'stroke-width': 3.5 }, { d: 0 }), m('vt'), 1);
+    const ts = m('strips'), tth = m('thin'), ta = m('area');
+    const strips = G(p);
+    const sum = T(p, '', { x: 1140, y: 300, size: 32, fill: COL.task, font: MATH });
+    prog(q => {
+      const t = q * D;
+      if (t < ts) { strips.replaceChildren(); sum.textContent = ''; return; }
+      const n = t < tth ? 4 : t < ta ? Math.round(4 + 36 * smooth(tth, tth + 2, t)) : 200;
+      strips.replaceChildren();
+      const dt = 4 / n; let S = 0;
+      for (let i = 0; i < n; i++) { const vv = v(i * dt); S += vv * dt; mk('rect', { x: A.X(i * dt), y: A.Y(vv), width: A.X(dt) - A.X(0) - (n < 50 ? 1.5 : 0), height: A.Y(0) - A.Y(vv), fill: COL.task, opacity: .45 }, strips); }
+      sum.textContent = `Σ v·Δt = ${S.toFixed(1).replace('.', ',')} м  (n = ${n})`;
+    }, 0, D, lin);
+    eq(p, 's = ∫ v dt = 80 м', 1140, 380, ta + .5, { size: 40, fill: COL.good });
+    txt(p, 'площадь треугольника: ½ · 4 с · 40 м/с', 1140, 430, ta + 1.5, { size: 24, fill: COL.dim });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1080, y: 470, w: 480, cls: 'side' }, [{
+    id: 'c-area', prompt: ['Машина 10 с едет со скоростью 20 м/с. Какой путь — площадь прямоугольника под графиком?'],
+    build: blanks([{ parts: ['s = ', { box: '200' }, ' м'], why: 'Площадь: 20 м/с · 10 с = 200 м.', hint: 'Высота × ширина прямоугольника.' }]),
+  }], done) }],
+
+  ['accel', 'Ускорение', (m) => {
+    const p = panel(0);
+    head(p, 'Ускорение', .2);
+    const A = graph(p, 160, 670, 560, 420, 5, 50, { uStep: 1, vStep: 10, uLab: 't, с', vLab: 'v, м/с', t0: .3 });
+    draw(path(p, fn(A, t => 9.8 * t, 0, 5), { stroke: COL.whole, 'stroke-width': 3.5 }, { d: 0 }), .4, 1);
+    const tg = m('g');
+    const tri = G(p, { o: 0 }); show(tri, tg);
+    path(tri, `M${A.X(2)} ${A.Y(19.6)}H${A.X(3)}V${A.Y(29.4)}`, { stroke: COL.task, 'stroke-width': 3 });
+    T(tri, '1 с', { x: (A.X(2) + A.X(3)) / 2, y: A.Y(19.6) + 28, size: 22, fill: COL.task, anchor: 'middle' });
+    T(tri, '+9,8 м/с', { x: A.X(3) + 12, y: A.Y(24.5) + 8, size: 22, fill: COL.task });
+    eq(p, 'a = dv/dt = 9,8 м/с²', 860, 240, tg + 1, { size: 38, fill: COL.task });
+    eq(p, 'a = d²s/dt²', 860, 330, m('second'), { size: 38 });
+    eq(p, 'v = gt,   s = ½ g t²', 860, 450, m('formulas'), { size: 40, fill: COL.good });
+    txt(p, 'с 9,8 вместо 10: s = 4,9t²', 860, 510, m('formulas', 1.5), { size: 24, fill: COL.dim });
+  }],
+
+  ['plane', 'Движение на плоскости', (m, D) => {
+    const p = panel(0);
+    head(p, 'Движение на плоскости', .2);
+    const O = [160, 180];
+    const ax = G(p, { o: 0 }); show(ax, .3);
+    path(ax, `M${O[0]} ${O[1]}H900M${O[0]} ${O[1]}V700`, { stroke: COL.dim, 'stroke-width': 2.5 });
+    T(ax, 'x', { x: 905, y: O[1] - 10, size: 26, fill: COL.dim, font: MATH }); T(ax, 'y', { x: O[0] - 22, y: 700, size: 26, fill: COL.dim, font: MATH });
+    const tv = m('vx'), tth = m('throw'), tp = m('parabola');
+    // a velocity triangle at a point
+    const vg = G(p, { o: 0 }); show(vg, tv);
+    const P0 = [1100, 520];
+    vec(vg, P0[0], P0[1], P0[0] + 200, P0[1], COL.whole, { w: 4 }); T(vg, 'vₓ', { x: P0[0] + 100, y: P0[1] + 34, size: 28, fill: COL.whole, font: MATH, anchor: 'middle' });
+    vec(vg, P0[0] + 200, P0[1], P0[0] + 200, P0[1] + 150, COL.bad, { w: 4 }); subify(T(vg, 'v_y', { x: P0[0] + 214, y: P0[1] + 84, size: 28, fill: COL.bad, font: MATH }));
+    const vt = G(p, { o: 0 }); show(vt, m('v'));
+    vec(vt, P0[0], P0[1], P0[0] + 200, P0[1] + 150, COL.task, { w: 5 }); T(vt, 'v', { x: P0[0] + 80, y: P0[1] + 100, size: 30, fill: COL.task, font: MATH });
+    eq(p, 'v = √(vₓ² + v_y²)', 1150, 760 - 60, m('v', .5), { size: 34, fill: COL.task, anchor: 'middle' });
+    // the throw
+    const u = 160, gpx = 120;
+    const bl = G(p, { o: 0 }); mk('circle', { r: 12, fill: COL.int }, bl); show(bl, tth);
+    const tr = path(p, '', { stroke: COL.int, 'stroke-width': 2, 'stroke-dasharray': '6 8' });
+    const shadowX = mk('circle', { r: 6, fill: COL.whole }, p), shadowY = mk('circle', { r: 6, fill: COL.bad }, p);
+    prog(q => {
+      const t = q * D, s = Math.max(0, Math.min(4.5, t - tth));
+      const x = O[0] + u * s, y = O[1] + .5 * gpx * s * s * .35;
+      put(bl, { x, y });
+      let d = ''; for (let k = 0; k <= 40; k++) { const ss = s * k / 40; d += (d ? 'L' : 'M') + (O[0] + u * ss).toFixed(1) + ' ' + (O[1] + .5 * gpx * ss * ss * .35).toFixed(1); }
+      tr.setAttribute('d', t > tth ? d : '');
+      shadowX.setAttribute('cx', x); shadowX.setAttribute('cy', O[1]); put(shadowX, { o: t > tth ? 1 : 0 });
+      shadowY.setAttribute('cx', O[0]); shadowY.setAttribute('cy', y); put(shadowY, { o: t > tth ? 1 : 0 });
+    }, 0, D, lin);
+    eq(p, 'x = ut,   y = ½ g t²', 960, 240, tth + 1, { size: 34 });
+    eq(p, 'y = g x² / (2u²)', 960, 320, tp, { size: 40, fill: COL.int });
+    txt(p, 'парабола (y отсчитан вниз)', 960, 370, tp + .5, { size: 24, fill: COL.dim });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 960, y: 420, w: 600, cls: 'side' }, [{
+    id: 'c-vel', prompt: ['vₓ = 3 м/с, v_y = 4 м/с. Чему равна полная скорость?'],
+    build: blanks([{ parts: ['v = ', { box: '5' }, ' м/с'], why: '√(3² + 4²) = √25 = 5 м/с.', hint: 'v = √(vₓ² + v_y²).' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Движение — зависимость координат от времени.', 'w1'],
+      ['Скорость — производная: v = ds/dt.', 'w2'],
+      ['Путь — интеграл: площадь под графиком v(t).', 'w3'],
+      ['Ускорение a = dv/dt; бросок — парабола.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-d1', prompt: ['s = 3t² + 2t. Найдите скорость в момент t = 4 с.'],
+    build: blanks([{ parts: ['v = 6t + 2 = ', { box: '26' }], why: 'ds/dt = 6t + 2; при t = 4: 26.', hint: 'Производная суммы — сумма производных.' }]),
+  }, {
+    id: 'p-d2', prompt: ['s = t⁴. Чему равно ускорение в момент t = 1 с?'],
+    build: blanks([{ parts: ['a = 12t² = ', { box: '12' }], why: 'v = 4t³, a = dv/dt = 12t²; при t = 1: 12.', hint: 'Ускорение — вторая производная пути.' }]),
+  }, {
+    id: 'p-avg', prompt: ['Машина (табл. 8.1) между 6-й и 7-й минутами проехала 1500 м. Какова её средняя скорость на этом отрезке, в км/ч?'],
+    build: blanks([{ parts: ['v = ', { box: '90' }, ' км/ч'], why: '1,5 км за 1/60 ч: 1,5 · 60 = 90 км/ч.', hint: '1 мин = 1/60 ч.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-fall', prompt: ['Камень падает 3 с (g ≈ 9,8 м/с²). Какую скорость он наберёт?'],
+    build: blanks([{ parts: ['v = ', { box: '29,4' }, ' м/с'], why: 'v = gt = 9,8 · 3 = 29,4 м/с.', hint: 'v = gt.' }]),
+  }, {
+    id: 'p-trap', prompt: ['Скорость равномерно растёт от 0 до 30 м/с за 6 с. Какой путь пройден?'],
+    build: blanks([{ parts: ['s = ', { box: '90' }, ' м'], why: 'Площадь треугольника: ½ · 6 · 30 = 90 м.', hint: 'Путь — площадь под графиком скорости.' }]),
+  }, {
+    id: 'p-throw', prompt: ['Мяч брошен горизонтально со скоростью 10 м/с с высоты 20 м (g = 10 м/с²). На каком расстоянии он упадёт?'],
+    build: blanks([{ parts: ['x = ', { box: '20' }, ' м'], why: '20 = ½·10·t² ⇒ t = 2 с; x = 10 · 2 = 20 м.', hint: 'Сначала найдите время падения из y = ½gt².' }]),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

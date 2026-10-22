@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вращение в пространстве</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 20, title: 'Вращение в пространстве', minutes: 14, language: 'ru', audio: false, next: '../ch21/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const VA = COL.whole, VB = COL.task, VC = COL.good, TAU = COL.bad;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+// Oblique 3-D projection: x to the lower left, y to the right, z up.
+const P3 = (O, k = 1) => ([x, y, z]) => [O[0] + k * (y - .55 * x), O[1] + k * (.4 * x - z)];
+function axes3(p, pr, L, t0, names = ['x', 'y', 'z']) {
+  const g = G(p, { o: 0 }); show(g, t0);
+  const O = pr([0, 0, 0]);
+  [[L, 0, 0], [0, L, 0], [0, 0, L]].forEach((v, i) => { const e = pr(v); vec(g, O[0], O[1], e[0], e[1], COL.dim, { w: 2, head: 11 }); T(g, names[i], { x: e[0] + (i === 0 ? -22 : 10), y: e[1] + (i === 2 ? -8 : 20), size: 24, fill: COL.dim, font: MATH }); });
+  return g;
+}
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+function wheel(p, R, colr = COL.whole) { const g = G(p); mk('ellipse', { rx: 26, ry: R, fill: 'rgba(134,201,232,.15)', stroke: colr, 'stroke-width': 5 }, g); path(g, `M0 ${-R}V${R}M-12 ${-R * .7}L12 ${R * .7}`, { stroke: colr, 'stroke-width': 2 }); return g; }
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Вращение в пространстве', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Вращение · Глава 20', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Вращение в пространстве', { x: 800, y: 440, size: 88, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Векторы вращения и чудеса гироскопа', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['planes', 'Три плоскости', (m) => {
+    const p = panel(0);
+    head(p, 'Моменты сил в трёх измерениях', .2);
+    const pr = P3([420, 480], 1);
+    axes3(p, pr, 260, .3);
+    const pl = (pts, c, t0) => { const d = pts.map(pr).map((q, i) => (i ? 'L' : 'M') + q[0] + ' ' + q[1]).join('') + 'Z'; const e = path(p, d, { fill: c, opacity: .22, stroke: c, 'stroke-width': 2 }); put(e, { o: 0 }); show(e, t0); };
+    pl([[0, 0, 0], [0, 200, 0], [200, 200, 0], [200, 0, 0]], VA, m('three'));
+    pl([[0, 0, 0], [0, 200, 0], [0, 200, 200], [0, 0, 200]], VB, m('three', .5));
+    pl([[0, 0, 0], [200, 0, 0], [200, 0, 200], [0, 0, 200]], VC, m('three', 1));
+    eq(p, 'τ(xy) = x F_y − y F_x', 900, 240, m('three'), { size: 32, fill: VA });
+    eq(p, 'τ(yz) = y F_z − z F_y', 900, 300, m('three', .5), { size: 32, fill: VB });
+    eq(p, 'τ(zx) = z F_x − x F_z', 900, 360, m('three', 1), { size: 32, fill: VC });
+    txt(p, 'Мик повернул оси — его моменты смешаны', 900, 450, m('rotate'), { size: 26, fill: COL.dim });
+    eq(p, "τ_x′ = τ_x cos θ + τ_y sin θ  — как вектор!", 900, 520, m('vector'), { size: 30, fill: COL.task });
+    eq(p, 'τ(xy) ≡ τ_z,  τ(yz) ≡ τ_x,  τ(zx) ≡ τ_y', 900, 590, m('vector', 1.5), { size: 30 });
+  }],
+
+  ['screw', 'Правый винт', (m, D) => {
+    const p = panel(0);
+    head(p, 'Направление: правило правого винта', .2);
+    const C = [480, 520];
+    const ring = mk('ellipse', { cx: C[0], cy: C[1], rx: 220, ry: 70, fill: 'none', stroke: VA, 'stroke-width': 4 }, p);
+    const arr = mk('circle', { r: 12, fill: VA }, p);
+    prog(q => { const t = q * D, a = t * 1.5; arr.setAttribute('cx', C[0] + 220 * Math.cos(a)); arr.setAttribute('cy', C[1] + 70 * Math.sin(a)); }, 0, D, lin);
+    const tp = m('perp');
+    const v = G(p, { o: 0 }); show(v, tp); vec(v, C[0], C[1], C[0], C[1] - 300, TAU, { w: 6, head: 22 });
+    T(v, 'τ', { x: C[0] + 20, y: C[1] - 280, size: 36, fill: TAU, font: MATH });
+    const tr = m('rule');
+    const screw = G(p, { x: C[0], y: C[1] - 40, o: 0 }); show(screw, tr);
+    for (let k = 0; k < 6; k++) path(screw, `M-24 ${-k * 20}L24 ${-k * 20 - 10}`, { stroke: COL.dim, 'stroke-width': 4 });
+    prog(q => { const t = q * D; put(screw, { y: C[1] - 40 - 14 * Math.max(0, t - tr) }); }, 0, D, lin);
+    txt(p, 'крутим против часовой (сверху) — винт идёт вверх', 900, 300, tr + .5, { size: 26, fill: COL.task });
+    txt(p, 'только в 3D: одна плоскость ↔ одна ось', 900, 420, m('only3'), { size: 26 });
+    txt(p, 'в 4D плоскостей шесть — вектора не выйдет', 900, 470, m('only3', 1.5), { size: 24, fill: COL.dim });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 900, y: 540, w: 660, cls: 'side' }, [{
+    id: 'c-screw', prompt: ['Колесо вращается по часовой стрелке, если смотреть сверху. Куда направлен вектор ω?'],
+    build: choice([['вниз'], ['вверх'], ['по касательной к ободу']], 0,
+      'Правый винт, закручиваемый по часовой стрелке, уходит от нас — вниз.',
+      [null, 'Вверх — для вращения против часовой.', 'ω направлен вдоль оси вращения.']),
+  }], done) }],
+
+  ['cross', 'Векторное произведение', (m, D) => {
+    const p = panel(0);
+    head(p, 'Векторное произведение', .2);
+    eq(p, 'c = a × b:  c_x = a_y b_z − a_z b_y,  c_y = a_z b_x − a_x b_z,  c_z = a_x b_y − a_y b_x', 800, 190, m('def'), { size: 26, anchor: 'middle' });
+    const pr = P3([450, 560], 1);
+    axes3(p, pr, 230, m('geom') - .5);
+    const g = G(p);
+    const tg = m('geom'), ta = m('anti');
+    prog(q => {
+      const t = q * D; g.replaceChildren(); if (t < tg) return;
+      const ang = t > ta ? 1.1 : 1.1 + .4 * Math.sin((t - tg) * .8), a = [0, 220, 0], b = [220 * Math.sin(ang) * .8, 220 * Math.cos(ang), 0], c0 = cross(a, b).map(v => v / 220), c = t > ta ? c0.map(v => -v) : c0;
+      const O = pr([0, 0, 0]), A = pr(a), B = pr(t > ta ? a : b), A2 = pr(t > ta ? b : a);
+      vec(g, O[0], O[1], pr(a)[0], pr(a)[1], VA, { w: 4 }); T(g, 'a', { x: pr(a)[0] + 10, y: pr(a)[1] - 10, size: 30, fill: VA, font: MATH, weight: 700 });
+      vec(g, O[0], O[1], pr(b)[0], pr(b)[1], VB, { w: 4 }); T(g, 'b', { x: pr(b)[0] - 26, y: pr(b)[1] + 26, size: 30, fill: VB, font: MATH, weight: 700 });
+      const C = pr(c); vec(g, O[0], O[1], C[0], C[1], VC, { w: 5 }); T(g, t > ta ? 'b × a' : 'a × b', { x: C[0] + 12, y: C[1] + (c[2] > 0 ? -6 : 26), size: 28, fill: VC, font: MATH, weight: 700 });
+    }, 0, D, lin);
+    eq(p, '|a × b| = ab sin θ,  c ⟂ a, b', 1000, 330, tg + 1, { size: 32, fill: VC });
+    eq(p, 'b × a = −a × b,   a × a = 0', 1000, 420, ta, { size: 32, fill: COL.bad });
+  }],
+
+  ['eqs', 'Векторные уравнения вращения', (m) => {
+    const p = panel(0);
+    head(p, 'Законы вращения одной строкой', .2);
+    eq(p, 'τ = r × F', 800, 250, m('tau'), { size: 52, anchor: 'middle', fill: TAU });
+    eq(p, 'L = r × p', 800, 340, m('L'), { size: 52, anchor: 'middle', fill: VA });
+    eq(p, 'τ = dL/dt', 800, 430, m('dL'), { size: 52, anchor: 'middle', fill: COL.task });
+    eq(p, 'v = ω × r,   мощность P = τ · ω', 800, 540, m('omega'), { size: 40, anchor: 'middle', fill: VC });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 160, w: 1000, cls: 'side' }, [{
+    id: 'c-cross', prompt: ['a = (1, 0, 0), b = (0, 1, 0). Найдите a × b.'],
+    build: blanks([{ parts: ['(', { box: '0' }, ', ', { box: '0' }, ', ', { box: '1' }, ')'], why: 'c_z = a_x b_y − a_y b_x = 1; остальное ноль: i × j = k.', hint: 'Подставьте в c_x = a_y b_z − a_z b_y и т. д.' }]),
+  }], done) }],
+
+  ['stool', 'Гироскоп на стуле', (m, D) => {
+    const p = panel(0);
+    head(p, 'Гироскоп в руках на вращающемся стуле', .2);
+    const C = [520, 520];
+    mk('ellipse', { cx: C[0], cy: C[1] + 160, rx: 130, ry: 30, fill: '#55665f' }, p);
+    const man = G(p, { x: C[0], y: C[1] });
+    mk('circle', { cy: -200, r: 30, fill: COL.chalk }, man); path(man, 'M0 -170V60M0 60L-30 150M0 60L30 150', { stroke: COL.chalk, 'stroke-width': 8 });
+    const arms = path(man, '', { stroke: COL.chalk, 'stroke-width': 7 });
+    const wh = G(man); const w0 = wheel(wh, 70);
+    const Lv = G(p);
+    const tt = m('turn'), ts = m('spin');
+    prog(q => {
+      const t = q * D, f = smooth(tt, tt + 2, t), a = f * Math.PI / 2;
+      // wheel axis from horizontal (along x) to vertical
+      put(wh, { x: 0, y: -100 - 10 * f, r: 0 }); w0.setAttribute('transform', `rotate(${-90 * f})`);
+      arms.setAttribute('d', `M0 -140L${-60} ${-100 - 10 * f}M0 -140L60 ${-100 - 10 * f}`);
+      const sp = t > ts ? (t - ts) * .6 : 0;
+      put(man, { x: C[0], y: C[1] }); man.setAttribute('transform', `translate(${C[0]} ${C[1]}) scale(${Math.cos(sp) > 0 ? 1 : -1} 1)`);
+      Lv.replaceChildren(); const cx = C[0], cy = C[1] - 100 - 10 * f; vec(Lv, cx, cy, cx + 160 * Math.cos(a), cy - 160 * Math.sin(a), VA, { w: 5 });
+      T(Lv, 'L колеса', { x: cx + 170 * Math.cos(a) + 10, y: cy - 170 * Math.sin(a), size: 24, fill: VA });
+    }, 0, D, lin);
+    txt(p, 'ось вертикально — у колеса L ↑', 950, 300, tt + 2, { size: 28, fill: VA });
+    txt(p, 'полный L по вертикали = 0 →', 950, 380, ts, { size: 28 });
+    txt(p, 'вы со стулом крутитесь в обратную сторону', 950, 420, ts, { size: 28, fill: COL.task });
+  }],
+
+  ['precess', 'Прецессия', (m, D) => {
+    const p = panel(0);
+    head(p, 'Почему гироскоп прецессирует', .2);
+    const O = [420, 520];
+    const td = m('dL');
+    const v0 = G(p, { o: 0 }); show(v0, td);
+    vec(v0, O[0], O[1], O[0] + 360, O[1], VA, { w: 5 }); T(v0, 'L₀', { x: O[0] + 330, y: O[1] + 40, size: 30, fill: VA, font: MATH });
+    const v1 = G(p, { o: 0 }); show(v1, td + 2);
+    const a = .32; vec(v1, O[0], O[1], O[0] + 360 * Math.cos(a), O[1] - 360 * Math.sin(a), VB, { w: 5 }); T(v1, 'L₁', { x: O[0] + 340 * Math.cos(a) - 20, y: O[1] - 360 * Math.sin(a) - 16, size: 30, fill: VB, font: MATH });
+    vec(v1, O[0] + 360, O[1], O[0] + 360 * Math.cos(a), O[1] - 360 * Math.sin(a), TAU, { w: 4 }); T(v1, 'ΔL', { x: O[0] + 380, y: O[1] - 60, size: 28, fill: TAU, font: MATH });
+    path(v1, `M${O[0] + 120} ${O[1]}A120 120 0 0 0 ${O[0] + 120 * Math.cos(a)} ${O[1] - 120 * Math.sin(a)}`, { stroke: COL.dim, 'stroke-width': 2 }); T(v1, 'Δθ', { x: O[0] + 130, y: O[1] - 16, size: 24, fill: COL.dim, font: MATH });
+    txt(p, 'вид сверху: ось поворачивается со скоростью Ω', O[0] + 180, O[1] + 100, td + 2, { size: 22, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'ΔL = L₀ Δθ   ⇒   τ = Ω × L₀', 1150, 250, m('torque'), { size: 34, fill: TAU, anchor: 'middle' });
+    // a top
+    const tt = m('top');
+    const top = G(p, { x: 1150, y: 640, o: 0 }); show(top, tt);
+    mk('ellipse', { cx: 0, cy: 0, rx: 180, ry: 40, fill: 'none', stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '6 6' }, top);
+    const ax = path(top, '', { stroke: COL.task, 'stroke-width': 5 }), body_ = mk('ellipse', { rx: 50, ry: 22, fill: COL.task }, top);
+    prog(q => { const t = q * D, ph = Math.max(0, t - tt) * 1.3, tip = [130 * Math.cos(ph), -230 + 30 * Math.sin(ph)]; ax.setAttribute('d', `M0 70L${tip[0]} ${tip[1]}`); body_.setAttribute('cx', tip[0] * .55); body_.setAttribute('cy', 70 + (tip[1] - 70) * .55); body_.setAttribute('transform', `rotate(${Math.atan2(tip[0], -(tip[1] - 70)) * 57} ${tip[0] * .55} ${70 + (tip[1] - 70) * .55})`); }, 0, D, lin);
+    txt(p, 'волчок не падает, а прецессирует', 1150, 380, tt + 1, { size: 26, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 600, w: 700, cls: 'side' }, [{
+    id: 'c-prec', prompt: ['Момент импульса гироскопа L₀ = 2 кг·м²/с, ось поворачивается с Ω = 0,5 рад/с. Какой нужен момент силы?'],
+    build: blanks([{ parts: ['τ = ', { box: '1' }, ' Н·м'], why: 'τ = ΩL₀ = 0,5 · 2 = 1 Н·м.', hint: 'τ = Ω × L₀, углы прямые.' }]),
+  }], done) }],
+
+  ['nutation', 'Нутация', (m, D) => {
+    const p = panel(0);
+    head(p, 'Что происходит сразу после того, как отпустили ось', .2);
+    const Y0 = 360;
+    path(p, `M140 ${Y0}H1460`, { stroke: COL.faint, 'stroke-width': 2, 'stroke-dasharray': '8 8' });
+    T(p, 'исходная высота', { x: 150, y: Y0 - 14, size: 22, fill: COL.dim });
+    const tr = path(p, '', { stroke: COL.task, 'stroke-width': 3 });
+    const tip = mk('circle', { r: 10, fill: COL.task }, p);
+    const tdrop = m('drop');
+    prog(q => {
+      const t = q * D, s = Math.max(0, t - tdrop) * 1.6, damp = Math.exp(-s / 9);
+      const pt = u => { const k = Math.exp(-u / 9); return [160 + 40 * u - 32 * Math.sin(u) * k, Y0 + 50 * (1 - Math.cos(u) * k) - 10 * (1 - k)]; };
+      let d = ''; for (let u = 0; u <= s; u += .05) { const [x, y] = pt(u); d += (d ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1); }
+      tr.setAttribute('d', d); const [x, y] = pt(s); tip.setAttribute('cx', Math.min(1460, x)); tip.setAttribute('cy', y);
+    }, 0, D, lin);
+    txt(p, 'конец оси сначала падает…', 400, 560, m('drop', .5), { size: 26, fill: COL.bad });
+    txt(p, '…набирает скорость и уходит вбок', 400, 610, m('speed'), { size: 26, fill: COL.task });
+    txt(p, 'циклоида — нутация; трение её гасит', 400, 660, m('cycloid'), { size: 26, fill: COL.good });
+    txt(p, 'ось устанавливается чуть ниже', 400, 710, m('cycloid', 3), { size: 24, fill: COL.dim });
+  }],
+
+  ['body', 'Главные оси', (m, D) => {
+    const p = panel(0);
+    head(p, 'Момент импульса и угловая скорость не всегда параллельны', .2);
+    const C = [480, 440];
+    path(p, `M${C[0] - 380} ${C[1]}H${C[0] + 380}`, { stroke: COL.dim, 'stroke-width': 8 });
+    [-320, 320].forEach(x => mk('rect', { x: C[0] + x - 20, y: C[1] - 30, width: 40, height: 60, fill: '#55665f' }, p));
+    const tl = m('tilt');
+    const wh = G(p, { x: C[0], y: C[1] }); mk('ellipse', { rx: 40, ry: 190, fill: 'rgba(134,201,232,.2)', stroke: VA, 'stroke-width': 5, transform: 'rotate(25)' }, wh);
+    const wv = G(p, { o: 0 }); show(wv, tl);
+    vec(wv, C[0], C[1], C[0] + 300, C[1], VC, { w: 5 }); T(wv, 'ω', { x: C[0] + 300, y: C[1] + 40, size: 32, fill: VC, font: MATH });
+    const Lg = G(p, { o: 0 }); show(Lg, tl + 1.5);
+    const ts = m('shake');
+    prog(q => { const t = q * D, ph = Math.max(0, t - ts) * 2; Lg.replaceChildren(); const a = .55, ly = Math.cos(ph); vec(Lg, C[0], C[1], C[0] + 260 * Math.cos(a), C[1] - 260 * Math.sin(a) * ly, TAU, { w: 5 }); T(Lg, 'L', { x: C[0] + 260 * Math.cos(a) + 10, y: C[1] - 260 * Math.sin(a) * ly, size: 32, fill: TAU, font: MATH });
+      put(wh, { y: C[1] + (t > ts ? 4 * Math.sin(t * 25) : 0) }); }, 0, D, lin);
+    txt(p, 'L вращается вместе с колесом → вал трясёт', 1000, 280, ts, { size: 26, fill: TAU });
+    txt(p, 'у любого тела — три главные оси', 1000, 400, m('axes'), { size: 26 });
+    eq(p, 'L = Aω_x i + Bω_y j + Cω_z k', 1000, 470, m('axes', 1), { size: 30, fill: COL.task });
+    eq(p, 'T = ½ L · ω', 1000, 540, m('axes', 2), { size: 30 });
+  }],
+
+  ['q4', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 960, y: 590, w: 600, cls: 'side' }, [{
+    id: 'c-axes', prompt: ['Когда вектор L твёрдого тела параллелен ω?'],
+    build: choice([['при вращении вокруг главной оси'], ['всегда'], ['только у шара']], 0,
+      'Для главной оси L = Iω; в общем случае компоненты L умножаются на разные A, B, C.',
+      [null, 'Косо насаженное колесо — пример, когда нет.', 'У шара — для любой оси, но и у других тел — для главных осей.']),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['τ и L — векторы ⟂ плоскости вращения (правый винт).', 'w1'],
+      ['τ = r × F, L = r × p, v = ω × r.', 'w2'],
+      ['τ = dL/dt; гироскоп: τ = Ω × L.', 'w3'],
+      ['L ∥ ω только для главных осей.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-cross2', prompt: ['a = (2, 0, 0), b = (0, 3, 0). Длина |a × b|?'],
+    build: blanks([{ parts: [{ box: '6' }], why: '|a||b| sin 90° = 2 · 3 = 6.', hint: '|a × b| = ab sin θ.' }]),
+  }, {
+    id: 'p-tau', prompt: ['r = (0,5; 0; 0) м, F = (0; 10; 0) Н. Найдите τ_z.'],
+    build: blanks([{ parts: ['τ_z = ', { box: '5' }, ' Н·м'], why: 'τ_z = xF_y − yF_x = 0,5 · 10 = 5.', hint: 'τ_z = xF_y − yF_x.' }]),
+  }, {
+    id: 'p-anti', prompt: ['Чему равно b × a, если a × b = (1, −2, 3)?'],
+    build: blanks([{ parts: ['(', { box: '-1' }, ', ', { box: '2' }, ', ', { box: '-3' }, ')'], why: 'b × a = −a × b.', hint: 'Векторное произведение антисимметрично.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-bike', prompt: ['Почему движущийся велосипед легче удержать от падения, чем стоящий?'],
+    build: choice([['крутящиеся колёса — гироскопы: наклон вызывает поворот, а не падение'], ['колёса легче'], ['трение меньше']], 0,
+      'Момент силы тяжести при наклоне вызывает прецессию колёс — руль поворачивается, велосипед выравнивается (вместе с ездовой динамикой).',
+      [null, 'Масса та же.', 'Дело в моменте импульса колёс.']),
+  }, {
+    id: 'p-power', prompt: ['Момент 20 Н·м вращает вал с ω = 50 рад/с (вдоль τ). Мощность?'],
+    build: blanks([{ parts: ['P = ', { box: '1000' }, ' Вт'], why: 'P = τ · ω = 20 · 50 = 1000 Вт.', hint: 'P = τ · ω.' }]),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

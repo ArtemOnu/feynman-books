@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Динамические законы Ньютона</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 9, title: 'Динамические законы Ньютона', minutes: 14, language: 'ru', audio: false, next: '../ch10/' };
+
+/* ---------- chapter data: the book's two numerical solutions, recomputed (leapfrog, ε = 0,1) ---------- */
+const EPS = .1;
+const SPRING = (() => { const rows = []; let x = 1, v = -EPS / 2; rows.push({ t: 0, x, a: -x });
+  for (let k = 1; k <= 16; k++) { x += EPS * v; const a = -x; rows.push({ t: k * EPS, x, a, vPrev: v }); v += EPS * a; } return rows; })();
+const ORBIT = (() => { let x = .5, y = 0, r = .5, vx = -x / r ** 3 * EPS / 2, vy = 1.63; const pts = [[0, x, y]];
+  for (let k = 1; k <= 43; k++) { x += EPS * vx; y += EPS * vy; r = Math.hypot(x, y); vx += EPS * -x / r ** 3; vy += EPS * -y / r ** 3; pts.push([k * EPS, x, y]); } return pts; })();
+const ru3 = v => (v < 0 ? '−' : '') + Math.abs(v).toFixed(3).replace('.', ',');
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+function ballEl(p, colr, r, { x = 0, y = 0, o = 1 } = {}) { const g = G(p, { x, y, o }); mk('circle', { r, fill: colr, stroke: COL.board, 'stroke-width': 2 }, g); return g; }
+function springPath(x0, y0, y1, n = 14, w = 18) { let d = `M${x0} ${y0}`; for (let k = 1; k < n; k++) d += `L${x0 + (k % 2 ? w : -w)} ${y0 + (y1 - y0) * k / n}`; return d + `L${x0} ${y1}`; }
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Динамические законы Ньютона', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Механика · Глава 9', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Динамические законы Ньютона', { x: 800, y: 440, size: 76, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Сила меняет скорость, скорость меняет положение', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['momentum', 'Импульс и сила', (m, D) => {
+    const p = panel(0);
+    head(p, 'Импульс и сила', .2);
+    const tp = m('push');
+    path(p, 'M120 420H900', { stroke: COL.dim, 'stroke-width': 3 });
+    const light = G(p, { x: 220, y: 380 }); mk('rect', { x: -30, y: -40, width: 60, height: 80, rx: 6, fill: COL.whole }, light); T(light, 'm', { y: 10, size: 28, fill: COL.board, anchor: 'middle', font: MATH, weight: 700 });
+    const heavy = G(p, { x: 220, y: 340 }); put(heavy, { y: 520 - 40 });
+    path(p, 'M120 640H900', { stroke: COL.dim, 'stroke-width': 3 });
+    mk('rect', { x: -60, y: -80, width: 120, height: 160, rx: 8, fill: COL.task }, heavy); T(heavy, '4m', { y: 12, size: 34, fill: COL.board, anchor: 'middle', font: MATH, weight: 700 });
+    put(heavy, { y: 560 });
+    const arrows = G(p, { o: 0 }); show(arrows, tp); hide(arrows, tp + 1.2);
+    vec(arrows, 110, 380, 180, 380, COL.bad, { w: 5 }); vec(arrows, 70, 560, 150, 560, COL.bad, { w: 5 });
+    prog(q => { const t = q * D, s = Math.max(0, t - tp); const a = 160, ac = Math.min(s, 1); const xs = (aa) => .5 * aa * ac * ac + aa * ac * Math.max(0, s - 1);
+      put(light, { x: 220 + Math.min(600, xs(a)) }); put(heavy, { x: 220 + Math.min(600, xs(a / 4)) }); }, 0, D, lin);
+    txt(p, 'та же сила — у тяжёлого ускорение в 4 раза меньше', 120, 720, tp + 2, { size: 26, fill: COL.dim });
+    eq(p, 'p = m v', 1010, 260, m('law'), { size: 44, fill: COL.whole });
+    eq(p, 'F = dp/dt = d(mv)/dt', 1010, 350, m('law', 1), { size: 40 });
+    eq(p, 'F = m·a', 1010, 470, m('ma'), { size: 56, fill: COL.task });
+    txt(p, 'ускорение направлено по силе', 1010, 530, m('ma', 1), { size: 26, fill: COL.dim });
+  }],
+
+  ['circle', 'Движение по окружности', (m, D) => {
+    const p = panel(0);
+    head(p, 'Ускорение при повороте', .2);
+    const C = [480, 440], R = 230, w = .6;
+    mk('circle', { cx: C[0], cy: C[1], r: R, fill: 'none', stroke: COL.faint, 'stroke-width': 2 }, p);
+    mk('circle', { cx: C[0], cy: C[1], r: 6, fill: COL.dim }, p);
+    const b = ballEl(p, COL.task, 16), vv = G(p), aa = G(p);
+    prog(q => {
+      const t = q * D, ang = w * t, x = C[0] + R * Math.cos(ang), y = C[1] - R * Math.sin(ang);
+      put(b, { x, y }); vv.replaceChildren(); aa.replaceChildren();
+      if (t > m('turn')) vec(vv, x, y, x - 140 * Math.sin(ang), y - 140 * Math.cos(ang), COL.whole, { w: 4 });
+      if (t > m('central')) vec(aa, x, y, x + (C[0] - x) * .45, y + (C[1] - y) * .45, COL.bad, { w: 4 });
+    }, 0, D, lin);
+    txt(p, 'v — по касательной, |v| постоянна', 900, 260, m('turn', .5), { size: 28, fill: COL.whole });
+    eq(p, 'a = v² / R  (к центру)', 900, 380, m('central'), { size: 44, fill: COL.bad });
+    txt(p, 'сила ⟂ скорости искривляет путь', 900, 450, m('central', 1.5), { size: 26, fill: COL.dim });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 880, y: 520, w: 680, cls: 'side' }, [{
+    id: 'c-centr', prompt: ['Машина проходит поворот радиусом 50 м со скоростью 10 м/с. Каково её ускорение?'],
+    build: blanks([{ parts: ['a = ', { box: '2' }, ' м/с²'], why: 'a = v²/R = 100/50 = 2 м/с².', hint: 'a = v²/R.' }]),
+  }], done) }],
+
+  ['components', 'Составляющие', (m) => {
+    const p = panel(0);
+    head(p, 'Векторы по составляющим', .2);
+    const O = [400, 560];
+    const ax = G(p, { o: 0 }); show(ax, .3);
+    vec(ax, O[0], O[1], O[0] + 340, O[1], COL.dim, { w: 2 }); vec(ax, O[0], O[1], O[0], O[1] - 340, COL.dim, { w: 2 }); vec(ax, O[0], O[1], O[0] - 190, O[1] + 140, COL.dim, { w: 2 });
+    T(ax, 'y', { x: O[0] + 350, y: O[1] + 8, size: 26, fill: COL.dim, font: MATH }); T(ax, 'z', { x: O[0] - 8, y: O[1] - 352, size: 26, fill: COL.dim, font: MATH }); T(ax, 'x', { x: O[0] - 210, y: O[1] + 160, size: 26, fill: COL.dim, font: MATH });
+    const P = [O[0] + 220 - 90, O[1] - 230 + 70];
+    const ts = m('split');
+    const comp = G(p, { o: 0 }); show(comp, ts);
+    path(comp, `M${O[0]} ${O[1]}L${O[0] - 90} ${O[1] + 70}L${O[0] + 130} ${O[1] + 70}L${P[0]} ${P[1]}`, { stroke: COL.task, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    vec(p, O[0], O[1], P[0], P[1], COL.bad, { w: 5 });
+    T(p, 'F', { x: P[0] + 12, y: P[1] - 8, size: 34, fill: COL.bad, font: MATH });
+    eq(p, 'Fₓ = m aₓ', 900, 260, m('three'), { size: 40 });
+    eq(p, 'F_y = m a_y', 900, 330, m('three', .5), { size: 40 });
+    eq(p, 'F_z = m a_z', 900, 400, m('three', 1), { size: 40 });
+    txt(p, 'сила только по z → движение по x и y не меняется', 900, 500, m('indep'), { size: 26, fill: COL.task });
+  }],
+
+  ['spring', 'Грузик на пружине', (m, D) => {
+    const p = panel(0);
+    head(p, 'Какие бывают силы', .2);
+    eq(p, 'тяжесть:  F = m g', 140, 230, m('mg'), { size: 36 });
+    const ts = m('spring');
+    const sp = G(p, { o: 0 }); show(sp, ts);
+    path(sp, 'M480 150H640', { stroke: COL.dim, 'stroke-width': 6 });
+    path(sp, 'M680 420H760', { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    T(sp, 'равновесие', { x: 770, y: 428, size: 22, fill: COL.good });
+    const coil = path(sp, '', { stroke: COL.chalk, 'stroke-width': 3 });
+    const wt = G(sp); mk('rect', { x: -30, y: 0, width: 60, height: 40, rx: 6, fill: COL.task }, wt);
+    const F = G(sp);
+    prog(q => { const t = q * D, x = t < ts + 1 ? 1 : Math.cos(1.6 * (t - ts - 1)); const y = 400 + 110 * x;
+      coil.setAttribute('d', springPath(560, 150, y)); put(wt, { x: 560, y }); F.replaceChildren(); if (Math.abs(x) > .15) vec(F, 640, y + 20, 640, y + 20 - 70 * x, COL.bad, { w: 4, head: 14 }); }, 0, D, lin);
+    eq(p, 'F = −k x', 900, 350, ts + 1, { size: 44, fill: COL.bad });
+    eq(p, 'k/m = 1:   dv/dt = −x', 900, 450, m('eq'), { size: 40, fill: COL.task });
+  }],
+
+  ['step', 'Шаг за шагом', (m) => {
+    const p = panel(0);
+    head(p, 'Смысл динамических уравнений', .2);
+    const box = (x, y, s, c, t0) => { const g = G(p, { x, y, o: 0 }); mk('rect', { x: -150, y: -45, width: 300, height: 90, rx: 18, fill: 'rgba(10,16,14,.6)', stroke: c, 'stroke-width': 3 }, g); T(g, s, { y: 12, size: 32, fill: c, anchor: 'middle', font: MATH }); show(g, t0); return g; };
+    box(400, 260, 'x(t), v(t)', COL.chalk, m('now'));
+    box(1200, 260, 'x(t+ε) = x + ε v', COL.whole, m('next'));
+    box(1200, 560, 'a = −x', COL.bad, m('vel'));
+    box(400, 560, 'v(t+ε) = v + ε a', COL.task, m('vel', 1));
+    const tl = m('loop');
+    [[560, 260, 1040, 260], [1200, 310, 1200, 510], [1040, 560, 560, 560], [400, 510, 400, 310]].forEach(([a, b, c, d], i) => { const g = G(p, { o: 0 }); vec(g, a, b, c, d, COL.dim, { w: 3 }); show(g, tl + i * .4); });
+    txt(p, 'сила → скорость → положение → сила …', 800, 430, tl + 2, { size: 30, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 420, y: 640, w: 760, cls: 'side' }, [{
+    id: 'c-step', prompt: ['x = 0,8, v = −0,3, ε = 0,1. Каким станет x через один шаг?'],
+    build: blanks([{ parts: ['x = ', { box: '0,77' }], why: 'x + εv = 0,8 + 0,1 · (−0,3) = 0,77.', hint: 'x(t+ε) = x(t) + ε·v.' }]),
+  }], done) }],
+
+  ['table', 'Численное решение', (m, D) => {
+    const p = panel(0);
+    head(p, 'dv/dt = −x,  ε = 0,1 с', .2);
+    const tf = m('fill');
+    T(p, 't', { x: 150, y: 150, size: 24, fill: COL.dim, font: MATH, anchor: 'end' }); T(p, 'x', { x: 260, y: 150, size: 24, fill: COL.dim, font: MATH, anchor: 'end' });
+    T(p, 'v', { x: 400, y: 150, size: 24, fill: COL.dim, anchor: 'end' }); T(p, 'a', { x: 500, y: 150, size: 24, fill: COL.dim, font: MATH, anchor: 'end' });
+    const rows = SPRING.map((r, i) => {
+      const g = G(p, { o: 0 }), y = 182 + i * 32;
+      T(g, r.t.toFixed(1).replace('.', ','), { x: 150, y, size: 22, font: MATH, anchor: 'end' });
+      T(g, ru3(r.x), { x: 260, y, size: 22, font: MATH, anchor: 'end', fill: COL.whole });
+      if (r.vPrev !== undefined) T(g, ru3(r.vPrev), { x: 400, y: y - 16, size: 20, font: MATH, anchor: 'end', fill: COL.task });
+      T(g, ru3(r.a), { x: 500, y, size: 22, font: MATH, anchor: 'end', fill: COL.bad });
+      show(g, tf + i * .35, .2); return g;
+    });
+    const A = { X: t => 640 + t / 1.8 * 820, Y: x => 400 - x * 280 };
+    const ax = G(p, { o: 0 }); show(ax, .3);
+    path(ax, `M${A.X(0)} ${A.Y(1.15)}V${A.Y(-.3)}M${A.X(0)} ${A.Y(0)}H${A.X(1.8)}`, { stroke: COL.dim, 'stroke-width': 2 });
+    [.5, 1, 1.5].forEach(t => T(ax, String(t).replace('.', ','), { x: A.X(t), y: A.Y(0) + 30, size: 20, fill: COL.dim, anchor: 'middle', font: MATH }));
+    T(ax, '1', { x: A.X(0) - 12, y: A.Y(1) + 7, size: 20, fill: COL.dim, anchor: 'end', font: MATH }); T(ax, 't, с', { x: A.X(1.8), y: A.Y(0) + 56, size: 20, fill: COL.dim, anchor: 'end' });
+    SPRING.forEach((r, i) => { const d = put(mk('circle', { cx: A.X(r.t), cy: A.Y(r.x), r: 6, fill: COL.whole }, p), { o: 0 }); show(d, tf + i * .35 + .1, .2); });
+    let d = ''; for (let k = 0; k <= 90; k++) { const t = 1.7 * k / 90; d += (d ? 'L' : 'M') + A.X(t).toFixed(1) + ' ' + A.Y(Math.cos(t)).toFixed(1); }
+    draw(path(p, d, { stroke: COL.good, 'stroke-width': 2.5, 'stroke-dasharray': '8 6' }, { d: 0 }), m('cos'), 1.5);
+    txt(p, 'cos t — точное решение', A.X(1.05), A.Y(.75), m('cos', 1), { size: 26, fill: COL.good });
+    txt(p, 'x(1,0) = 0,540;  cos 1 = 0,5403', A.X(.9), 620, m('cos', 2), { size: 26, fill: COL.chalk, anchor: 'middle' });
+    txt(p, 'x = 0 около t ≈ 1,57 = π/2', A.X(.9), 670, m('curve'), { size: 24, fill: COL.task, anchor: 'middle' });
+  }],
+
+  ['planet', 'Движение планеты', (m, D) => {
+    const p = panel(0);
+    head(p, 'Планета вокруг Солнца (GM = 1)', .2);
+    const S = [1000, 420], K = 300, X = x => S[0] + x * K, Y = y => S[1] - y * K;
+    const ax = G(p, { o: 0 }); show(ax, .3);
+    path(ax, `M${X(-1.2)} ${S[1]}H${X(.75)}M${S[0]} ${Y(.95)}V${Y(-.95)}`, { stroke: COL.faint, 'stroke-width': 1.5 });
+    [-1, -.5, .5].forEach(v => T(ax, String(v).replace('.', ',').replace('-', '−'), { x: X(v), y: S[1] + 28, size: 18, fill: COL.dim, anchor: 'middle', font: MATH }));
+    mk('circle', { cx: S[0], cy: S[1], r: 18, fill: COL.int }, p);
+    const tf = m('force');
+    eq(p, 'aₓ = −x / r³', 140, 230, tf, { size: 34, fill: COL.bad });
+    eq(p, 'a_y = −y / r³', 140, 290, tf + .6, { size: 34, fill: COL.bad });
+    eq(p, 'r = √(x² + y²)', 140, 350, tf + 1.2, { size: 30 });
+    const tst = m('start'), to = m('orbit');
+    eq(p, 'x = 0,5,  y = 0', 140, 460, tst, { size: 30, fill: COL.whole });
+    eq(p, 'vₓ = 0,  v_y = 1,63', 140, 510, tst + .6, { size: 30, fill: COL.whole });
+    const pl = ballEl(p, COL.whole, 12, { x: X(.5), y: Y(0), o: 0 }); show(pl, tst);
+    const HALF = ORBIT.slice(0, 22);
+    const dots = HALF.map(([t, x, y], i) => put(mk('circle', { cx: X(x), cy: Y(y), r: 5, fill: COL.task }, p), { o: 0 }));
+    const fv = G(p);
+    const n = HALF.length - 1, dur = 8;
+    prog(q => {
+      const t = q * D, k = Math.min(n, Math.max(0, Math.floor((t - to) / dur * n)));
+      dots.forEach((d, i) => put(d, { o: t >= to && i <= k ? 1 : 0 }));
+      const [, x, y] = HALF[t >= to ? k : 0]; put(pl, { x: X(x), y: Y(y) });
+      fv.replaceChildren(); const r = Math.hypot(x, y); if (t > tf) vec(fv, X(x), Y(y), X(x) - x / r * 90, Y(y) + y / r * 90, COL.bad, { w: 3, head: 12 });
+    }, 0, D, lin);
+    [[1, 't = 1'], [2, 't = 2'], [0, 't = 0']].forEach(([t, s]) => { const [, x, y] = ORBIT[t * 10]; txt(p, s, X(x) + (x > 0 ? 18 : -18), Y(y) - 14, to + (t * 10 / n) * dur + .3, { size: 20, fill: COL.task, anchor: x > 0 ? 'start' : 'end', font: MATH }); });
+    const te = m('ellipse');
+    let d = ''; for (let k = 0; k <= 120; k++) { const a = Math.PI * 2 * k / 120, A_ = .761, e = (1.022 - .5) / (1.022 + .5), b = A_ * Math.sqrt(1 - e * e), c = A_ * e; d += (d ? 'L' : 'M') + X(-c + A_ * Math.cos(a)).toFixed(1) + ' ' + Y(b * Math.sin(a)).toFixed(1); }
+    draw(path(p, d, { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '6 8' }, { d: 0 }), te, 1.5);
+    txt(p, 'эллипс; полпериода ≈ 2,1', 140, 610, te + 1, { size: 26, fill: COL.good });
+    txt(p, '(Кеплер: π·0,761^1,5 ≈ 2,09)', 140, 650, te + 1.5, { size: 22, fill: COL.dim });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1060, y: 470, w: 510, cls: 'side' }, [{
+    id: 'c-sparse', prompt: ['Точки поставлены через равные промежутки времени. Почему вдали от Солнца они стоят гуще?'],
+    build: choice([['вдали планета движется медленнее'], ['вдали сила тяготения сильнее'], ['шаг ε там меньше']], 0,
+      'Вдали скорость меньше (закон равных площадей), поэтому за 0,1 планета смещается меньше.',
+      [null, 'Наоборот: сила ∝ 1/r², вдали она слабее.', 'Шаг ε = 0,1 везде одинаковый.']),
+  }], done) }],
+
+  ['machine', 'Вычислительная машина', (m, D) => {
+    const p = panel(0);
+    head(p, 'Вся Солнечная система — на машине', .2);
+    const S = [520, 450];
+    mk('circle', { cx: S[0], cy: S[1], r: 22, fill: COL.int }, p);
+    const R = [70, 110, 150, 200, 290], C = [COL.nat, COL.rat, COL.whole, COL.bad, COL.task];
+    const P = R.map((r, i) => { mk('circle', { cx: S[0], cy: S[1], r, fill: 'none', stroke: COL.faint, 'stroke-width': 1.2 }, p); return ballEl(p, C[i], 7 + i); });
+    const lines = G(p, { o: 0 }); show(lines, m('sum'));
+    prog(q => { const t = q * D; const pos = R.map((r, i) => { const a = t * 1.4 / (r / 70) ** 1.5 + i; return [S[0] + r * Math.cos(a), S[1] - r * Math.sin(a)]; });
+      pos.forEach((xy, i) => put(P[i], { x: xy[0], y: xy[1] })); lines.replaceChildren();
+      for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) path(lines, `M${pos[i][0]} ${pos[i][1]}L${pos[j][0]} ${pos[j][1]}`, { stroke: COL.dim, 'stroke-width': 1, opacity: .4 }); }, 0, D, lin);
+    eq(p, 'mᵢ dvᵢ/dt = Σⱼ −G mᵢ mⱼ (rᵢ − rⱼ) / rᵢⱼ³', 1150, 300, m('sum', .5), { size: 30, anchor: 'middle' });
+    txt(p, 'умножение — 10 мкс (машина 1960-х)', 1150, 430, m('fast'), { size: 26, anchor: 'middle', fill: COL.task });
+    txt(p, 'Юпитер вокруг Солнца с точностью 10⁻⁹ — около 2 минут', 1150, 480, m('fast', 1), { size: 26, anchor: 'middle', fill: COL.task });
+    txt(p, '(сегодня — доли секунды)', 1150, 530, m('fast', 2), { size: 22, anchor: 'middle', fill: COL.faint });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['F = dp/dt = m·a — сила меняет импульс.', 'w1'],
+      ['Закон векторный: три уравнения по осям.', 'w2'],
+      ['Движение считают шагами: сила → v → x.', 'w3'],
+      ['Так получаются и колебания, и эллипсы.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-fma', prompt: ['На тело массой 2 кг действует сила 10 Н. Каково ускорение?'],
+    build: blanks([{ parts: ['a = ', { box: '5' }, ' м/с²'], why: 'a = F/m = 10/2 = 5 м/с².', hint: 'F = m·a.' }]),
+  }, {
+    id: 'p-mom', prompt: ['Импульс тела вырос с 4 до 10 кг·м/с за 2 с. Какая сила действовала?'],
+    build: blanks([{ parts: ['F = ', { box: '3' }, ' Н'], why: 'F = Δp/Δt = 6/2 = 3 Н.', hint: 'F = dp/dt.' }]),
+  }, {
+    id: 'p-comp', prompt: ['Сила 10 Н направлена под 60° к оси x. Чему равна её x-составляющая?'],
+    build: blanks([{ parts: ['Fₓ = ', { box: '5' }, ' Н'], why: 'Fₓ = F cos 60° = 10 · 0,5 = 5 Н.', hint: 'Fₓ = F·cos(угол с осью x).' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-two', prompt: ['dv/dt = −x, ε = 0,1. Сейчас x = 1, v = 0. Сделайте простейший шаг (сначала v, потом x новым v).'],
+    build: blanks([
+      { parts: ['v = ', { box: '-0,1' }], why: 'v + ε·a = 0 + 0,1·(−1) = −0,1.', hint: 'a = −x = −1.' },
+      { parts: ['x = ', { box: '0,99' }], why: 'x + ε·v = 1 + 0,1·(−0,1) = 0,99.', hint: 'x(t+ε) = x + ε·v.' },
+    ]),
+  }, {
+    id: 'p-why-mid', prompt: ['Зачем в таблице скорость берут в серединах интервалов?'],
+    build: choice([['это средняя скорость на интервале — расчёт точнее'], ['так проще умножать'], ['в начале интервала скорость неизвестна в принципе']], 0,
+      'Скорость в середине лучше всего описывает средний темп на интервале; ошибка падает как ε².',
+      [null, 'Умножений столько же — выигрыш в точности.', 'Её можно знать; просто середина даёт меньшую ошибку.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

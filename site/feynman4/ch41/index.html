@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Броуновское движение</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 41, title: 'Броуновское движение', minutes: 11, language: 'ru', audio: false, next: '../ch42/' };
+
+/* ---------- chapter drawing helpers ---------- */
+// Smooth "random" jitter: a sum of incommensurate sines (deterministic in t).
+const jit = (t, s) => Math.sin(1.3 * t + s) + .6 * Math.sin(2.9 * t + 2 * s) + .4 * Math.sin(5.3 * t + 3 * s) + .25 * Math.sin(11.1 * t + s);
+const planckI = (w, T) => w * w * w / (Math.exp(w / T) - 1);
+const WALK = (() => { const R = rng(17), pts = [[0, 0]]; for (let i = 0; i < 120; i++) { const a = R() * 6.283, [x, y] = pts[i]; pts.push([x + 30 * Math.cos(a), y + 30 * Math.sin(a)]); } return pts; })();
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Броуновское движение', (m, D) => introCard(m, D, 'Молекулы в движении', 41, 'Броуновское движение', 'Тепловая дрожь, которую видно в микроскоп')],
+
+  ['brown', 'Опыт Броуна', (m, D) => {
+    const p = panel(0);
+    head(p, 'Частица среди молекул', .2);
+    const box = [140, 160, 1000, 690];
+    path(p, 'M140 160H1000V690H140Z', { stroke: COL.faint, 'stroke-width': 2, fill: 'none' });
+    const small = gas(p, 70, box, 9, { el: 'H', s: .7, speed: [200, 380] });
+    small.forEach(a => put(a.el, gasAt(a, 0, box)));
+    const b = atom(p, 'B', { x: 570, y: 425 });
+    motion(small, (a, t) => gasAt(a, t, box), 0, D);
+    prog(q => { const t = q * D; put(b, { x: 570 + 60 * jit(t * .8, 1), y: 425 + 50 * jit(t * .8, 4) }); }, 0, D, lin);
+    txt(p, 'удары почти уравновешены — почти', 1060, 300, m('hits', 3), { size: 28 });
+    eq(p, '⟨½ MV²⟩ = 3/2 kT', 1060, 420, m('kt'), { size: 40, fill: COL.task });
+    txt(p, 'тяжёлая — значит, медленная', 1060, 480, m('kt', 3), { size: 26, fill: COL.dim });
+  }],
+
+  ['mirror', 'Зеркальце на нити', (m, D) => {
+    const p = panel(0);
+    head(p, 'Зеркальце на кварцевой нити', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M760 110V330', { stroke: COL.dim, 'stroke-width': 2 });
+    path(g, 'M700 110H820', { stroke: COL.chalk, 'stroke-width': 6 });
+    const mir = G(g, { x: 760, y: 360 });
+    mk('rect', { x: -6, y: -30, width: 12, height: 60, rx: 2, fill: '#86c9e8' }, mir);
+    path(g, 'M200 180V560', { stroke: COL.chalk, 'stroke-width': 3 });
+    for (let y = 200; y <= 540; y += 20) path(g, `M200 ${y}H${y % 100 ? 212 : 222}`, { stroke: COL.dim, 'stroke-width': 2 });
+    mk('circle', { cx: 300, cy: 600, r: 16, fill: COL.task }, g);
+    const inc = path(g, 'M300 600L760 360', { stroke: COL.task, 'stroke-width': 2, 'stroke-opacity': .6 });
+    const ref = path(g, 'M760 360L200 360', { stroke: COL.task, 'stroke-width': 2.5 });
+    const spot = mk('circle', { cx: 200, cy: 360, r: 9, fill: COL.task }, g);
+    prog(q => {
+      const t = q * D, th = .035 * jit(t * 2.2, 2);
+      put(mir, { r: 3 * th * 180 / Math.PI });
+      const y = 360 - 560 * Math.tan(2 * th) ;
+      ref.setAttribute('d', `M760 360L200 ${y.toFixed(1)}`); spot.setAttribute('cy', y.toFixed(1));
+    }, 0, D, lin);
+    T(g, 'шкала', { x: 190, y: 160, size: 22, fill: COL.dim, anchor: 'middle' });
+    eq(p, '½ κ ⟨θ²⟩ = ½ kT', 940, 260, m('energy'), { size: 42, fill: COL.task });
+    txt(p, 'меньшие повороты тонут в шуме', 940, 330, m('limit'), { size: 26, fill: COL.dim });
+    eq(p, '½ L ⟨I²⟩ = ½ kT', 940, 470, m('circuit'), { size: 42, fill: COL.good });
+    const tr = path(p, curve(t => .5 * jit(t * 3, 7) / 2.2, 940, 600, 50, 80, 10, 300), { stroke: COL.good, 'stroke-width': 2.5 }, { d: 0 });
+    draw(tr, m('circuit', 1), 1.5);
+    txt(p, 'тепловой шум тока', 1190, 680, m('circuit', 1.5), { size: 24, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 900, y: 300, w: 660, cls: 'side' }, [{
+    id: 'c-mirror', prompt: ['Абсолютную температуру воздуха вокруг зеркальца удвоили. Во сколько раз вырос средний квадрат угла ⟨θ²⟩?'],
+    build: blanks([{ parts: ['в ', { box: '2' }, ' раза'], why: '⟨θ²⟩ = kT/κ ∝ T.', hint: '½κ⟨θ²⟩ = ½kT.' }]),
+  }], done) }],
+
+  ['radiation', 'Излучение в ящике', (m, D) => {
+    const p = panel(0);
+    head(p, 'Осцилляторы и свет в горячем ящике', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M140 170H760V650H140Z', { stroke: COL.bad, 'stroke-width': 4, fill: 'none' });
+    T(g, 'T', { x: 780, y: 190, size: 30, fill: COL.bad, font: MATH });
+    const R = rng(5), osc = Array.from({ length: 7 }, (_, i) => {
+      const x = 210 + i * 85, y = 300 + R() * 250, e = G(g, { x, y });
+      path(e, 'M0 -50V-20', { stroke: COL.dim, 'stroke-width': 2 });
+      mk('circle', { r: 12, fill: COL.task }, e);
+      return { el: e, x, y, w: 3 + R() * 3, ph: R() * 6 };
+    });
+    motion(osc, (o, t) => ({ y: o.y + 18 * Math.sin(o.w * t + o.ph) }), 0, D);
+    const ph = Array.from({ length: 6 }, (_, i) => {
+      const e = path(g, 'M-30 0Q-22 -10 -15 0T0 0T15 0', { stroke: '#f3c95c', 'stroke-width': 2.5, fill: 'none' });
+      return { el: e, x0: 200 + R() * 500, y0: 200 + R() * 420, vx: 150 * (R() - .5) * 2, vy: 150 * (R() - .5) * 2 };
+    });
+    motion(ph, (f, t) => ({ x: bounce(f.x0, f.vx, t, 175, 725), y: bounce(f.y0, f.vy, t, 190, 630) }), 0, D);
+    eq(p, '⟨E⟩ осциллятора = kT', 880, 300, m('eq'), { size: 40 });
+    eq(p, 'I(ω) = ω² kT / π²c²', 880, 420, m('rj'), { size: 46, fill: COL.task });
+    txt(p, 'закон Рэлея — Джинса', 880, 480, m('rj', 1), { size: 26, fill: COL.dim });
+  }],
+
+  ['uv', 'Катастрофа', (m) => {
+    const p = panel(0);
+    head(p, 'Спектр излучения', .2);
+    axesP(p, 200, 640, 1100, 480, .2, 'I', 'ω');
+    const rj = path(p, curve(w => w * w * 1.3, 200, 640, 110, 160, 3.05), { stroke: COL.bad, 'stroke-width': 3.5 }, { d: 0 });
+    draw(rj, m('grow'), 1.5);
+    txt(p, 'Рэлей — Джинс', 560, 200, m('grow', 1), { size: 26, fill: COL.bad });
+    txt(p, '∞ — ультрафиолетовая катастрофа', 610, 140, m('cat'), { size: 30, fill: COL.bad });
+    const pl1 = path(p, curve(w => planckI(w, 1) * .9, 200, 640, 110, 160, 10, 300, .01), { stroke: COL.task, 'stroke-width': 3.5 }, { d: 0 });
+    const pl2 = path(p, curve(w => planckI(w, 1.25) * .9, 200, 640, 110, 160, 10, 300, .01), { stroke: COL.good, 'stroke-width': 3.5 }, { d: 0 });
+    draw(pl1, m('exp'), 1.5); draw(pl2, m('exp', 3), 1.5);
+    txt(p, 'опыт, T₁', 560, 440, m('exp', 1), { size: 26, fill: COL.task });
+    txt(p, 'горячее, T₂', 800, 330, m('exp', 3.5), { size: 26, fill: COL.good });
+  }],
+
+  ['planck', 'Планк', (m) => {
+    const p = panel(0);
+    head(p, 'Квантовый осциллятор', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    for (let n = 0; n < 6; n++) {
+      path(g, `M160 ${640 - n * 80}H360`, { stroke: COL.chalk, 'stroke-width': 3 });
+      T(g, n ? `${n === 1 ? '' : n}ħω` : '0', { x: 140, y: 648 - n * 80, size: 24, fill: COL.dim, anchor: 'end', font: MATH });
+    }
+    for (let n = 0; n < 6; n++) {
+      const b = mk('rect', { x: 380, y: 630 - n * 80, width: 260 * Math.exp(-n * .7), height: 20, rx: 4, fill: COL.task }, p);
+      put(b, { o: 0 }); show(b, m('weights', n * .2));
+    }
+    txt(p, '∝ e^{−E/kT}', 520, 300, m('weights', 1), { size: 28, fill: COL.task, font: MATH }); subify(p.lastChild);
+    eq(p, '⟨E⟩ = ħω / (e^{ħω/kT} − 1)', 760, 200, m('avg'), { size: 40, fill: COL.task });
+    path(p, 'M820 640H1460M820 640V300', { stroke: COL.dim, 'stroke-width': 2 });
+    T(p, 'ħω/kT', { x: 1470, y: 648, size: 24, fill: COL.dim, font: MATH });
+    T(p, '⟨E⟩/kT', { x: 830, y: 290, size: 24, fill: COL.dim, font: MATH });
+    path(p, 'M820 400H1460', { stroke: COL.dim, 'stroke-width': 1.5, 'stroke-dasharray': '6 6' });
+    T(p, '1 (классика)', { x: 1460, y: 390, size: 22, fill: COL.dim, anchor: 'end' });
+    draw(path(p, curve(x => x / (Math.exp(x) - 1), 820, 640, 100, 240, 6.3, 200, .02), { stroke: COL.good, 'stroke-width': 3.5 }, { d: 0 }), m('lowf'), 1.5);
+    txt(p, '≈ kT', 860, 380, m('lowf', 1), { size: 26, fill: COL.good });
+    txt(p, '→ 0', 1350, 610, m('highf'), { size: 26, fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 200, y: 150, w: 1200, cls: 'side' }, [{
+    id: 'c-planck', prompt: ['Излучение и осцилляторы. Верно или нет?'],
+    build: grid([
+      { parts: ['Закон Рэлея — Джинса даёт бесконечную полную энергию излучения'], ans: ['y'], why: 'I ∝ ω² растёт без предела.' },
+      { parts: ['На низких частотах формула Планка даёт ⟨E⟩ ≈ kT'], ans: ['y'], why: 'ħω ≪ kT: ступеньки мелкие, классика права.' },
+      { parts: ['На очень высоких частотах осциллятор получает свою долю kT'], ans: ['n'], why: 'Ступенька ħω ≫ kT — осциллятор заморожен.' },
+    ], [['y', 'верно', COL.good, '1'], ['n', 'неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['walk', 'Случайное блуждание', (m) => {
+    const p = panel(0);
+    head(p, 'Случайное блуждание', .2);
+    const X0 = 520, Y0 = 420;
+    const d = WALK.map(([x, y], i) => (i ? 'L' : 'M') + (X0 + x).toFixed(1) + ' ' + (Y0 + y).toFixed(1)).join('');
+    mk('circle', { cx: X0, cy: Y0, r: 8, fill: COL.chalk }, p);
+    draw(path(p, d, { stroke: COL.task, 'stroke-width': 2.5, 'stroke-opacity': .85 }, { d: 0 }), m('steps'), 10, lin);
+    const c = mk('circle', { cx: X0, cy: Y0, r: 30 * Math.sqrt(120), fill: 'none', stroke: COL.good, 'stroke-width': 2.5, 'stroke-dasharray': '10 8' }, p);
+    put(c, { o: 0 }); show(c, m('law'));
+    eq(p, 'R(N) = R(N−1) + L', 1000, 240, m('sq'), { size: 34 });
+    eq(p, '⟨R²(N)⟩ = ⟨R²(N−1)⟩ + L²', 1000, 310, m('sq', 3), { size: 34 });
+    eq(p, '⟨R²⟩ = N L²', 1000, 420, m('law'), { size: 48, fill: COL.good });
+    txt(p, 'вдвое дальше — вчетверо дольше', 1000, 490, m('slow'), { size: 28, fill: COL.task });
+  }],
+
+  ['diff', 'Формула Эйнштейна', (m) => {
+    const p = panel(0);
+    head(p, 'Частица в жидкости', .2);
+    eq(p, 'm ẍ + ẋ/μ = F(t) случайная', 800, 220, m('eqm'), { size: 42, anchor: 'middle' });
+    eq(p, '⟨R²⟩ = 6 kT μ t', 800, 330, m('res'), { size: 54, anchor: 'middle', fill: COL.task });
+    axesP(p, 420, 650, 760, 230, m('res', 1), '⟨R²⟩', 't');
+    draw(path(p, 'M420 650L1160 440', { stroke: COL.task, 'stroke-width': 3.5 }, { d: 0 }), m('res', 1.5), 1);
+    txt(p, 'Перрен: k → число Авогадро', 800, 720 - 20, m('avo'), { size: 28, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-walk', prompt: ['Блуждание: 100 шагов по 1 см в случайных направлениях. Каково среднеквадратичное расстояние от начала?'],
+    build: blanks([{ parts: ['√⟨R²⟩ = ', { box: '10' }, ' см'], why: '√(N L²) = √100 · 1 см = 10 см.', hint: '⟨R²⟩ = N L².' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['На квадратичную степень свободы — ½ kT.', 'w1'], ['Рэлей — Джинс: I ∝ ω²kT — катастрофа.', 'w2'],
+      ['Планк: ⟨E⟩ = ħω/(e^{ħω/kT} − 1).', 'w3'], ['⟨R²⟩ = NL² = 6kTμt.', 'w4']]);
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-far', prompt: ['Броуновская частица за 1 минуту в среднем уходит на 5 мкм. За сколько минут она уйдёт на 10 мкм?'],
+    build: blanks([{ parts: [{ box: '4' }, ' мин'], why: '⟨R²⟩ ∝ t: расстояние вдвое — время вчетверо.', hint: '⟨R²⟩ = 6kTμt.' }]),
+  }, {
+    id: 'p-hot', prompt: ['Температуру жидкости подняли с 300 К до 330 К (подвижность μ та же). Во сколько раз вырос ⟨R²⟩ за то же время?'],
+    build: blanks([{ parts: ['в ', { box: '1.1' }, ' раза'], why: '⟨R²⟩ ∝ T: 330/300 = 1,1.', hint: '⟨R²⟩ = 6kTμt.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-e3', prompt: ['Для осциллятора exp(ħω/kT) = 3. Средняя энергия ⟨E⟩ = ħω / N. Найдите N.'],
+    build: blanks([{ parts: ['N = ', { box: '2' }], why: '⟨E⟩ = ħω/(3 − 1).', hint: '⟨E⟩ = ħω/(exp(ħω/kT) − 1).' }]),
+  }, {
+    id: 'p-limit', prompt: ['Что даёт формула Планка при ħω ≪ kT?'],
+    build: choice([['⟨E⟩ ≈ kT — классический ответ'], ['⟨E⟩ ≈ 0'], ['⟨E⟩ ≈ ħω']], 0, 'eˣ − 1 ≈ x, поэтому ħω/(ħω/kT) = kT.', [null, 'Ноль — при ħω ≫ kT.', 'Ступенька мала; энергия набирается из многих ступенек.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

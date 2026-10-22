@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Примеры из термодинамики</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 45, title: 'Примеры из термодинамики', minutes: 8, language: 'ru', audio: false, next: '../ch46/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const HOT = '#f07a6a', COLD = '#86c9e8';
+const PX = 160, PY = 660, SX = 320, SY = 420, V0 = 1;   // p–V plot: x = PX + (V − V0)·SX… shifted so V = 1 sits near the axis
+const XV = V => PX + 40 + (V - V0) * SX, YP = pp => PY - pp * SY;
+const Ta = 1.15, Tb = 1, k32 = Ta ** 1.5;
+const C4 = { A: 1.2, B: 1.6, C: 1.6 * k32, D: 1.2 * k32 };
+const pts = (fn, v0, v1, n = 40) => Array.from({ length: n + 1 }, (_, k) => { const v = v0 + (v1 - v0) * k / n; return XV(v).toFixed(1) + ' ' + YP(fn(v)).toFixed(1); });
+const isoD = (T, v0, v1) => 'M' + pts(v => T / v, v0, v1).join('L');
+const adi = (vs, T) => v => (T / vs) * (vs / v) ** (5 / 3);
+const CYC = 'M' + [...pts(v => Ta / v, C4.A, C4.B), ...pts(adi(C4.B, Ta), C4.B, C4.C), ...pts(v => Tb / v, C4.C, C4.D), ...pts(adi(C4.A, Ta), C4.D, C4.A)].join('L') + 'Z';
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Примеры', (m, D) => introCard(m, D, 'Теплота', 45, 'Примеры из термодинамики', 'Из машины Карно — законы веществ')],
+
+  ['small', 'Маленький цикл', (m) => {
+    const p = panel(0);
+    head(p, 'Маленький цикл Карно', .2);
+    axesP(p, PX, PY, 760, 520, .2, 'p', 'V');
+    draw(path(p, isoD(Ta, 1, 2.4), { stroke: HOT, 'stroke-width': 2.5, 'stroke-opacity': .7 }, { d: 0 }), .3, 1);
+    draw(path(p, isoD(Tb, 1, 2.4), { stroke: COLD, 'stroke-width': 2.5, 'stroke-opacity': .7 }, { d: 0 }), .5, 1);
+    txt(p, 'T + ΔT', XV(2.4) + 10, YP(Ta / 2.4) - 10, .6, { size: 24, fill: HOT, font: MATH });
+    txt(p, 'T', XV(2.4) + 10, YP(Tb / 2.4) + 20, .6, { size: 24, fill: COLD, font: MATH });
+    const c = path(p, CYC, { fill: COL.task, 'fill-opacity': .25, stroke: COL.task, 'stroke-width': 3.5 }, { d: 0 });
+    draw(c, m('cyc'), 2.5);
+    eq(p, 'W = ΔV · (∂p/∂T)_V · ΔT', 1000, 300, m('area'), { size: 34 });
+    eq(p, 'η = ΔT / T', 1000, 390, m('eff'), { size: 38, fill: COL.task });
+    eq(p, 'Q₁ = ΔU + p ΔV', 1000, 470, m('eff', 3), { size: 34 });
+  }],
+
+  ['relation', 'Соотношение', (m) => {
+    const p = panel(0);
+    head(p, 'Энергия и давление', .2);
+    eq(p, 'W = η Q₁', 800, 260, .3, { size: 40, anchor: 'middle', fill: COL.dim });
+    eq(p, '(∂U/∂V)_T = T (∂p/∂T)_V − p', 800, 420, m('res'), { size: 56, anchor: 'middle', fill: COL.task });
+    txt(p, 'энергия — через измеримое давление', 800, 520, m('power'), { size: 30, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['ideal', 'Идеальный газ', (m) => {
+    const p = panel(0);
+    head(p, 'Проверка: идеальный газ', .2);
+    eq(p, 'p = NkT / V', 800, 220, .3, { size: 44, anchor: 'middle' });
+    eq(p, '(∂p/∂T)_V = Nk / V', 800, 320, m('pt'), { size: 40, anchor: 'middle' });
+    eq(p, '(∂U/∂V)_T = T·Nk/V − p = 0', 800, 440, m('zero'), { size: 48, anchor: 'middle', fill: COL.task });
+    txt(p, 'U зависит только от T', 800, 530, m('zero', 2), { size: 32, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 300, y: 600, w: 1000, cls: 'side' }, [{
+    id: 'c-ideal', prompt: ['Идеальный газ расширяется при постоянной температуре. Как меняется его внутренняя энергия?'],
+    build: choice([['не меняется'], ['растёт'], ['убывает']], 0, 'T(∂p/∂T)_V − p = 0: U зависит только от T.', [null, 'U идеального газа — только функция температуры.', 'При T = const энергия молекул та же.']),
+  }], done) }],
+
+  ['rubber', 'Резина', (m) => {
+    const p = panel(0);
+    head(p, 'Резиновая лента', .2);
+    eq(p, 'p → F,   V → −L', 160, 220, m('swap'), { size: 40 });
+    axesP(p, 200, 640, 560, 330, m('exp'), 'F', 'T');
+    draw(path(p, 'M200 640L760 330', { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), m('exp', .3), 1.2);
+    txt(p, 'L = const', 520, 520, m('exp', 1), { size: 26, fill: COL.task });
+    eq(p, '(∂U/∂L)_T = F − T (∂F/∂T)_L ≈ 0', 900, 360, m('ent'), { size: 34 });
+    txt(p, 'упругость энтропии:', 900, 450, m('ent', 3), { size: 28, fill: COL.good });
+    txt(p, 'тепловое движение комкает цепочки', 900, 495, m('ent', 3.3), { size: 28, fill: COL.good });
+  }],
+
+  ['clap', 'Клапейрон — Клаузиус', (m) => {
+    const p = panel(0);
+    head(p, 'Кипение и давление пара', .2);
+    eq(p, 'W = (V_g − V_l) Δp,   Q = L', 160, 200, m('work'), { size: 32 });
+    eq(p, 'dp/dT = L / T(V_g − V_l)', 160, 300, m('law'), { size: 44, fill: COL.task });
+    axesP(p, 900, 640, 560, 420, m('curve'), 'p', 'T');
+    draw(path(p, curve(t => Math.exp(3 * (t - 1)) * .25, 900, 640, 380, 400, 1.45, 120, 0), { stroke: COL.good, 'stroke-width': 4 }, { d: 0 }), m('curve', .3), 1.5);
+    txt(p, 'жидкость', 1020, 330, m('curve', 1), { size: 26, fill: COL.dim });
+    txt(p, 'пар', 1350, 560, m('curve', 1), { size: 26, fill: COL.dim });
+    txt(p, 'лёд: V(лёд) > V(вода) ⇒ dp/dT < 0', 160, 420, m('ice'), { size: 30, fill: COLD });
+    txt(p, 'под давлением лёд плавится раньше', 160, 470, m('ice', 3), { size: 28, fill: COL.dim });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-clap', prompt: ['Вода при 373 К: L ≈ 40 700 Дж/моль, объём моля пара ≈ 0,031 м³ (жидкостью пренебрегаем). Оцените dp/dT.'],
+    build: choice([['≈ 3,5 кПа/К'], ['≈ 35 Па/К'], ['≈ 350 кПа/К']], 0, '40 700 / (373 · 0,031) ≈ 3500 Па/К.', ['Проверьте порядок: 373·0,031 ≈ 11,6.', null, 'Слишком много — это три атмосферы на кельвин.']),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Малый цикл Карно: η = ΔT/T.', 'w1'], ['(∂U/∂V)_T = T(∂p/∂T)_V − p.', 'w2'],
+      ['Резина: F ∝ T — упругость энтропии.', 'w3'], ['dp/dT = L / T(V_g − V_l).', 'w4']]);
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-small', prompt: ['Малый цикл между 300 К и 303 К берёт тепло 1000 Дж. Какую работу он совершает?'],
+    build: blanks([{ parts: ['W = ', { box: '10' }, ' Дж'], why: 'η = 3/300 = 0,01.', hint: 'η = ΔT/T.' }]),
+  }, {
+    id: 'p-alt', prompt: ['В горах давление ниже. Что происходит с температурой кипения воды?'],
+    build: choice([['понижается'], ['повышается'], ['не меняется']], 0, 'dp/dT > 0: меньшему p соответствует меньшая T.', [null, 'Кривая p(T) возрастает.', 'Давление пара зависит от T.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-rub', prompt: ['Растянутую ленту при постоянной длине нагрели от 300 К до 330 К. Во сколько раз выросло натяжение?'],
+    build: blanks([{ parts: ['в ', { box: '1.1' }, ' раза'], why: 'F ∝ T: 330/300.', hint: 'Как давление газа при V = const.' }]),
+  }, {
+    id: 'p-ice', prompt: ['Почему под лезвием конька лёд может подтаять при −1 °C?'],
+    build: choice([['у льда объём больше, чем у воды, — давление понижает точку плавления'], ['лезвие нагревается трением до 100 °C'], ['давление повышает точку плавления']], 0, 'V(вода) − V(лёд) < 0 ⇒ dp/dT < 0.', [null, 'Дело в знаке разности объёмов.', 'Наоборот — у льда она понижается.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

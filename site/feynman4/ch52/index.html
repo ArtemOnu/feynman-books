@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Симметрия физических законов</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 52, title: 'Симметрия физических законов', minutes: 8, language: 'ru', audio: false };
+
+/* ---------- chapter drawing helpers ---------- */
+function flake(p, x, y, s = 1) {
+  const g = G(p, { x, y, s });
+  for (let k = 0; k < 6; k++) {
+    const a = k * 60, b = G(g, { r: a });
+    path(b, 'M0 0V-110M0 -60L-24 -84M0 -60L24 -84M0 -90L-14 -104M0 -90L14 -104', { stroke: COL.chalk, 'stroke-width': 4 });
+  }
+  return g;
+}
+// A spinning wheel seen from the side with a rotation arrow; dir = +1 or −1.
+function wheel(p, x, y, dir, colr) {
+  const g = G(p, { x, y });
+  mk('ellipse', { rx: 110, ry: 30, fill: 'none', stroke: COL.chalk, 'stroke-width': 3 }, g);
+  vec(g, -40 * dir, 30, 40 * dir, 30, colr, { w: 3, head: 14 });
+  return g;
+}
+function electronsFrom(p, x, y, seed, up, n = 18) {
+  const R = rng(seed);
+  return Array.from({ length: n }, (_, i) => {
+    const goUp = R() < up, a = (goUp ? -Math.PI / 2 : Math.PI / 2) + (R() - .5) * 1.4;
+    return { el: mk('circle', { r: 6, fill: '#86c9e8' }, p), x, y, a, ph: R() * 3, v: 110 + R() * 60 };
+  });
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Симметрия', (m, D) => introCard(m, D, 'Симметрия', 52, 'Симметрия физических законов', 'Что можно сделать с опытом, чтобы он не заметил')],
+
+  ['weyl', 'Определение', (m) => {
+    const p = panel(0);
+    head(p, 'Симметрия по Вейлю', .2);
+    const f = flake(p, 420, 420, 1.6); put(f, { o: 0 }); show(f, .2);
+    tw(f, { r: 60 }, m('def', 2), 1.5);
+    txt(p, 'повернули на 60° — то же самое', 420, 690, m('def', 3.5), { size: 26, fill: COL.task, anchor: 'middle' });
+    txt(p, 'Симметрия закона:', 860, 380, m('laws'), { size: 34, weight: 600 });
+    txt(p, 'изменили опыт —', 860, 440, m('laws', 1), { size: 30 });
+    txt(p, 'результат тот же', 860, 490, m('laws', 1.5), { size: 30, fill: COL.good });
+  }],
+
+  ['space', 'Операции', (m, D) => {
+    const p = panel(0);
+    head(p, 'Что не меняет законов', .2);
+    const lab = G(p, { x: 360, y: 420 });
+    mk('rect', { x: -110, y: -150, width: 220, height: 260, rx: 10, fill: '#22322d', stroke: COL.chalk, 'stroke-width': 3 }, lab);
+    const pend = G(lab, { y: -130 }); path(pend, 'M0 0V160', { stroke: COL.dim, 'stroke-width': 3 }); atom(pend, 'O', { y: 160, s: .9 });
+    prog(q => put(pend, { r: 20 * Math.sin(q * D * 2.5) }), 0, D, lin);
+    tw(lab, { x: 520 }, m('shift'), 1.2); tw(lab, { r: 30 }, m('rot'), 1.2);
+    prog(q => { const t = q * D, t0 = m('move'); if (t > t0) put(lab, { x: 520 + 40 * Math.min(4, t - t0) }); }, 0, D, lin);
+    [['перенос в пространстве', 'shift'], ['сдвиг во времени', 'time'], ['поворот', 'rot'], ['равномерное движение', 'move']].forEach(([s, mk_], i) =>
+      txt(p, '✓ ' + s, 960, 260 + i * 70, m(mk_), { size: 30, fill: COL.good }));
+    txt(p, '✗ изменение масштаба', 960, 560, m('not'), { size: 30, fill: COL.bad });
+  }],
+
+  ['noether', 'Сохранение', (m) => {
+    const p = panel(0);
+    head(p, 'Симметрия → закон сохранения', .2);
+    [['сдвиг во времени', 'энергия', 'e'], ['перенос в пространстве', 'импульс', 'p'], ['поворот', 'момент импульса', 'l']].forEach(([a, b, mk_], i) => {
+      const y = 280 + i * 130, g = G(p, { o: 0 }); show(g, m(mk_));
+      T(g, a, { x: 700, y, size: 34, anchor: 'end' }); vec(g, 730, y - 12, 880, y - 12, COL.task); T(g, b, { x: 910, y, size: 34, fill: COL.task, weight: 600 });
+    });
+    txt(p, 'одна из глубочайших связей в физике', 800, 700, m('deep'), { size: 28, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 300, y: 600, w: 1000, cls: 'side' }, [{
+    id: 'c-noether', prompt: ['Какой симметрии соответствует сохранение импульса?'],
+    build: choice([['переносу в пространстве'], ['сдвигу во времени'], ['повороту']], 0, 'Законы одинаковы в любом месте — импульс сохраняется.', [null, 'Время → энергия.', 'Поворот → момент импульса.']),
+  }], done) }],
+
+  ['mirror', 'Зеркало', (m) => {
+    const p = panel(0);
+    head(p, 'Зеркальное отражение', .2);
+    path(p, 'M800 150V680', { stroke: '#86c9e8', 'stroke-width': 5, 'stroke-dasharray': '14 8' });
+    T(p, 'зеркало', { x: 800, y: 710, size: 22, fill: '#86c9e8', anchor: 'middle' });
+    const L = G(p, { o: 0 }); show(L, m('clock'));
+    wheel(L, 450, 450, 1, COL.task); T(L, 'вращение', { x: 450, y: 530, size: 22, fill: COL.task, anchor: 'middle' });
+    const Rr = G(p, { o: 0 }); show(Rr, m('clock', 1.5));
+    wheel(Rr, 1150, 450, -1, COL.task); T(Rr, 'отражённое', { x: 1280, y: 500, size: 22, fill: COL.task });
+    const pv = G(p, { o: 0 }); show(pv, m('vec'));
+    vec(pv, 520, 300, 680, 300, COL.good); vec(pv, 1080, 300, 920, 300, COL.good);
+    T(pv, 'полярный: отражается как стрелка', { x: 800, y: 260, size: 24, fill: COL.good, anchor: 'middle' });
+    const ax = G(p, { o: 0 }); show(ax, m('axial'));
+    vec(ax, 450, 440, 450, 330, COL.bad); T(ax, 'L', { x: 470, y: 350, size: 30, fill: COL.bad, font: MATH });
+    vec(ax, 1150, 460, 1150, 570, COL.bad); T(ax, 'L', { x: 1170, y: 570, size: 30, fill: COL.bad, font: MATH });
+    path(ax, 'M1150 440V340', { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    T(ax, 'аксиальный: правило правой руки даёт «вниз»', { x: 800, y: 640, size: 24, fill: COL.bad, anchor: 'middle' });
+  }],
+
+  ['parity', 'Опыт Ву', (m, D) => {
+    const p = panel(0);
+    head(p, 'Бета-распад кобальта-60', .2);
+    const g = G(p, { o: 0 }); show(g, m('co'));
+    atom(g, 'B', { x: 450, y: 420, s: .7 }); vec(g, 450, 400, 450, 280, COL.task, { w: 5 }); T(g, 'спин', { x: 470, y: 300, size: 24, fill: COL.task });
+    const e1 = electronsFrom(p, 450, 420, 4, .2), t1 = m('el');
+    motion(e1, (e, t) => { const s = t < t1 ? 0 : ((t - t1 + e.ph) % 2) * e.v; return { x: e.x + s * Math.cos(e.a), y: e.y + s * Math.sin(e.a), o: t < t1 ? 0 : 1 }; }, 0, D);
+    txt(p, 'электроны — в основном против спина', 450, 200, m('el', 1), { size: 24, fill: '#86c9e8', anchor: 'middle' });
+    path(p, 'M800 150V680', { stroke: '#86c9e8', 'stroke-width': 3, 'stroke-dasharray': '14 8', 'stroke-opacity': .6 });
+    const h = G(p, { o: 0 }); show(h, m('mir'));
+    atom(h, 'B', { x: 1150, y: 420, s: .7 }); vec(h, 1150, 440, 1150, 560, COL.task, { w: 5 });
+    T(h, 'в зеркале: электроны вдоль спина', { x: 1150, y: 210, size: 24, fill: COL.bad, anchor: 'middle' });
+    T(h, 'так не бывает!', { x: 1150, y: 250, size: 26, fill: COL.bad, anchor: 'middle', weight: 600 });
+    txt(p, '1957', 120, 160, m('co'), { size: 30, fill: COL.dim });
+  }],
+
+  ['anti', 'Антивещество', (m) => {
+    const p = panel(0);
+    head(p, 'Отражение + антивещество', .2);
+    eq(p, 'зеркало + (вещество → антивещество)', 800, 300, m('cp'), { size: 40, anchor: 'middle', fill: COL.task });
+    txt(p, 'законы снова те же', 800, 370, m('cp', 3), { size: 30, anchor: 'middle', fill: COL.good });
+    txt(p, 'перед рукопожатием спросите про антивещество', 800, 490, m('warn'), { size: 28, anchor: 'middle', fill: COL.dim });
+    txt(p, 'почти симметрично — загадка нарушенных симметрий', 800, 600, m('broken'), { size: 28, anchor: 'middle', fill: COL.chalk });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 200, y: 150, w: 1200, cls: 'side' }, [{
+    id: 'c-mirror', prompt: ['Верно или нет?'],
+    build: grid([
+      { parts: ['Магнитное поле — аксиальный вектор'], ans: ['y'], why: 'Оно задаётся правилом правой руки.' },
+      { parts: ['Законы физики не меняются при изменении масштаба'], ans: ['n'], why: 'Увеличенная модель моста может рухнуть.' },
+      { parts: ['Бета-распад кобальта-60 отличает правое от левого'], ans: ['y'], why: 'Опыт Ву, 1957.' },
+    ], [['y', 'верно', COL.good, '1'], ['n', 'неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Сдвиги, повороты, равномерное движение — симметрии.', 'w1'], ['Симметрии → сохранение E, p, L.', 'w2'],
+      ['Аксиальные векторы в зеркале — «не туда».', 'w3'], ['Бета-распад различает право и лево.', 'w4']]);
+  }],
+
+  ['final1', 'Практика', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-pairs', prompt: ['Какому закону сохранения отвечает неизменность законов во времени?'],
+    build: choice([['сохранению энергии'], ['сохранению импульса'], ['сохранению заряда']], 0, 'Сдвиг во времени ↔ энергия.', [null, 'Импульс — перенос в пространстве.', 'Заряд связан с другой, внутренней симметрией.']),
+  }, {
+    id: 'p-radio', prompt: ['Как по радио объяснить далёкой цивилизации, какая рука у нас левая?'],
+    build: choice([['описать опыт с бета-распадом кобальта-60'], ['это невозможно в принципе'], ['описать, как вращается Земля']], 0, 'Слабые взаимодействия различают правое и левое (если они из вещества, а не антивещества).', [null, 'До 1957 года так и думали.', 'Направление вращения Земли — это наша договорённость о сторонах, а не закон физики.']),
+  }], done, 'Практика по главе   1 из 1') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Диффузия</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 43, title: 'Диффузия', minutes: 10, language: 'ru', audio: false, next: '../ch44/' };
+
+/* ---------- chapter drawing helpers ---------- */
+// A zigzag path: free flights of exponential length in random directions, with an optional drift acceleration ax.
+function zigzag(seed, x0, y0, n, lmean, box, ax = 0) {
+  const R = rng(seed), pts = [[x0, y0]];
+  let x = x0, y = y0;
+  for (let i = 0; i < n; i++) {
+    const a = R() * 6.283, l = -lmean * Math.log(1 - R() * .95), steps = 6;
+    for (let k = 1; k <= steps; k++) {
+      const s = l * k / steps, nx = x + s * Math.cos(a) + ax * (k / steps) ** 2 * l / lmean, ny = y + s * Math.sin(a);
+      pts.push([bounce(nx, 0, 0, box[0], box[2]), bounce(ny, 0, 0, box[1], box[3])]);
+    }
+    [x, y] = pts[pts.length - 1];
+  }
+  return pts;
+}
+const polyD = pts => pts.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join('');
+const along = (pts, q) => { const f = q * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), u = f - i; return { x: pts[i][0] + (pts[i + 1][0] - pts[i][0]) * u, y: pts[i][1] + (pts[i + 1][1] - pts[i][1]) * u }; };
+function dots(p, n, box, seed, el = 'N', s = .5, dens) {
+  const R = rng(seed), it = [];
+  while (it.length < n) {
+    const x = box[0] + R() * (box[2] - box[0]), y = box[1] + R() * (box[3] - box[1]);
+    if (dens && R() > dens((x - box[0]) / (box[2] - box[0]))) continue;
+    it.push({ el: atom(p, el, { x, y, s }), x0: x, y0: y, ph: R() * 6.28, w: 2 + R() * 2 });
+  }
+  return it;
+}
+const ZZ = zigzag(3, 500, 420, 14, 90, [140, 180, 860, 660]);
+const DR = zigzag(8, 200, 420, 22, 45, [140, 180, 1000, 660], 70);
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Диффузия', (m, D) => introCard(m, D, 'Молекулы в движении', 43, 'Диффузия', 'Как молекулы пробираются сквозь толпу')],
+
+  ['free', 'Столкновения', (m, D) => {
+    const p = panel(0);
+    head(p, 'Свободный полёт и столкновения', .2);
+    const bg = dots(p, 40, [140, 180, 860, 660], 2, 'N', .45);
+    motion(bg, (a, t) => wobble(a, t, 5), 0, D);
+    const t0 = m('zig'), dur = m('surv') - t0 + 4;
+    draw(path(p, polyD(ZZ), { stroke: COL.task, 'stroke-width': 2.5, 'stroke-opacity': .8 }, { d: 0 }), t0, dur, lin);
+    const b = atom(p, 'O', { x: ZZ[0][0], y: ZZ[0][1], s: .6 });
+    prog(q => put(b, along(ZZ, q)), t0, dur, lin);
+    eq(p, 'P(удар за dt) = dt/τ', 940, 260, m('tau'), { size: 34 });
+    axesP(p, 960, 640, 480, 260, m('surv'), 'доля', 't');
+    draw(path(p, curve(t => Math.exp(-t), 960, 640, 120, 250, 4), { stroke: COL.task, 'stroke-width': 3.5 }, { d: 0 }), m('surv', .3), 1.5);
+    eq(p, 'e^{−t/τ}', 1120, 470, m('surv', 1), { size: 34, fill: COL.task });
+    path(p, 'M1080 640V650', { stroke: COL.dim, 'stroke-width': 2 }); T(p, 'τ', { x: 1080, y: 672, size: 22, fill: COL.dim, anchor: 'middle', font: MATH });
+  }],
+
+  ['path', 'Длина пробега', (m) => {
+    const p = panel(0);
+    head(p, 'Длина свободного пробега', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    atom(g, 'O', { x: 180, y: 420, s: .9 }); vec(g, 210, 420, 300, 420, COL.task);
+    const cyl = G(p, { o: 0 }); show(cyl, m('cyl'));
+    path(cyl, 'M180 380H1000M180 460H1000', { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '10 8' });
+    mk('ellipse', { cx: 1000, cy: 420, rx: 14, ry: 40, fill: COL.good, 'fill-opacity': .15, stroke: COL.good, 'stroke-width': 2 }, cyl);
+    const R = rng(12);
+    for (let i = 0; i < 16; i++) {
+      const x = 260 + R() * 760, y = 280 + R() * 280, inside = Math.abs(y - 420) < 40;
+      atom(g, inside ? 'Cl' : 'N', { x, y, s: .7 });
+    }
+    T(cyl, 'σ', { x: 1030, y: 400, size: 32, fill: COL.good, font: MATH });
+    eq(p, 'n σ l = 1', 1140, 300, m('l'), { size: 38 });
+    eq(p, 'l = 1 / nσ', 1140, 390, m('l', 3), { size: 50, fill: COL.task });
+    eq(p, 'воздух: l ≈ 10⁻⁷ м', 1140, 480, m('air'), { size: 30, fill: COL.dim });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 300, y: 560, w: 1000, cls: 'side' }, [{
+    id: 'c-path', prompt: ['Газ сжали так, что плотность n удвоилась. Что стало с длиной свободного пробега?'],
+    build: choice([['уменьшилась вдвое'], ['не изменилась'], ['уменьшилась вчетверо']], 0, 'l = 1/(nσ) ∝ 1/n.', [null, 'Молекул на пути стало больше.', 'l обратно пропорциональна n, а не n².']),
+  }], done) }],
+
+  ['drift', 'Дрейф', (m, D) => {
+    const p = panel(0);
+    head(p, 'Ион под действием силы', .2);
+    const bg = dots(p, 34, [140, 180, 1000, 660], 7, 'N', .45);
+    motion(bg, (a, t) => wobble(a, t, 5), 0, D);
+    const t0 = m('biased'), dur = Math.max(8, m('mu') - t0 + 3);
+    draw(path(p, polyD(DR), { stroke: COL.rat, 'stroke-width': 2.5, 'stroke-opacity': .85 }, { d: 0 }), t0, dur, lin);
+    const b = atom(p, 'Na', { x: DR[0][0], y: DR[0][1], charge: '+' });
+    prog(q => put(b, along(DR, q)), t0, dur, lin);
+    const f = G(p, { o: 0 }); show(f, .4); vec(f, 160, 140, 360, 140, COL.task); T(f, 'F', { x: 380, y: 150, size: 32, fill: COL.task, font: MATH });
+    eq(p, 'v(др) = F τ / m', 1100, 330, m('vd'), { size: 42, fill: COL.task });
+    eq(p, 'μ = τ / m', 1100, 430, m('mu'), { size: 42 });
+  }],
+
+  ['cond', 'Проводимость', (m, D) => {
+    const p = panel(0);
+    head(p, 'Ионная проводимость', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M140 200H900V600H140Z', { stroke: COL.dim, 'stroke-width': 3, fill: 'none' });
+    mk('rect', { x: 120, y: 200, width: 20, height: 400, fill: COL.bad }, g); mk('rect', { x: 900, y: 200, width: 20, height: 400, fill: ELC() }, g);
+    T(g, '+', { x: 100, y: 410, size: 40, fill: COL.bad, anchor: 'middle' }); T(g, '−', { x: 945, y: 410, size: 40, fill: '#86c9e8', anchor: 'middle' });
+    const R = rng(21), ions = Array.from({ length: 14 }, () => ({ el: atom(g, 'Na', { charge: '+', s: .8 }), x0: 160 + R() * 720, y0: 230 + R() * 340, ph: R() * 6, w: 6 }));
+    motion(ions, (a, t) => { const w = wobble(a, t, 8); return { x: 160 + ((w.x - 160 + 40 * Math.max(0, t - m('ions'))) % 720 + 720) % 720, y: w.y }; }, 0, D);
+    const e = G(p, { o: 0 }); show(e, m('ions')); vec(e, 400, 650, 640, 650, COL.task); T(e, 'E', { x: 660, y: 660, size: 30, fill: COL.task, font: MATH });
+    eq(p, 'v(др) = q τ E / m', 1000, 300, m('ions', 1), { size: 36 });
+    eq(p, 'j = n q v(др) = (n q² τ / m) E', 1000, 400, m('j'), { size: 36, fill: COL.task });
+    txt(p, 'закон Ома', 1000, 470, m('j', 4), { size: 30, fill: COL.good });
+  }],
+
+  ['diff', 'Диффузия', (m, D) => {
+    const p = panel(0);
+    head(p, 'Диффузия', .2);
+    const box = [140, 200, 1000, 600];
+    path(p, 'M140 200H1000V600H140Z', { stroke: COL.dim, 'stroke-width': 3, fill: 'none' });
+    const it = dots(p, 70, box, 33, 'He', 1, u => 1 - .85 * u);
+    motion(it, (a, t) => wobble(a, t, 9), 0, D);
+    const ar = G(p, { o: 0 }); show(ar, m('grad', 4)); vec(ar, 450, 650, 700, 650, COL.good); T(ar, 'J', { x: 720, y: 660, size: 30, fill: COL.good, font: MATH });
+    txt(p, 'много', 220, 180, m('grad'), { size: 24, fill: COL.dim }); txt(p, 'мало', 920, 180, m('grad'), { size: 24, fill: COL.dim });
+    eq(p, 'J = −D dn/dx', 1080, 320, m('fick'), { size: 44, fill: COL.task });
+    eq(p, 'D = μ kT', 1080, 450, m('ein', 6), { size: 48, fill: COL.good });
+    txt(p, 'Эйнштейн', 1080, 510, m('ein', 6.5), { size: 26, fill: COL.dim });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1020, y: 540, w: 560, cls: 'side' }, [{
+    id: 'c-D', prompt: ['Подвижность μ та же, а температура выросла с 300 К до 600 К. Во сколько раз вырос D?'],
+    build: blanks([{ parts: ['в ', { box: '2' }, ' раза'], why: 'D = μkT ∝ T.', hint: 'Соотношение Эйнштейна.' }]),
+  }], done) }],
+
+  ['heat', 'Теплопроводность', (m, D) => {
+    const p = panel(0);
+    head(p, 'Теплопроводность газа', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    mk('rect', { x: 120, y: 200, width: 24, height: 400, fill: COL.bad }, g); mk('rect', { x: 880, y: 200, width: 24, height: 400, fill: '#86c9e8' }, g);
+    T(g, 'горячо', { x: 132, y: 640, size: 24, fill: COL.bad, anchor: 'middle' }); T(g, 'холодно', { x: 892, y: 640, size: 24, fill: '#86c9e8', anchor: 'middle' });
+    const box = [160, 210, 865, 590], it = gas(g, 22, box, 4, { el: 'N', s: .6, speed: [150, 260] });
+    it.forEach(a => put(a.el, gasAt(a, 0, box))); motion(it, (a, t) => gasAt(a, t, box), 0, D);
+    eq(p, 'поток тепла ∝ n · v · l', 980, 280, m('flow'), { size: 36 });
+    eq(p, 'n · l = n / nσ = 1/σ', 980, 370, m('indep'), { size: 36, fill: COL.task });
+    txt(p, 'κ не зависит от давления', 980, 450, m('surprise'), { size: 32, fill: COL.good });
+    txt(p, 'пока l меньше сосуда (Дьюар!)', 980, 500, m('surprise', 5), { size: 26, fill: COL.dim });
+  }],
+
+  ['q3', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 200, y: 150, w: 1200, cls: 'side' }, [{
+    id: 'c-heat', prompt: ['Верно или нет?'],
+    build: grid([
+      { parts: ['Если давление газа уменьшить вдвое, теплопроводность упадёт вдвое'], ans: ['n'], why: 'Пробег вырастет вдвое — n·l не изменится.' },
+      { parts: ['Скорость дрейфа пропорциональна силе'], ans: ['y'], why: 'v = Fτ/m.' },
+      { parts: ['Диффузионный поток направлен туда, где плотность больше'], ans: ['n'], why: 'J = −D dn/dx — от большей плотности к меньшей.' },
+    ], [['y', 'верно', COL.good, '1'], ['n', 'неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['e^{−t/τ}; пробег l = 1/nσ.', 'w1'], ['Дрейф: v = Fτ/m → закон Ома.', 'w2'],
+      ['J = −D dn/dx, D = μkT.', 'w3'], ['κ газа не зависит от давления.', 'w4']]);
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-l', prompt: ['n = 2,5×10²⁵ м⁻³, σ = 4×10⁻¹⁹ м². Длина свободного пробега?'],
+    build: choice([['10⁻⁷ м'], ['10⁻⁴ м'], ['10⁻¹⁰ м']], 0, '1/(2,5×10²⁵ · 4×10⁻¹⁹) = 1/(10⁷) м.', [null, 'Перемножьте показатели: 25 − 19 = 6, и 2,5·4 = 10.', 'Это размер молекулы, а не пробег.']),
+  }, {
+    id: 'p-surv', prompt: ['Какая доля молекул не испытает ни одного столкновения за время 2τ?'],
+    build: choice([['≈ 0,14'], ['0,5'], ['0']], 0, 'e^(−2) ≈ 0,135.', [null, 'Экспонента, а не прямая.', 'Экспонента никогда не обращается в ноль.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-drift', prompt: ['Электрическое поле утроили. Во сколько раз выросла скорость дрейфа ионов?'],
+    build: blanks([{ parts: ['в ', { box: '3' }, ' раза'], why: 'v = qτE/m ∝ E.', hint: 'v = Fτ/m.' }]),
+  }, {
+    id: 'p-kappa', prompt: ['Давление газа уменьшили в 10 раз (пробег всё ещё мал по сравнению с сосудом). Во сколько раз изменилась теплопроводность?'],
+    build: blanks([{ parts: ['в ', { box: '1' }, ' раз (то есть не изменилась)'], why: 'n·l = 1/σ — от давления не зависит.', hint: 'Поток ∝ n v l.' }]),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+function ELC() { return '#86c9e8'; }
+
+boot();
+</script>
+</body>
+</html>

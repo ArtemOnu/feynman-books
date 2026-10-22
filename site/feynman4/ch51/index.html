@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Волны</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 51, title: 'Волны', minutes: 6, language: 'ru', audio: false, next: '../ch52/' };
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Волны', (m, D) => introCard(m, D, 'Звук', 51, 'Волны', 'Носовые, ударные, в твёрдом теле и на воде')],
+
+  ['bow', 'Носовая волна', (m, D) => {
+    const p = panel(0);
+    head(p, 'Источник быстрее волн', .2);
+    const Y0 = 420, X0 = 160, v = 62, c = 22, dt = 1.2, t0 = .3, N = Math.ceil(D / dt);
+    const circ = Array.from({ length: N }, () => mk('circle', { r: 0, fill: 'none', stroke: WATER, 'stroke-width': 2, 'stroke-opacity': .8 }, p));
+    const src = atom(p, 'O', { x: X0, y: Y0, s: .8 });
+    const cone = path(p, '', { stroke: COL.task, 'stroke-width': 3 }); put(cone, { o: 0 }); show(cone, m('cone'));
+    prog(q => {
+      const t = Math.min(q * D, t0 + 1000 / v), xs = X0 + v * Math.max(0, t - t0);
+      put(src, { x: xs });
+      circ.forEach((e, i) => { const ti = t0 + i * dt, r = t > ti ? c * (t - ti) : 0; e.setAttribute('cx', X0 + v * (ti - t0)); e.setAttribute('cy', Y0); e.setAttribute('r', r); e.setAttribute('stroke-opacity', r ? .8 : 0); });
+      const L = v * Math.max(0, t - t0), th = Math.asin(c / v), ex = xs - L * Math.cos(th) ** 2, ey = L * Math.cos(th) * Math.sin(th);
+      cone.setAttribute('d', `M${ex.toFixed(1)} ${(Y0 - ey).toFixed(1)}L${xs.toFixed(1)} ${Y0}L${ex.toFixed(1)} ${(Y0 + ey).toFixed(1)}`);
+    }, 0, D, lin);
+    eq(p, 'sin θ = c / v', 1230, 430, m('angle'), { size: 44, fill: COL.task });
+    txt(p, 'катер, самолёт', 1230, 490, m('angle', 3), { size: 26, fill: COL.dim });
+  }],
+
+  ['shock', 'Ударная волна', (m, D) => {
+    const p = panel(0);
+    head(p, 'Фронт становится круче', .2);
+    path(p, 'M140 420H1460', { stroke: COL.faint, 'stroke-width': 2 });
+    const e = path(p, '', { stroke: COL.task, 'stroke-width': 4, fill: 'none' });
+    const ta = m('steep');
+    prog(q => {
+      const t = q * D, k = .95 * smooth(ta, ta + 6, t);
+      let d = ''; for (let i = 0; i <= 300; i++) { const s = -Math.PI + 2 * Math.PI * i / 300, y = Math.max(0, Math.cos(s / 2)) ** 2 * Math.cos(0); const x = s + k * 1.4 * y; d += (i ? 'L' : 'M') + (800 + x * 180).toFixed(1) + ' ' + (420 - 160 * y).toFixed(1); }
+      e.setAttribute('d', d);
+    }, 0, D, lin);
+    txt(p, 'сжатие: газ теплее — звук быстрее', 800, 200, m('pulse'), { size: 28, fill: COL.task, anchor: 'middle' });
+    vec(p, 760, 230, 900, 230, COL.task);
+    txt(p, 'скачок — ударная волна', 800, 560, m('shock'), { size: 32, fill: COL.bad, anchor: 'middle' });
+    txt(p, 'суперпозиция нарушена', 800, 610, m('shock', 1), { size: 26, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['q1', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-mach', prompt: ['Самолёт летит со скоростью вдвое больше скорости звука. Каков угол полураствора конуса?'],
+    build: choice([['30°'], ['60°'], ['45°']], 0, 'sin θ = 1/2 ⇒ θ = 30°.', [null, 'Это cos θ = 1/2.', 'sin 45° ≈ 0,71, а нужно 0,5.']),
+  }], done) }],
+
+  ['solid', 'Твёрдое тело', (m, D) => {
+    const p = panel(0);
+    head(p, 'Две волны в твёрдом теле', .2);
+    const mkRow = (y0, t0, lon, colr) => {
+      const it = [];
+      for (let i = 0; i < 22; i++) for (let j = 0; j < 3; j++) { const x0 = 160 + i * 42, yy = y0 + j * 36, e = mk('circle', { r: 7, fill: colr }, p); put(e, { x: x0, y: yy, o: 0 }); show(e, t0); it.push({ el: e, x0, y0: yy }); }
+      motion(it, (a, t) => { const ph = .03 * a.x0 - 3 * Math.max(0, t - t0), d = 12 * Math.sin(ph) * (t > t0 ? 1 : 0); return lon ? { x: a.x0 + d, y: a.y0 } : { x: a.x0, y: a.y0 + d }; }, 0, D);
+    };
+    mkRow(220, m('long'), true, COL.task); mkRow(470, m('trans'), false, COL.good);
+    txt(p, 'продольная (P)', 1120, 260, m('long'), { size: 28, fill: COL.task });
+    txt(p, 'поперечная (S)', 1120, 510, m('trans'), { size: 28, fill: COL.good });
+    txt(p, 'P быстрее S', 1120, 330, m('speed'), { size: 28, fill: COL.chalk });
+    txt(p, 'задержка S после P → расстояние до очага', 800, 680, m('dist'), { size: 28, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['water', 'Волны на воде', (m, D) => {
+    const p = panel(0);
+    head(p, 'Волны на воде', .2);
+    const Y0 = 360, k = 2 * Math.PI / 480, w = 2.2, r = 40, t0 = .2;
+    const surf = path(p, '', { stroke: WATER, 'stroke-width': 4, fill: 'none' });
+    const pts = Array.from({ length: 17 }, (_, i) => ({ el: mk('circle', { r: 8, fill: COL.task }, p), x0: 140 + i * 80 }));
+    const orb = mk('circle', { cx: 140 + 8 * 80, cy: Y0, r, fill: 'none', stroke: COL.task, 'stroke-width': 1.5, 'stroke-dasharray': '4 4' }, p); put(orb, { o: 0 }); show(orb, m('orbit'));
+    prog(q => {
+      const t = q * D; let d = '';
+      for (let x = 100; x <= 1500; x += 10) { const ph = k * x - w * t; d += (d ? 'L' : 'M') + (x + r * Math.sin(ph)).toFixed(1) + ' ' + (Y0 - r * Math.cos(ph)).toFixed(1); }
+      surf.setAttribute('d', d);
+      pts.forEach(a => { const ph = k * a.x0 - w * t; put(a.el, { x: a.x0 + r * Math.sin(ph), y: Y0 - r * Math.cos(ph) }); });
+    }, 0, D, lin);
+    eq(p, 'глубокая вода:  v = √(gλ / 2π)', 200, 540, m('disp'), { size: 36, fill: COL.task });
+    txt(p, 'короткая рябь — поверхностное натяжение', 200, 600, m('disp', 4), { size: 26, fill: COL.dim });
+    eq(p, 'групповая скорость = ½ фазовой', 200, 680, m('group'), { size: 32, fill: COL.good });
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-ps', prompt: ['P-волна идёт 8 км/с, S-волна 4,5 км/с. Почему сначала приходит P?'],
+    build: choice([['продольная волна в твёрдом теле быстрее поперечной'], ['P-волна сильнее'], ['S-волна идёт другим путём']], 0, 'Сжатию тело сопротивляется сильнее, чем сдвигу.', [null, 'Скорость не зависит от силы (для слабых волн).', 'Пути одинаковы; разные скорости.']),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Конус: sin θ = c/v.', 'w1'], ['Громкий фронт круче — ударная волна.', 'w2'],
+      ['Продольная волна быстрее поперечной.', 'w3'], ['Вода: дисперсия, v(гр) = ½ v(ф).', 'w4']]);
+  }],
+
+  ['final1', 'Практика', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-deep', prompt: ['Волна на глубокой воде, λ = 62,8 м (g ≈ 9,8 м/с²). Её скорость примерно?'],
+    build: choice([['≈ 10 м/с'], ['≈ 100 м/с'], ['≈ 1 м/с']], 0, '√(9,8·62,8/6,28) = √98 ≈ 9,9 м/с.', [null, 'Под корнем ≈ 98, а не 9800.', 'Слишком медленно для волны в 60 м.']),
+  }, {
+    id: 'p-group', prompt: ['Гребни волн на глубокой воде бегут со скоростью 10 м/с. С какой скоростью движется группа волн?'],
+    build: blanks([{ parts: [{ box: '5' }, ' м/с'], why: 'Групповая скорость вдвое меньше фазовой.', hint: 'v(гр) = ½ v(ф).' }]),
+  }], done, 'Практика по главе   1 из 1') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Кинетическая теория газов</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 39, title: 'Кинетическая теория газов', minutes: 12, language: 'ru', audio: false, next: '../ch40/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const WALL = { stroke: COL.chalk, 'stroke-width': 4, fill: 'none' };
+// A box of gas [x1, y1, x2, y2] whose right wall is a piston at x2; atoms bounce from t0 for dur seconds.
+function pistonBox(p, [x1, y1, x2, y2], n, seed, t0, dur, { el = 'N', s = .7, speed = [160, 320] } = {}) {
+  path(p, `M${x2} ${y1}H${x1}V${y2}H${x2}`, WALL);
+  const pis = G(p, { x: x2 });
+  mk('rect', { x: 0, y: y1 - 10, width: 26, height: y2 - y1 + 20, rx: 4, fill: '#3a5047', stroke: COL.task, 'stroke-width': 3 }, pis);
+  const r = EL[el].r * s, box = [x1 + r, y1 + r, x2 - r, y2 - r];
+  const it = gas(p, n, box, seed, { el, s, speed });
+  it.forEach(a => put(a.el, gasAt(a, 0, box)));
+  motion(it, (a, t) => gasAt(a, t, box), t0, dur);
+  return { it, pis, box };
+}
+function pvAxes(p, x0, y0, w, h, t0) {
+  const g = G(p, { o: 0 }); show(g, t0);
+  path(g, `M${x0} ${y0 - h}V${y0}H${x0 + w}`, { stroke: COL.dim, 'stroke-width': 2 });
+  T(g, 'P', { x: x0 - 12, y: y0 - h - 8, size: 28, fill: COL.dim, font: MATH });
+  T(g, 'V', { x: x0 + w + 8, y: y0 + 10, size: 28, fill: COL.dim, font: MATH });
+  return g;
+}
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Кинетическая теория газов', (m, D) => introCard(m, D, 'Молекулы в движении', 39, 'Кинетическая теория газов', 'Давление и температура — из законов Ньютона')],
+
+  ['why', 'Свойства вещества', (m, D) => {
+    const p = panel(0);
+    head(p, 'Свойства вещества', .2);
+    const box = [140, 180, 760, 660], it = gas(p, 40, box, 5, { kinds: ['N2', 'O2', 'N2', 'N2'], s: .8, speed: [60, 140] });
+    it.forEach(a => { put(a.el, { ...gasAt(a, 0, box), o: 0 }); show(a.el, m('atoms') - 2.5 + (a.x0 % 7) * .1, .4); });
+    motion(it, (a, t) => gasAt(a, t, box), 0, D);
+    txt(p, '1. Атомов слишком много → средние, вероятности', 860, 300, m('hard'), { size: 30 });
+    txt(p, '2. Атомы квантовые → классика кое-где ошибётся', 860, 380, m('hard', 5), { size: 30 });
+    txt(p, 'Сначала грубо: что велико, что мало.', 860, 500, m('rough'), { size: 32, fill: COL.task });
+    txt(p, 'Точность — потом.', 860, 550, m('rough', 1.5), { size: 32, fill: COL.task });
+  }],
+
+  ['drum', 'Давление', (m, D) => {
+    const p = panel(0);
+    head(p, 'Откуда давление', .2);
+    const B = [180, 230, 860, 620];
+    const g = G(p, { o: 0 }); show(g, .2);
+    pistonBox(g, B, 26, 11, 0, D);
+    T(g, 'газ', { x: 220, y: 270, size: 26, fill: COL.dim });
+    T(g, 'пустота', { x: 1000, y: 270, size: 26, fill: COL.dim, anchor: 'middle' });
+    [0, .7, 1.2, 2, 2.6, 3.3].forEach((dt, i) => {
+      const b = txt(p, 'бум', 900 + (i % 3) * 30, 340 + i * 45, m('hit', dt), { size: 26, fill: COL.task });
+      hide(b, m('hit', dt + .8), .4);
+    });
+    const f = G(p, { o: 0 }); show(f, m('force'));
+    vec(f, 1120, 425, 895, 425, COL.task, { w: 6 });
+    T(f, 'F', { x: 1135, y: 410, size: 36, fill: COL.task, font: MATH });
+    T(f, 'площадь A', { x: 873, y: 660, size: 24, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'P = F / A', 1260, 440, m('force', 2.5), { size: 48, fill: COL.task });
+  }],
+
+  ['work', 'Работа над газом', (m) => {
+    const p = panel(0);
+    head(p, 'Работа при сжатии', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M760 250H200V600H760', WALL);
+    mk('rect', { x: 760, y: 240, width: 26, height: 370, rx: 4, fill: '#3a5047', stroke: COL.task, 'stroke-width': 3 }, g);
+    const sl = mk('rect', { x: 700, y: 250, width: 60, height: 350, fill: COL.task, 'fill-opacity': .2 }, p); put(sl, { o: 0 }); show(sl, m('dw'));
+    txt(p, 'dx', 730, 640, m('dw'), { size: 26, fill: COL.task, anchor: 'middle', font: MATH });
+    eq(p, 'dW = F·dx = P·A dx', 900, 360, m('dw', .5), { size: 38 });
+    eq(p, 'A dx = −dV', 900, 440, m('dw', 3), { size: 38, fill: COL.dim });
+    eq(p, 'dW = −P dV', 900, 540, m('dw', 5), { size: 48, fill: COL.task });
+  }],
+
+  ['count', 'Считаем удары', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сила = импульс за секунду', .2);
+    const B = [140, 230, 760, 600], g = G(p, { o: 0 }); show(g, .2);
+    pistonBox(g, B, 14, 21, 0, D, { speed: [80, 160] });
+    // one atom flies to the piston and back
+    const a = atom(p, 'O', { x: 520, y: 330, s: .8, o: 0 }); show(a, m('one'));
+    const ta = m('one');
+    prog(q => put(a, kf(q * 4, [[0, 520, 330], [2, 742, 330], [4, 520, 330]])), ta, 4, lin);
+    const vin = G(p, { o: 0 }); vec(vin, 560, 290, 660, 290, COL.good); T(vin, 'mvₓ', { x: 610, y: 278, size: 24, fill: COL.good, anchor: 'middle', font: MATH }); show(vin, ta + .3); hide(vin, ta + 2);
+    const vout = G(p, { o: 0 }); vec(vout, 660, 290, 560, 290, COL.bad); T(vout, '−mvₓ', { x: 610, y: 278, size: 24, fill: COL.bad, anchor: 'middle', font: MATH }); show(vout, ta + 2.1);
+    eq(p, 'Δp = 2mvₓ', 880, 320, ta + 2.5, { size: 38, fill: COL.task });
+    const sl = mk('rect', { x: 560, y: 230, width: 200, height: 370, fill: COL.good, 'fill-opacity': .18 }, p); put(sl, { o: 0 }); show(sl, m('slab'));
+    const br = G(p, { o: 0 }); show(br, m('slab', .5));
+    path(br, 'M560 640V625H760V640', { stroke: COL.good, 'stroke-width': 3 });
+    T(br, 'vₓ t', { x: 660, y: 672, size: 26, fill: COL.good, anchor: 'middle', font: MATH });
+    eq(p, 'ударов за t:  n · A vₓ t', 880, 420, m('slab', 3), { size: 34, fill: COL.good });
+    eq(p, 'F = n vₓ A · 2m vₓ', 880, 520, m('f'), { size: 38 });
+    eq(p, 'P = 2 n m vₓ²', 880, 620, m('p'), { size: 48, fill: COL.task });
+  }],
+
+  ['avg', 'Среднее', (m) => {
+    const p = panel(0);
+    head(p, 'Усредняем', .2);
+    eq(p, 'P = n m ⟨vₓ²⟩', 800, 220, m('mean'), { size: 44, anchor: 'middle' });
+    txt(p, 'к поршню летит лишь половина — двойка уходит', 800, 280, m('mean', 2.5), { size: 26, anchor: 'middle', fill: COL.dim });
+    const ax = G(p, { x: 330, y: 420, o: 0 }); show(ax, m('three'));
+    vec(ax, 0, 0, 110, 0, COL.chalk, { w: 3 }); vec(ax, 0, 0, 0, -110, COL.chalk, { w: 3 }); vec(ax, 0, 0, -70, 60, COL.chalk, { w: 3 });
+    T(ax, 'x', { x: 122, y: 8, size: 24, font: MATH }); T(ax, 'y', { x: 10, y: -116, size: 24, font: MATH }); T(ax, 'z', { x: -92, y: 78, size: 24, font: MATH });
+    eq(p, '⟨vₓ²⟩ = ⟨v_y²⟩ = ⟨v_z²⟩ = ⟨v²⟩ / 3', 560, 420, m('three', .5), { size: 38 });
+    const bx = mk('rect', { x: 430, y: 515, width: 740, height: 110, rx: 14, fill: 'none', stroke: COL.task, 'stroke-width': 3 }, p);
+    put(bx, { o: 0 }); show(bx, m('pv'));
+    eq(p, 'PV = ⅔ N ⟨mv²/2⟩ = ⅔ U', 800, 590, m('pv'), { size: 48, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['q1', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-double', prompt: ['В тот же ящик добавили столько же молекул такого же газа, скорости прежние. Как изменится давление?'],
+    build: choice([['вырастет вдвое'], ['не изменится'], ['вырастет вчетверо']], 0, 'P = n m⟨vₓ²⟩: плотность n удвоилась — ударов вдвое больше.',
+      [null, 'Ударов о поршень за секунду стало больше.', 'Вчетверо — если бы удвоились скорости.']),
+  }], done) }],
+
+  ['adiab', 'Адиабатическое сжатие', (m, D) => {
+    const p = panel(0);
+    head(p, 'Медленно сжимаем газ', .2);
+    const X1 = 120, Y1 = 260, Y2 = 600, xp = V => X1 + V * 440;
+    const t0 = m('push'), t1 = m('curve', 3), Vt = t => 1.2 - .7 * smooth(t0, t1, t);
+    const wall = path(p, `M${xp(1.2)} ${Y1}H${X1}V${Y2}H${xp(1.2)}`, WALL);
+    const pis = G(p, { x: xp(1.2) });
+    mk('rect', { x: 0, y: Y1 - 10, width: 24, height: Y2 - Y1 + 20, rx: 4, fill: '#3a5047', stroke: COL.task, 'stroke-width': 3 }, pis);
+    const R = rng(7), it = Array.from({ length: 18 }, () => ({ el: atom(p, 'He'), u: R(), w: R(), vu: .3 + R() * .4, vw: .3 + R() * .4 }));
+    const r = 14;
+    const PX = 880, PY = 640, sx = 440, sy = 110, P5 = V => Math.pow(V, -5 / 3);
+    pvAxes(p, PX, PY, 600, 420, .2);
+    const iso = path(p, curve(V => 1 / V, PX, PY, sx, sy, 1.2, 120, .5), { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '8 8' }, { d: 0 });
+    draw(iso, m('curve'), 1);
+    txt(p, 'PV = const', PX + 200, PY - 110, m('curve', .5), { size: 22, fill: COL.dim, font: MATH });
+    const ad = path(p, curve(P5, PX, PY, sx, sy, 1.2, 160, .5), { stroke: COL.task, 'stroke-width': 3.5 }, { d: 0 });
+    draw(ad, m('law', 1), 1.5);
+    txt(p, 'PV^{5/3} = const', PX + 60, PY - 390, m('law', 1.5), { size: 26, fill: COL.task, font: MATH }); subify(p.lastChild);
+    const dot = mk('circle', { r: 10, fill: COL.task }, p); put(dot, { o: 0 }); show(dot, m('law', 2));
+    prog(q => {
+      const t = q * D, V = Vt(t), x2 = xp(V), heat = 1 + 1.5 * smooth(t0, t1, t);
+      wall.setAttribute('d', `M${x2} ${Y1}H${X1}V${Y2}H${x2}`); put(pis, { x: x2 });
+      for (const a of it) put(a.el, { x: X1 + r + (x2 - X1 - 2 * r) * bounce(a.u, a.vu, t * heat, 0, 1), y: Y1 + r + (Y2 - Y1 - 2 * r) * bounce(a.w, a.vw, t * heat, 0, 1) });
+      put(dot, { x: PX + V * sx, y: PY - sy * P5(V) });
+    }, 0, D, lin);
+    eq(p, '−P dV = dU,   U = PV/(γ − 1)', 120, 180, m('du'), { size: 30 });
+    txt(p, 'газ греется', 330, 650, m('push', 2), { size: 26, fill: COL.task, anchor: 'middle' });
+    txt(p, 'одноатомный газ: γ = 5/3', 120, 700, m('law', 3), { size: 26, fill: COL.dim });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 60, y: 150, w: 720, cls: 'side' }, [{
+    id: 'c-adiab', prompt: ['Одноатомный газ адиабатически сжали в 8 раз по объёму. Во сколько раз выросло давление?'],
+    build: blanks([{ parts: ['в ', { box: '32' }, ' раза'], why: '8^(5/3) = (∛8)⁵ = 2⁵ = 32.', hint: 'P ∝ V^(−5/3); кубический корень из 8 — это 2.' }]),
+  }], done) }],
+
+  ['photon', 'Газ фотонов', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сжимаемость излучения', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    mk('circle', { cx: 380, cy: 430, r: 200, fill: COL.task, 'fill-opacity': .12, stroke: COL.task, 'stroke-width': 3 }, g);
+    const R = rng(3), ph = Array.from({ length: 16 }, () => {
+      const a = R() * 6.28, rr = R() * 150, e = vec(g, 0, 0, 34, 0, '#f3c95c', { w: 3, head: 10 });
+      return { el: e, x0: 380 + rr * Math.cos(a), y0: 430 + rr * Math.sin(a), a: R() * 360 };
+    });
+    motion(ph, (f, t) => ({ x: bounce(f.x0, 120 * Math.cos(f.a), t, 210, 520), y: bounce(f.y0, 120 * Math.sin(f.a), t, 290, 570), r: f.a }), 0, D);
+    txt(p, 'звезда: внутри — фотоны', 380, 690, m('star'), { size: 26, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'PV = N ⟨p·v⟩ / 3', 780, 300, m('gen'), { size: 40 });
+    eq(p, 'фотон: p·c = E', 780, 390, m('pc'), { size: 36 });
+    eq(p, 'PV = U / 3', 780, 480, m('pc', 3), { size: 44, fill: COL.task });
+    eq(p, 'γ = 4/3:   PV^{4/3} = const', 780, 600, m('g43'), { size: 40, fill: COL.task });
+  }],
+
+  ['temp', 'Температура', (m, D) => {
+    const p = panel(0);
+    head(p, 'Два газа и поршень между ними', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M200 210H1400V520H200Z', WALL);
+    const mid = G(g, { x: 800 });
+    mk('rect', { x: -12, y: 200, width: 24, height: 330, rx: 4, fill: '#3a5047', stroke: COL.task, 'stroke-width': 3 }, mid);
+    const L = [214, 224, 786, 506], Rb = [814, 237, 1373, 493];
+    const a = gas(g, 14, L, 2, { el: 'He', speed: [260, 420] }), b = gas(g, 10, Rb, 9, { el: 'Cl', speed: [80, 140] });
+    [...a.map(x => [x, L]), ...b.map(x => [x, Rb])].forEach(([x, B]) => put(x.el, gasAt(x, 0, B)));
+    motion(a, (x, t) => gasAt(x, t, L), 0, D); motion(b, (x, t) => gasAt(x, t, Rb), 0, D);
+    prog(q => put(mid, { x: 800 + 4 * Math.sin(q * D * 9) + 2 * Math.sin(q * D * 23) }), 0, D, lin);
+    txt(g, 'лёгкие, быстрые', 500, 560, .2, { size: 24, fill: COL.dim, anchor: 'middle' });
+    txt(g, 'тяжёлые, медленные', 1100, 560, .2, { size: 24, fill: COL.dim, anchor: 'middle' });
+    eq(p, '⟨½ m₁v₁²⟩ = ⟨½ m₂v₂²⟩', 800, 625, m('eqk'), { size: 40, anchor: 'middle', fill: COL.good });
+    const box = G(p, { x: 1330, y: 120, o: 0 }); show(box, m('cm'));
+    vec(box, -90, 0, -12, 0, COL.chalk, { w: 3 }); vec(box, 90, 0, 12, 0, COL.chalk, { w: 3 });
+    vec(box, 10, 10, 60, 70, COL.task, { w: 3 }); vec(box, -10, -10, -60, -70, COL.task, { w: 3 });
+    T(box, 'система ц.м.', { x: 0, y: 105, size: 20, fill: COL.dim, anchor: 'middle' });
+    hide(box, m('def'));
+    eq(p, '⟨½ mv²⟩ = 3/2 kT,   k ≈ 1,38×10⁻²³ Дж/К', 800, 700, m('def'), { size: 34, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['q3', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 200, y: 150, w: 1200, cls: 'side' }, [{
+    id: 'c-temp', prompt: ['Газы H₂ и O₂ при одной температуре. Верно или нет?'],
+    build: grid([
+      { parts: ['Средние кинетические энергии молекул равны'], ans: ['y'], why: '⟨½mv²⟩ = 3/2 kT — одна на всех.' },
+      { parts: ['Средние скорости молекул равны'], ans: ['n'], why: 'Лёгкая H₂ движется быстрее.' },
+      { parts: ['При адиабатическом сжатии газ нагревается'], ans: ['y'], why: 'Работа −P dV идёт в энергию молекул.' },
+    ], [['y', 'верно', COL.good, '1'], ['n', 'неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['ideal', 'Идеальный газ', (m) => {
+    const p = panel(0);
+    head(p, 'Закон идеального газа', .2);
+    eq(p, 'PV = ⅔ N · 3/2 kT', 800, 200, m('law'), { size: 38, anchor: 'middle' });
+    eq(p, 'PV = NkT', 800, 290, m('law', 3), { size: 56, anchor: 'middle', fill: COL.task });
+    const at = m('avog');
+    [[260, 'He', null], [880, null, 'N2']].forEach(([x0, el, kind], j) => {
+      const g = G(p, { o: 0 }); show(g, at + j * .4);
+      path(g, `M${x0} 380H${x0 + 460}V650H${x0}Z`, { stroke: COL.dim, 'stroke-width': 3, fill: 'none' });
+      for (let k = 0; k < 10; k++) {
+        const x = x0 + 60 + (k % 5) * 85 + (k > 4 ? 30 : 0), y = 450 + (k > 4 ? 120 : 0) + (k % 2) * 20;
+        el ? atom(g, el, { x, y }) : mol(g, kind, { x, y, r: k * 37, s: .8 });
+      }
+    });
+    txt(p, 'равные P, V, T  ⇒  равные N', 800, 700, at + 1.5, { size: 32, anchor: 'middle', fill: COL.good });
+    eq(p, 'R = k·N_A ≈ 8,3 Дж/(моль·К)', 800, 350, m('molar'), { size: 30, anchor: 'middle', fill: COL.dim });
+  }],
+
+  ['dof', 'Степени свободы', (m, D) => {
+    const p = panel(0);
+    head(p, 'Двухатомная молекула', .2);
+    const mo = mol(p, 'O2', { x: 400, y: 400, s: 2.2, o: 0 }); show(mo, .2);
+    prog(q => put(mo, { r: 40 * Math.sin(q * D * .8), x: 400 + 20 * Math.sin(q * D * .5) }), 0, D, lin);
+    const cm = G(p, { o: 0 }); show(cm, m('split'));
+    vec(cm, 400, 520, 560, 520, COL.task); T(cm, 'ц.м.: 3/2 kT', { x: 580, y: 530, size: 28, fill: COL.task });
+    path(p, 'M260 280A160 160 0 0 1 540 280', { stroke: COL.good, 'stroke-width': 3, fill: 'none' }, { d: 0 });
+    draw(p.lastChild, m('split', 4), 1);
+    txt(p, 'вращение, колебания', 400, 180, m('split', 4.5), { size: 26, fill: COL.good, anchor: 'middle' });
+    eq(p, 'на степень свободы: ½ kT', 820, 380, m('rule'), { size: 40, fill: COL.task });
+    eq(p, 'r атомов: 3r степеней,  ⟨E⟩ = 3/2 r kT', 820, 470, m('rule', 4), { size: 32 });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['PV = ⅔ U — давление от ударов молекул.', 'w1'], ['Адиабата: PV^γ = const; γ = 5/3, у света 4/3.', 'w2'],
+      ['⟨½ mv²⟩ = 3/2 kT.', 'w3'], ['PV = NkT; равные объёмы — равные N.', 'w4']]);
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-speed', prompt: ['H₂ (масса 2) и O₂ (масса 32) при одной температуре. Во сколько раз среднеквадратичная скорость H₂ больше?'],
+    build: blanks([{ parts: ['в ', { box: '4' }, ' раза'], why: 'm v² одинаково ⇒ v ∝ 1/√m; √(32/2) = 4.', hint: 'Равны средние энергии ½mv².' }]),
+  }, {
+    id: 'p-heat', prompt: ['Газ в закрытом сосуде нагрели от 300 К до 1200 К. Во сколько раз выросло давление?'],
+    build: blanks([{ parts: ['в ', { box: '4' }, ' раза'], why: 'P = NkT/V ∝ T: 1200/300 = 4.', hint: 'PV = NkT при постоянных V и N.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-photon', prompt: ['Излучение в ящике адиабатически сжали в 8 раз по объёму. Во сколько раз выросло давление?'],
+    build: blanks([{ parts: ['в ', { box: '16' }, ' раз'], why: '8^(4/3) = 2⁴ = 16.', hint: 'Для света γ = 4/3.' }]),
+  }, {
+    id: 'p-n', prompt: ['Сколько молекул в 1 м³ воздуха при P = 10⁵ Па и T = 300 К? (k ≈ 1,38×10⁻²³ Дж/К)'],
+    build: choice([['≈ 2,4×10¹⁹'], ['≈ 2,4×10²⁵'], ['≈ 6×10²³']], 1, 'n = P/kT = 10⁵ / (4,1×10⁻²¹) ≈ 2,4×10²⁵.',
+      ['Это в кубическом сантиметре, а не в метре.', null, 'Это число Авогадро — молекул в моле, а не в кубометре.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

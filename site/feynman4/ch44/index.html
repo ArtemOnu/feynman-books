@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Законы термодинамики</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 44, title: 'Законы термодинамики', minutes: 10, language: 'ru', audio: false, next: '../ch45/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const HOT = '#f07a6a', COLD = '#86c9e8';
+// Carnot cycle for a monatomic ideal gas (γ = 5/3): T₁ = 1,5, T₂ = 1, V_A = 1 (arbitrary units, pV = T).
+const CV = { A: 1, B: 2.2, C: 2.2 * 1.5 ** 1.5, D: 1.5 ** 1.5 };
+const PX = 160, PY = 660, SX = 230, SY = 360;
+const legPts = (fn, v0, v1, n = 60) => Array.from({ length: n + 1 }, (_, k) => { const v = v0 + (v1 - v0) * k / n; return [PX + v * SX, PY - fn(v) * SY]; });
+const LEGS = [
+  legPts(v => 1.5 / v, CV.A, CV.B), legPts(v => (1.5 / CV.B) * (CV.B / v) ** (5 / 3), CV.B, CV.C),
+  legPts(v => 1 / v, CV.C, CV.D), legPts(v => (1 / CV.D) * (CV.D / v) ** (5 / 3), CV.D, CV.A),
+];
+const LEGCOL = [HOT, COL.dim, COLD, COL.dim];
+const ptsD = pts => pts.map(([x, y], i) => (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join('');
+const bbox = pts => { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x = Math.min(...xs) - 16, y = Math.min(...ys) - 16; return [x, y, Math.max(...xs) - x + 16, Math.max(...ys) - y + 16]; };
+function reservoir(p, x, y, w, label, c) {
+  const g = G(p);
+  mk('rect', { x, y, width: w, height: 70, rx: 10, fill: c, 'fill-opacity': .25, stroke: c, 'stroke-width': 3 }, g);
+  T(g, label, { x: x + w / 2, y: y + 46, size: 28, fill: c, anchor: 'middle', font: MATH });
+  return g;
+}
+function engine(p, x, y) { const g = G(p, { x, y }); mk('circle', { r: 46, fill: '#22322d', stroke: COL.chalk, 'stroke-width': 3 }, g); T(g, 'М', { y: 12, size: 34, anchor: 'middle', weight: 600 }); return g; }
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Законы термодинамики', (m, D) => introCard(m, D, 'Теплота', 44, 'Законы термодинамики', 'Почему тепло не превратить в работу целиком')],
+
+  ['rubber', 'Резиновая лента', (m, D) => {
+    const p = panel(0);
+    head(p, 'Нагретая резина поднимает груз', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M260 140H540', { stroke: COL.chalk, 'stroke-width': 6 });
+    const band = path(g, '', { stroke: COL.task, 'stroke-width': 4, fill: 'none' });
+    const wt = G(g, { x: 400 });
+    mk('rect', { x: -50, y: 0, width: 100, height: 80, rx: 6, fill: '#3a5047', stroke: COL.chalk, 'stroke-width': 3 }, wt);
+    T(wt, 'груз', { y: 50, size: 24, anchor: 'middle' });
+    const fl = G(p, { x: 520, y: 380, o: 0 }); show(fl, m('band', 1.5));
+    path(fl, 'M0 60C-30 20 -10 -10 0 -40C10 -10 30 20 0 60Z', { fill: HOT, stroke: COL.task, 'stroke-width': 2 });
+    const t1 = m('lift');
+    prog(q => {
+      const t = q * D, L = 360 - 110 * smooth(t1, t1 + 2.5, t), n = 12;
+      let d = 'M400 140'; for (let k = 1; k <= n; k++) d += `L${400 + (k % 2 ? 1 : -1) * (k < n ? 18 + 10 * smooth(t1, t1 + 2.5, t) : 0)} ${140 + L * k / n}`;
+      band.setAttribute('d', d); put(wt, { y: 140 + L });
+    }, 0, D, lin);
+    txt(p, 'цепочки молекул комкаются от теплового движения', 700, 300, m('lift', 2), { size: 28 });
+    txt(p, 'нагрев — охлаждение — нагрев…', 700, 400, m('engine'), { size: 30, fill: COL.task });
+    txt(p, 'тепловая машина: тепло → работа', 700, 460, m('engine', 2), { size: 30, fill: COL.good });
+  }],
+
+  ['first', 'Первый закон', (m) => {
+    const p = panel(0);
+    head(p, 'Первый закон', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    mk('rect', { x: 600, y: 300, width: 400, height: 200, rx: 18, fill: '#22322d', stroke: COL.chalk, 'stroke-width': 3 }, g);
+    T(g, 'тело: U', { x: 800, y: 412, size: 34, anchor: 'middle', font: MATH });
+    vec(g, 380, 400, 590, 400, HOT); T(g, 'Q', { x: 470, y: 380, size: 34, fill: HOT, font: MATH });
+    vec(g, 1010, 400, 1220, 400, COL.good); T(g, 'W', { x: 1100, y: 380, size: 34, fill: COL.good, font: MATH });
+    eq(p, 'Q = ΔU + W', 800, 620, m('law'), { size: 56, anchor: 'middle', fill: COL.task });
+    txt(p, 'цикл: ΔU = 0  ⇒  W = Q₁ − Q₂', 800, 690, m('cycle'), { size: 30, anchor: 'middle', fill: COL.dim });
+  }],
+
+  ['second', 'Второй закон', (m) => {
+    const p = panel(0);
+    head(p, 'Второй закон (Карно)', .2);
+    const bad = G(p, { o: 0 }); show(bad, m('carnot'));
+    reservoir(bad, 160, 160, 320, 'T₁', HOT); engine(bad, 320, 400); vec(bad, 320, 235, 320, 350, HOT); vec(bad, 370, 400, 520, 400, COL.good);
+    T(bad, 'Q', { x: 340, y: 300, size: 28, fill: HOT, font: MATH }); T(bad, 'W = Q', { x: 450, y: 385, size: 26, fill: COL.good, font: MATH });
+    const x = path(p, 'M170 170L520 520M520 170L170 520', { stroke: COL.bad, 'stroke-width': 8 }, { d: 0 }); draw(x, m('carnot', 4), .6);
+    txt(p, 'корабль, охлаждающий океан', 320, 600, m('ocean'), { size: 26, fill: COL.bad, anchor: 'middle' });
+    const ok = G(p, { o: 0 }); show(ok, m('two'));
+    reservoir(ok, 860, 140, 360, 'T₁ (горячее)', HOT); engine(ok, 1040, 400); reservoir(ok, 860, 590, 360, 'T₂ (холодное)', COLD);
+    vec(ok, 1040, 215, 1040, 350, HOT); vec(ok, 1040, 450, 1040, 585, COLD); vec(ok, 1090, 400, 1300, 400, COL.good);
+    T(ok, 'Q₁', { x: 1060, y: 290, size: 30, fill: HOT, font: MATH }); T(ok, 'Q₂', { x: 1060, y: 530, size: 30, fill: COLD, font: MATH });
+    T(ok, 'W = Q₁ − Q₂', { x: 1310, y: 385, size: 28, fill: COL.good, font: MATH });
+  }],
+
+  ['cycle', 'Цикл Карно', (m, D) => {
+    const p = panel(0);
+    head(p, 'Цикл Карно', .2);
+    axesP(p, PX, PY, 940, 560, .2, 'p', 'V');
+    const area = path(p, LEGS.map(ptsD).join('').replace(/M/g, 'L').replace(/^L/, 'M') + 'Z', { fill: COL.task, 'fill-opacity': .18, stroke: 'none' });
+    put(area, { o: 0 }); show(area, m('area'));
+    const marks = ['iso1', 'ad1', 'iso2', 'ad2'], labels = ['T₁: берёт Q₁', 'адиабата', 'T₂: отдаёт Q₂', 'адиабата'];
+    S.legs = LEGS.map((pts, i) => {
+      const e = path(p, ptsD(pts), { stroke: LEGCOL[i], 'stroke-width': 4.5 }, { d: 0 });
+      draw(e, m(marks[i]), 2.5, lin);
+      const mid = pts[i === 1 ? 20 : 30], [ox, oy] = [[18, -18], [24, -24], [0, 46], [-20, 30]][i];
+      txt(p, labels[i], mid[0] + ox, mid[1] + oy, m(marks[i], 1), { size: 24, fill: LEGCOL[i] === COL.dim ? COL.dim : LEGCOL[i], anchor: i === 3 ? 'end' : 'start' });
+      return e;
+    });
+    const dot = mk('circle', { r: 11, fill: COL.task }, p); put(dot, { x: LEGS[0][0][0], y: LEGS[0][0][1], o: 0 }); show(dot, m('iso1'));
+    marks.forEach((mk_, i) => prog(q => { const f = q * 60, k = Math.min(59, Math.floor(f)), u = f - k, a = LEGS[i][k], b = LEGS[i][k + 1]; put(dot, { x: a[0] + (b[0] - a[0]) * u, y: a[1] + (b[1] - a[1]) * u }); }, m(mk_), 2.5, lin));
+    [['A', CV.A, 1.5], ['B', CV.B, 1.5 / CV.B], ['C', CV.C, 1 / CV.C], ['D', CV.D, 1 / CV.D]].forEach(([s, v, pp]) => T(p, s, { x: PX + v * SX + 14, y: PY - pp * SY - 12, size: 24, fill: COL.dim }));
+    txt(p, 'работа = площадь', 1150, 300, m('area'), { size: 30, fill: COL.task });
+    txt(p, 'назад — холодильник', 1150, 360, m('area', 4), { size: 28, fill: COL.dim });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1100, y: 420, w: 480, cls: 'side' }, [{
+    id: 'c-leg', prompt: ['Щёлкните участок цикла, где газ отдаёт тепло холодному телу.'],
+    build: pickEls(S.legs.map((el, i) => ({ el, box: bbox(LEGS[i]), label: ['изотерма T₁', 'адиабата B→C', 'изотерма T₂', 'адиабата D→A'][i] })), 2,
+      'Изотерма T₂: газ сжимают, и он отдаёт тепло Q₂.', i => i === 0 ? 'Здесь газ берёт тепло Q₁ у горячего тела.' : 'На адиабате теплообмена нет.'),
+  }], done) }],
+
+  ['eff', 'КПД', (m) => {
+    const p = panel(0);
+    head(p, 'Все обратимые машины одинаковы', .2);
+    const g = G(p, { o: 0 }); show(g, m('pair'));
+    reservoir(g, 160, 160, 560, 'T₁', HOT); reservoir(g, 160, 560, 560, 'T₂', COLD);
+    engine(g, 300, 400); engine(g, 580, 400);
+    vec(g, 300, 235, 300, 350, HOT); vec(g, 300, 450, 300, 555, COLD);
+    vec(g, 580, 350, 580, 235, HOT); vec(g, 580, 555, 580, 450, COLD);
+    T(g, 'вперёд', { x: 300, y: 480, size: 20, fill: COL.dim, anchor: 'middle' }); T(g, 'назад', { x: 580, y: 480, size: 20, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'Q₁ / T₁ = Q₂ / T₂', 840, 300, m('ratio'), { size: 44 });
+    eq(p, 'η = W/Q₁ = 1 − T₂/T₁', 840, 430, m('eta'), { size: 48, fill: COL.task });
+    txt(p, 'КПД зависит только от температур', 840, 500, m('same'), { size: 28, fill: COL.dim });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 840, y: 560, w: 700, cls: 'side' }, [{
+    id: 'c-eta', prompt: ['Идеальная машина между 500 К и 300 К. Её КПД?'],
+    build: blanks([{ parts: ['η = ', { box: '0.4' }], why: '1 − 300/500 = 0,4.', hint: 'η = 1 − T₂/T₁.' }]),
+  }], done) }],
+
+  ['entropy', 'Энтропия', (m) => {
+    const p = panel(0);
+    head(p, 'Энтропия', .2);
+    eq(p, 'ΔS = Q / T', 800, 190, m('def'), { size: 50, anchor: 'middle', fill: COL.task });
+    const g = G(p, { o: 0 }); show(g, m('rev'));
+    reservoir(g, 160, 260, 300, 'T₁', HOT); reservoir(g, 160, 560, 300, 'T₂', COLD); engine(g, 310, 450);
+    T(g, '−Q₁/T₁ + Q₂/T₂ = 0', { x: 310, y: 690, size: 26, fill: COL.good, anchor: 'middle', font: MATH });
+    const h = G(p, { o: 0 }); show(h, m('irr'));
+    reservoir(h, 900, 260, 300, 'T₁', HOT); reservoir(h, 900, 560, 300, 'T₂', COLD);
+    vec(h, 1050, 335, 1050, 555, COL.task); T(h, 'Q', { x: 1070, y: 450, size: 30, fill: COL.task, font: MATH });
+    T(h, '−Q/T₁ + Q/T₂ > 0', { x: 1050, y: 690, size: 26, fill: COL.bad, anchor: 'middle', font: MATH });
+    txt(p, 'энтропия мира растёт', 680, 470, m('grow'), { size: 30, fill: COL.good, anchor: 'middle' });
+  }],
+
+  ['q3', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 200, y: 150, w: 1200, cls: 'side' }, [{
+    id: 'c-entr', prompt: ['Верно или нет?'],
+    build: grid([
+      { parts: ['В обратимом цикле полная энтропия тел не меняется'], ans: ['y'], why: 'Q₁/T₁ = Q₂/T₂.' },
+      { parts: ['Когда тепло течёт от горячего к холодному, энтропия растёт'], ans: ['y'], why: 'Q/T₂ > Q/T₁ при T₂ < T₁.' },
+      { parts: ['Хорошая машина может иметь КПД больше 1 − T₂/T₁'], ans: ['n'], why: 'Это предел для любой машины.' },
+    ], [['y', 'верно', COL.good, '1'], ['n', 'неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Q = ΔU + W.', 'w1'], ['Тепло одного тела не превратить целиком в работу.', 'w2'],
+      ['Q₁/T₁ = Q₂/T₂;  η = 1 − T₂/T₁.', 'w3'], ['ΔS = Q/T; в реальных процессах S растёт.', 'w4']]);
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-q2', prompt: ['Идеальная машина: T₁ = 600 К, T₂ = 300 К, за цикл берёт Q₁ = 1000 Дж. Сколько тепла Q₂ она отдаёт холодному телу?'],
+    build: blanks([{ parts: ['Q₂ = ', { box: '500' }, ' Дж'], why: 'Q₂ = Q₁·T₂/T₁ = 500 Дж.', hint: 'Q₁/T₁ = Q₂/T₂.' }]),
+  }, {
+    id: 'p-w', prompt: ['Какую работу совершает эта машина за цикл?'],
+    build: blanks([{ parts: ['W = ', { box: '500' }, ' Дж'], why: 'W = Q₁ − Q₂.', hint: 'Первый закон за цикл.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-dS', prompt: ['600 Дж тепла перетекли от тела при 600 К к телу при 300 К. На сколько выросла полная энтропия?'],
+    build: blanks([{ parts: ['ΔS = ', { box: '1' }, ' Дж/К'], why: '−600/600 + 600/300 = −1 + 2 = 1 Дж/К.', hint: 'ΔS = Q/T для каждого тела.' }]),
+  }, {
+    id: 'p-ship', prompt: ['Можно ли построить корабль, который движется, только охлаждая океан?'],
+    build: choice([['нет — нужен холодный резервуар'], ['да, энергия ведь сохраняется'], ['да, если машина обратимая']], 0, 'Это запрещает второй закон, а не первый.', [null, 'Первый закон не нарушен — нарушен второй.', 'Даже обратимой машине нужен холодильник.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

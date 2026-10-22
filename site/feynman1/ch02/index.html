@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Основные физические воззрения</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 2, title: 'Основные физические воззрения', minutes: 14, language: 'ru', audio: false, next: '../ch03/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const PLUS = COL.bad, MINUS = COL.whole;
+function charge(p, sign, { x = 0, y = 0, r = 26, o = 1 } = {}) {
+  const g = G(p, { x, y, o });
+  mk('circle', { r, fill: sign > 0 ? PLUS : MINUS, stroke: COL.board, 'stroke-width': 2 }, g);
+  T(g, sign > 0 ? '+' : '−', { y: r * .38, size: r * 1.15, fill: COL.board, weight: 700, anchor: 'middle' });
+  return g;
+}
+// Chess pieces drawn around their centre.
+function bishop(p, { x = 0, y = 0, o = 1, light = true } = {}) {
+  const g = G(p, { x, y, o }), f = light ? COL.chalk : '#30403a', s = light ? '#55665f' : COL.chalk;
+  path(g, 'M-18 22H18L14 13H-14Z', { fill: f, stroke: s, 'stroke-width': 2 });
+  path(g, 'M-10 13C-15 0 -12 -10 0 -22C12 -10 15 0 10 13Z', { fill: f, stroke: s, 'stroke-width': 2 });
+  mk('circle', { cy: -26, r: 4.5, fill: f, stroke: s, 'stroke-width': 2 }, g);
+  path(g, 'M4 -13L-4 -3', { stroke: s, 'stroke-width': 2.5 });
+  return g;
+}
+function pawn(p, { x = 0, y = 0, o = 1 } = {}) {
+  const g = G(p, { x, y, o });
+  path(g, 'M-17 22H17L13 13H-13Z', { fill: COL.chalk, stroke: '#55665f', 'stroke-width': 2 });
+  path(g, 'M-9 13L-5 -4H5L9 13Z', { fill: COL.chalk, stroke: '#55665f', 'stroke-width': 2 });
+  mk('circle', { cy: -12, r: 10, fill: COL.chalk, stroke: '#55665f', 'stroke-width': 2 }, g);
+  return g;
+}
+// A card with a word on it, centred on (x, y).
+function card_(p, str, x, y, { w = 230, colr = COL.chalk, o = 0 } = {}) {
+  const g = G(p, { x, y, o });
+  mk('rect', { x: -w / 2, y: -32, width: w, height: 64, rx: 14, fill: 'rgba(10,16,14,.5)', stroke: colr, 'stroke-width': 2.5 }, g);
+  T(g, str, { y: 10, size: 27, fill: colr, anchor: 'middle', weight: 600 });
+  return g;
+}
+// A wavy photon arrow from (0, 0) to the right, length L.
+function photon(p, L, colr = COL.int, { x = 0, y = 0, r = 0, o = 1 } = {}) {
+  const g = G(p, { x, y, r, o });
+  let d = 'M0 0';
+  for (let s = 0; s <= L - 18; s += 3) d += `L${s} ${8 * Math.sin(s / 7)}`;
+  path(g, d, { stroke: colr, 'stroke-width': 3 });
+  mk('path', { d: `M${L} 0L${L - 16} -8L${L - 16} 8Z`, fill: colr }, g);
+  return g;
+}
+
+/* ---------- data ---------- */
+const BANDS = [   // [label, log f from, log f to, row]
+  ['электрические помехи', 1.7, 2.6, 0], ['радиоволны', 5.7, 6.7, 1], ['УКВ, телевидение', 7.6, 8.5, 0], ['радиолокация', 9.5, 10.5, 1],
+  ['свет', 14.7, 15.0, 0], ['рентген', 17.2, 19, 1], ['гамма (ядра)', 20.5, 21.5, 0], ['гамма (ускорители)', 23.5, 24.4, 1], ['космические лучи', 26.4, 27.2, 0]];
+const LX = lf => 150 + (lf - 2) * 52;
+const PARTS = [   // [symbol, mass MeV, column, group]
+  ['e⁻', .511, 'L', 'lept'], ['ν', 0, 'L', 'lept'], ['μ⁻', 105.7, 'L', 'lept'],
+  ['π⁻', 139.6, -1, 'mes'], ['π⁰', 135.0, 0, 'mes'], ['π⁺', 139.6, 1, 'mes'], ['K⁻', 493.7, -1, 'mes'], ['K⁰', 497.6, 0, 'mes'], ['K⁺', 493.7, 1, 'mes'], ['η', 547.9, 0, 'mes'],
+  ['p', 938.3, 1, 'bar'], ['n', 939.6, 0, 'bar'], ['Λ', 1115.7, 0, 'bar'], ['Σ⁻', 1197.4, -1, 'bar'], ['Σ⁰', 1192.6, 0, 'bar'], ['Σ⁺', 1189.4, 1, 'bar'],
+  ['Ξ⁻', 1321.7, -1, 'bar'], ['Ξ⁰', 1314.9, 0, 'bar'], ['Ω⁻', 1672.5, -1, 'bar']];
+const MY = mev => 710 - mev * .31, COLX = { L: 560, '-1': 800, 0: 1000, 1: 1200 };
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Основные физические воззрения', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Картина мира · Глава 2', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Основные физические воззрения', { x: 800, y: 440, size: 76, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Каковы правила игры, за которой мы наблюдаем?', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['chess', 'Правила игры', (m) => {
+    const p = panel(0);
+    head(p, 'Мир как шахматная партия', .2);
+    const X0 = 160, Y0_ = 140, c = 66, sq = (i, j) => [X0 + i * c + c / 2, Y0_ + j * c + c / 2];
+    const board = G(p, { o: 0 }); show(board, .2);
+    const cells = {};
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+      cells[i + ',' + j] = mk('rect', { x: X0 + i * c, y: Y0_ + j * c, width: c, height: c, fill: (i + j) % 2 ? '#2a3833' : '#6f7d76' }, board);
+    }
+    mk('rect', { x: X0, y: Y0_, width: 8 * c, height: 8 * c, fill: 'none', stroke: COL.dim, 'stroke-width': 3 }, board);
+    const route = [[2, 7], [5, 4], [7, 6], [3, 2], [1, 4], [4, 7], [7, 4]];
+    const b = bishop(p, { x: sq(2, 7)[0], y: sq(2, 7)[1], o: 0 }); show(b, .4);
+    const tb = m('bishop');
+    route.slice(1).forEach(([i, j], k) => {
+      const [x, y] = sq(i, j);
+      tw(b, { x, y }, tb + k * 1.6, 1.1);
+      const hl = mk('rect', { x: X0 + i * c + 4, y: Y0_ + j * c + 4, width: c - 8, height: c - 8, rx: 6, fill: 'none', stroke: COL.task, 'stroke-width': 3, opacity: 0 }, p);
+      show(hl, tb + k * 1.6 + 1);
+    });
+    const pw = pawn(p, { x: sq(6, 1)[0], y: sq(6, 1)[1], o: 0 }); show(pw, .4);
+    const tp = m('promote');
+    tw(pw, { y: sq(6, 0)[1] }, tp, .8);
+    hide(pw, tp + 1.2, .3);
+    const nb = bishop(p, { x: sq(6, 0)[0], y: sq(6, 0)[1], o: 0 });
+    tw(nb, { o: 1 }, tp + 1.2, .4);
+    const ring = mk('circle', { cx: sq(6, 0)[0], cy: sq(6, 0)[1], r: 42, fill: 'none', stroke: COL.bad, 'stroke-width': 4, opacity: 0 }, p);
+    show(ring, tp + 1.6);
+    txt(p, 'мы только наблюдаем', 760, 220, m('watch'), { size: 30, fill: COL.dim });
+    txt(p, 'правило: слон ходит по диагонали', 760, 300, tb, { size: 30 });
+    txt(p, 'следствие: слон не меняет цвет поля', 760, 370, m('color'), { size: 30, fill: COL.task });
+    txt(p, 'новое правило: пешка превратилась', 760, 470, tp + 1.6, { size: 30, fill: COL.bad });
+    txt(p, 'в слона на белом поле!', 760, 512, tp + 1.6, { size: 30, fill: COL.bad });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 760, y: 560, w: 760, cls: 'side' }, [{
+    id: 'c-bishop', prompt: ['Слон ходит только по диагонали. Что при этом не меняется, пока пешки не превращаются?'],
+    build: choice([['цвет поля, на котором стоит слон'], ['число клеток до края доски'], ['ряд, в котором стоит слон']], 0,
+      'По диагонали обе координаты меняются на одно и то же число шагов, сумма i + j меняется на чётное число — цвет поля сохраняется.',
+      [null, 'Это расстояние как раз меняется от хода к ходу.', 'Каждый ход по диагонали меняет ряд.']),
+  }], done) }],
+
+  ['unify', 'Объединение', (m) => {
+    const p = panel(0);
+    head(p, 'Классы явлений и их слияние', .2);
+    const C_ = {
+      heat: card_(p, 'теплота', 220, 240), mech: card_(p, 'механика', 480, 240), el: card_(p, 'электричество', 760, 240),
+      mag: card_(p, 'магнетизм', 1040, 240), light: card_(p, 'свет', 1300, 240), chem: card_(p, 'химия', 560, 380), props: card_(p, 'свойства веществ', 900, 380, { w: 270 }),
+    };
+    Object.values(C_).forEach((e, i) => show(e, .3 + i * .12));
+    const merge = (keys, x, y, label, colr, t0) => {
+      keys.forEach(k => { tw(C_[k], { x, y }, t0, 1.2); hide(C_[k], t0 + 1.1, .3); });
+      const r = card_(p, label, x, y, { w: 360, colr }); put(r, { s: .6 }); tw(r, { o: 1, s: 1 }, t0 + 1.1, .5, back);
+    };
+    merge(['heat', 'mech'], 300, 580, 'механика атомов', COL.task, m('heat'));
+    merge(['el', 'mag', 'light'], 800, 580, 'электромагнитное поле', COL.whole, m('em'));
+    merge(['chem', 'props'], 1300, 580, 'квантовая химия', COL.good, m('chem'));
+  }],
+
+  ['stage', 'Сцена до 1920 года', (m, D) => {
+    const p = panel(0);
+    head(p, 'Физика до 1920 года', .2);
+    // a wireframe of space
+    const sp = G(p, { o: 0 }); show(sp, m('space'));
+    const iso = (x, y, z) => [380 + (x - y) * 52, 420 + (x + y) * 30 - z * 60];
+    for (let k = 0; k <= 4; k++) {
+      [[[k, 0, 0], [k, 4, 0]], [[0, k, 0], [4, k, 0]], [[0, 0, k * .75], [4, 0, k * .75]], [[0, 0, k * .75], [0, 4, k * .75]], [[k, 0, 0], [k, 0, 3]], [[0, k, 0], [0, k, 3]]]
+        .forEach(([a, b]) => { const A = iso(...a), B = iso(...b); path(sp, `M${A[0]} ${A[1]}L${B[0]} ${B[1]}`, { stroke: COL.faint, 'stroke-width': 1.5 }); });
+    }
+    T(sp, 'пространство', { x: 380, y: 700, size: 30, fill: COL.dim, anchor: 'middle' });
+    // a clock
+    const ck = G(p, { x: 1350, y: 230, o: 0 }); show(ck, m('time'));
+    mk('circle', { r: 80, fill: 'none', stroke: COL.dim, 'stroke-width': 4 }, ck);
+    for (let k = 0; k < 12; k++) path(ck, `M${70 * Math.sin(k * Math.PI / 6)} ${-70 * Math.cos(k * Math.PI / 6)}L${62 * Math.sin(k * Math.PI / 6)} ${-62 * Math.cos(k * Math.PI / 6)}`, { stroke: COL.dim, 'stroke-width': 3 });
+    const hand = path(ck, 'M0 0V-58', { stroke: COL.task, 'stroke-width': 4 });
+    prog(q => put(hand, { r: q * D * 30 }), 0, D, lin);
+    T(ck, 'время', { y: 125, size: 30, fill: COL.dim, anchor: 'middle' });
+    // a particle: straight line, then a force bends the path
+    const ti = m('inertia'), tf = m('force');
+    const pt = atom(p, 'He', { x: 760, y: 640, o: 0 }); show(pt, ti);
+    const tr = path(p, '', { stroke: COL.task, 'stroke-width': 3, 'stroke-dasharray': '6 8' });
+    const F = G(p, { o: 0 }); vec(F, 0, 0, 0, 70, COL.bad, { w: 4 }); T(F, 'F', { x: 16, y: 50, size: 30, fill: COL.bad, font: MATH });
+    const at = t => { const s = Math.max(0, t - ti), x = 760 + 90 * s, y0 = 640 - 30 * s, f = Math.max(0, t - tf); return { x, y: y0 + 9 * f * f }; };
+    prog(q => {
+      const t = q * D;
+      const P_ = at(t); put(pt, P_);
+      let d = '';
+      for (let u = ti; u <= t; u += .1) { const A = at(u); d += (d ? 'L' : 'M') + A.x.toFixed(1) + ' ' + A.y.toFixed(1); }
+      tr.setAttribute('d', d);
+      put(F, { x: P_.x, y: P_.y + 22, o: t >= tf ? 1 : 0 });
+    }, 0, D, lin);
+    txt(p, 'инерция: прямо и равномерно', 760, 470, ti + .5, { size: 28, fill: COL.task });
+    txt(p, 'пока не подействует сила', 760, 510, tf + .3, { size: 28, fill: COL.bad });
+  }],
+
+  ['charge', 'Заряды', (m) => {
+    const p = panel(0);
+    head(p, 'Электричество: заряды двух сортов', .2);
+    const mini = G(p, { o: 0 }); show(mini, m('kinds'));
+    [[[+1, +1], 300, 'отталкиваются'], [[-1, -1], 800, 'отталкиваются'], [[+1, -1], 1300, 'притягиваются']].forEach(([[a, b], x, s]) => {
+      charge(mini, a, { x: x - 50, y: 210 }); charge(mini, b, { x: x + 50, y: 210 });
+      const rep = a === b;
+      vec(mini, x - 80, 210, x - (rep ? 150 : 82) + (rep ? 0 : 64), 210, rep ? COL.bad : COL.good, { w: 3, head: 12 });
+      vec(mini, x + 80, 210, x + (rep ? 150 : 82) - (rep ? 0 : 64), 210, rep ? COL.bad : COL.good, { w: 3, head: 12 });
+      T(mini, s, { x, y: 280, size: 26, fill: rep ? COL.bad : COL.good, anchor: 'middle' });
+    });
+    const tp = m('pair');
+    const pair = G(p, { o: 0 }); show(pair, tp);
+    charge(pair, +1, { x: 420, y: 500 }); charge(pair, -1, { x: 476, y: 500 });
+    T(pair, 'нейтральная пара', { x: 448, y: 570, size: 26, fill: COL.dim, anchor: 'middle' });
+    const q3 = charge(p, +1, { x: 1350, y: 500, o: 0 }); show(q3, m('far'));
+    const zero = txt(p, 'сила ≈ 0', 1350, 450, m('far', .6), { size: 28, fill: COL.dim, anchor: 'middle' });
+    const tn = m('near');
+    hide(zero, tn, .3);
+    tw(q3, { x: 560 }, tn, 2.2);
+    const arr = G(p, { o: 0 }); vec(arr, 590, 452, 515, 452, COL.good, { w: 4 }); show(arr, tn + 2.4);
+    txt(p, 'вблизи: ближний минус перетягивает', 700, 440, tn + 2.6, { size: 26, fill: COL.good });
+  }],
+
+  ['sand', 'Две песчинки', (m) => {
+    const p = panel(0);
+    head(p, 'Насколько электричество сильнее тяготения', .2);
+    const g = G(p, { o: 0 }); show(g, m('grains'));
+    mk('circle', { cx: 220, cy: 380, r: 12, fill: '#c9a86a' }, g); mk('circle', { cx: 1380, cy: 380, r: 12, fill: '#c9a86a' }, g);
+    T(g, '1 мм', { x: 220, y: 345, size: 26, fill: COL.dim, anchor: 'middle' }); T(g, '1 мм', { x: 1380, y: 345, size: 26, fill: COL.dim, anchor: 'middle' });
+    path(g, 'M240 440H1360M240 428V452M1360 428V452', { stroke: COL.dim, 'stroke-width': 2 });
+    T(g, '30 м', { x: 800, y: 480, size: 30, fill: COL.dim, anchor: 'middle', font: MATH });
+    const tf = m('force');
+    const F = G(p, { o: 0 }); show(F, tf);
+    vec(F, 250, 380, 520, 380, COL.bad, { w: 10, head: 30 }); vec(F, 1350, 380, 1080, 380, COL.bad, { w: 10, head: 30 });
+    txt(p, 'без равновесия зарядов:', 800, 280, tf + .3, { size: 28, anchor: 'middle', fill: COL.dim });
+    txt(p, 'F ≈ 4·10⁶ тонн', 800, 340, tf + .5, { size: 48, anchor: 'middle', fill: COL.bad, weight: 600, font: MATH });
+    txt(p, 'q ≈ 70 Кл на песчинке;  F = kq² / r²', 800, 560, tf + 2, { size: 28, anchor: 'middle', font: MATH });
+    txt(p, 'тяготение между ними ≈ 10⁻²⁵ Н', 800, 620, tf + 3, { size: 28, anchor: 'middle', fill: COL.whole });
+  }],
+
+  ['atom', 'Устройство атома', (m, D) => {
+    const p = panel(0);
+    head(p, 'Атом: ядро и электроны', .2);
+    const A = G(p, { x: 450, y: 420 });
+    const cloud = mk('circle', { r: 230, fill: 'rgba(134,201,232,.10)', stroke: 'rgba(134,201,232,.35)', 'stroke-width': 2, 'stroke-dasharray': '6 10' }, A);
+    put(cloud, { o: 0 }); show(cloud, .3);
+    const nuc = G(A, { o: 0 }); show(nuc, m('nucleus'));
+    const R = rng(8);
+    for (let k = 0; k < 12; k++) { const a = k * 2.4, r = 8 + 9 * Math.sqrt(k); atom(nuc, k % 2 ? 'C' : 'O', { x: r * Math.cos(a), y: r * Math.sin(a), r: 9 }); }
+    const els = Array.from({ length: 6 }, (_, k) => {
+      const a = k / 6 * 6.283 + R(), rr = 90 + R() * 110;
+      return { el: put(mk('circle', { r: 9, fill: MINUS, stroke: COL.board, 'stroke-width': 2 }, A), { o: 0 }), x0: rr * Math.cos(a), y0: rr * Math.sin(a), ph: R() * 6, w: 2.4 };
+    });
+    els.forEach(e => show(e.el, m('nucleus', 1)));
+    motion(els, (q, t) => wobble(q, t, 26), 0, D);
+    txt(p, 'ядро: протоны (+) и нейтроны', 760, 300, m('nucleus', .5), { size: 28, fill: PLUS });
+    txt(p, 'электроны (−) — лёгкие, вокруг', 760, 350, m('nucleus', 1.2), { size: 28, fill: MINUS });
+    txt(p, '(ядро нарисовано в 10⁴ раз крупнее)', 760, 395, m('nucleus', 1.8), { size: 22, fill: COL.faint });
+    const tn = m('number');
+    const tab = G(p, { o: 0 }); show(tab, tn);
+    ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O'].forEach((s, i) => {
+      const x = 780 + i * 82, hl = s === 'C' || s === 'O';
+      mk('rect', { x: x - 36, y: 470, width: 72, height: 84, rx: 8, fill: hl ? 'rgba(240,180,90,.18)' : 'rgba(10,16,14,.4)', stroke: hl ? COL.task : COL.faint, 'stroke-width': 2 }, tab);
+      T(tab, String(i + 1), { x, y: 496, size: 20, fill: COL.dim, anchor: 'middle' });
+      T(tab, s, { x, y: 538, size: 34, fill: hl ? COL.task : COL.chalk, anchor: 'middle', font: MATH, weight: 600 });
+    });
+    txt(p, '6 электронов → углерод · 8 → кислород', 780 - 36, 610, tn + 1.5, { size: 28 });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {
+    const p = panel(0);
+    const XS = [330, 800, 1270], N = [6, 8, 7];
+    S.q2 = XS.map((cx, i) => {
+      const g = G(p, { o: 0 }); show(g, .2 + i * .1);
+      mk('circle', { cx, cy: 300, r: 150, fill: 'rgba(134,201,232,.08)', stroke: 'rgba(134,201,232,.3)', 'stroke-width': 2 }, g);
+      mk('circle', { cx, cy: 300, r: 14, fill: PLUS }, g);
+      for (let k = 0; k < N[i]; k++) { const a = k / N[i] * 6.283 - 1.57, r = k % 2 ? 110 : 75; mk('circle', { cx: cx + r * Math.cos(a), cy: 300 + r * Math.sin(a), r: 10, fill: MINUS }, g); }
+      T(g, 'АБВ'[i], { x: cx, y: 500, size: 34, fill: COL.dim, anchor: 'middle', weight: 600 });
+      return g;
+    });
+  }, { ask: done => quiz({ x: 220, y: 560, w: 1160, cls: 'side' }, [{
+    id: 'c-oxygen', prompt: ['Щёлкните по атому кислорода (нейтральному).'],
+    build: pickEls(S.q2.map((el, i) => ({ el, box: [[330, 800, 1270][i] - 160, 140, 320, 380], label: 'Атом ' + 'АБВ'[i] })), 1,
+      'Восемь электронов — элемент номер 8, кислород.',
+      i => i === 0 ? 'Посчитайте электроны: их 6 — это углерод.' : 'Здесь 7 электронов — это азот.'),
+  }], done) }],
+
+  ['field', 'Поле и волны', (m, D) => {
+    const p = panel(0);
+    head(p, 'Электромагнитное поле', .2);
+    const ts = m('shake'), c = 160;
+    const q = charge(p, +1, { x: 220, y: 300, o: 0 }); show(q, .3);
+    const line = path(p, 'M250 300H1450', { stroke: COL.whole, 'stroke-width': 3 });
+    put(line, { o: 0 }); show(line, m('field'));
+    const far = charge(p, -1, { x: 1380, y: 300, r: 18, o: 0 }); show(far, m('field', .5));
+    const yq = t => t < ts ? 0 : -70 * Math.sin(2.2 * (t - ts)) * smooth(ts, ts + 1, t);
+    prog(u => {
+      const t = u * D;
+      put(q, { y: 300 + yq(t) });
+      let d = '';
+      for (let x = 250; x <= 1450; x += 8) { const tt = t - (x - 220) / c; d += (d ? 'L' : 'M') + x + ' ' + (300 + .8 * yq(tt)).toFixed(1); }
+      line.setAttribute('d', d);
+      put(far, { y: 300 + .35 * yq(t - (1380 - 220) / c) });
+    }, 0, D, lin);
+    txt(p, 'изменения поля бегут с конечной скоростью: запаздывание', 800, 470, ts + 3, { size: 28, anchor: 'middle', fill: COL.whole });
+    // water and floats
+    const tw0 = m('waves');
+    const wg = G(p, { o: 0 }); show(wg, tw0);
+    path(wg, 'M150 640H1450', { stroke: COL.faint, 'stroke-width': 2 });
+    const f1 = G(wg, { x: 300, y: 630 }); mk('rect', { x: -12, y: -24, width: 24, height: 30, rx: 6, fill: COL.task }, f1);
+    const f2 = G(wg, { x: 1200, y: 630 }); mk('rect', { x: -12, y: -24, width: 24, height: 30, rx: 6, fill: COL.task }, f2);
+    const rc = mk('clipPath', { id: 'ripclip' }, wg); mk('rect', { x: 150, y: 560, width: 1300, height: 160 }, rc);
+    const rg = G(wg); rg.setAttribute('clip-path', 'url(#ripclip)');
+    const rings = [0, 1, 2, 3].map(() => put(mk('ellipse', { cx: 300, cy: 640, rx: 1, ry: 1, fill: 'none', stroke: COL.whole, 'stroke-width': 2 }, rg), { o: 0 }));
+    prog(u => {
+      const t = u * (D - tw0);
+      put(f1, { y: 630 + 10 * Math.sin(3 * t) });
+      rings.forEach((r, k) => { const s = (t - k * 2.1); const R_ = s > 0 ? (s * 170) % 1100 : 0; r.setAttribute('rx', R_); r.setAttribute('ry', R_ * .12); put(r, { o: s > 0 ? clamp01(1 - R_ / 1100) : 0 }); });
+      const arrive = (1200 - 300) / 170;
+      put(f2, { y: 630 + (t > arrive ? 10 * Math.sin(3 * (t - arrive)) * clamp01(.6) : 0) });
+    }, tw0, D - tw0, lin);
+    txt(p, 'поплавок посылает волны далёким поплавкам', 800, 560, tw0 + .5, { size: 28, anchor: 'middle', fill: COL.dim });
+  }],
+
+  ['spectrum', 'Спектр', (m) => {
+    const p = panel(0);
+    head(p, 'Электромагнитный спектр', .2);
+    const ax = G(p, { o: 0 }); show(ax, .2);
+    path(ax, `M${LX(1.5)} 440H${LX(27.6)}`, { stroke: COL.dim, 'stroke-width': 3 });
+    for (let e = 2; e <= 26; e += 4) {
+      path(ax, `M${LX(e)} 432V448`, { stroke: COL.dim, 'stroke-width': 2 });
+      T(ax, '10' + String(e).split('').map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]).join(''), { x: LX(e), y: 484, size: 26, fill: COL.dim, anchor: 'middle', font: MATH });
+    }
+    T(ax, 'частота, Гц', { x: LX(27.6), y: 524, size: 24, fill: COL.dim, anchor: 'end' });
+    // a chirp: frequency grows to the right
+    let d = '', ph = 0;
+    for (let x = LX(1.7); x <= LX(27.2); x += 1.5) { ph += .02 * Math.exp((x - 150) / 330); d += (d ? 'L' : 'M') + x.toFixed(1) + ' ' + (260 + 40 * Math.sin(ph)).toFixed(1); }
+    const wave = path(p, d, { stroke: COL.whole, 'stroke-width': 2.5 }, { d: 0 });
+    draw(wave, .4, 2.5);
+    S.bands = [];
+    const groups = { radio: [0, 1, 2, 3], light: [4], xray: [5], gamma: [6, 7, 8] };
+    for (const g in groups) groups[g].forEach((i, k) => {
+      const [s, a, b, row] = BANDS[i], x1 = LX(a), x2 = Math.max(LX(b), x1 + 14);
+      const e = G(p, { o: 0 });
+      const fill = i === 4 ? 'url(#rainbow)' : 'rgba(240,180,90,.35)';
+      mk('rect', { x: x1, y: 420, width: x2 - x1, height: 40, rx: 6, fill, stroke: i === 4 ? COL.chalk : COL.task, 'stroke-width': 2 }, e);
+      path(e, `M${(x1 + x2) / 2} 418V${row ? 380 : 350}`, { stroke: COL.faint, 'stroke-width': 1.5 });
+      T(e, s, { x: (x1 + x2) / 2, y: row ? 372 : 342, size: 22, fill: i === 4 ? COL.chalk : COL.task, anchor: 'middle' });
+      show(e, m(g, k * .4));
+      S.bands[i] = { el: e, box: [x1 - 20, 330, x2 - x1 + 40, 140] };
+    });
+    const defs = document.querySelector('#stage defs');
+    if (!document.getElementById('rainbow')) {
+      const lg = mk('linearGradient', { id: 'rainbow' }, defs);
+      ['#e84a4a', '#f0b45a', '#f3e05c', '#8fd6b0', '#5c9ce8', '#9b7fd9'].forEach((c_, i) => mk('stop', { offset: i / 5, 'stop-color': c_ }, lg));
+    }
+    const grp = G(p, { o: 0 }); show(grp, m('gamma', 2));
+    [['поле', 1.7, 2.6], ['волны', 5.7, 15], ['частицы', 17.2, 27.2]].forEach(([s, a, b]) => {
+      path(grp, `M${LX(a)} 560V575H${LX(b)}V560`, { stroke: COL.dim, 'stroke-width': 2 });
+      T(grp, s, { x: (LX(a) + LX(b)) / 2, y: 610, size: 26, fill: COL.dim, anchor: 'middle' });
+    });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 220, y: 640, w: 1160, cls: 'side' }, [{
+    id: 'c-light', prompt: ['Щёлкните по полосе видимого света.'],
+    build: pickEls([0, 3, 4, 5].map(i => ({ el: S.bands[i].el, box: S.bands[i].box, label: BANDS[i][0] })), 2,
+      'Видимый свет — узкая полоска около 5·10¹⁴–10¹⁵ Гц, между радиолокацией и рентгеном.',
+      k => k === 3 ? 'Рентген — частоты выше, около 10¹⁸ Гц.' : 'Это гораздо более низкие частоты — радиоволны.'),
+  }], done) }],
+
+  ['quantum', 'Неопределённость', (m, D) => {
+    const p = panel(0);
+    head(p, 'Квантовая физика', .2);
+    const tb = m('box');
+    const wOf = t => 380 - 300 * smooth(tb + .5, tb + 7, t);
+    const L = G(p, { o: 0 }); show(L, .3);
+    const wl = path(L, '', { stroke: COL.chalk, 'stroke-width': 5 }), wr = path(L, '', { stroke: COL.chalk, 'stroke-width': 5 });
+    const psi = path(L, '', { stroke: COL.whole, 'stroke-width': 3, fill: 'rgba(134,201,232,.15)' });
+    const mom = path(L, '', { stroke: COL.task, 'stroke-width': 3, fill: 'rgba(240,180,90,.15)' });
+    path(L, 'M100 400H700M860 400H1500', { stroke: COL.faint, 'stroke-width': 2 });
+    T(L, 'где частица', { x: 400, y: 440, size: 26, fill: COL.dim, anchor: 'middle' });
+    T(L, 'импульс', { x: 1180, y: 440, size: 26, fill: COL.dim, anchor: 'middle' });
+    const dx = T(L, '', { x: 400, y: 160, size: 28, fill: COL.whole, anchor: 'middle', font: MATH });
+    const dp = T(L, '', { x: 1180, y: 160, size: 28, fill: COL.task, anchor: 'middle', font: MATH });
+    prog(u => {
+      const t = u * D, w = wOf(t), s1 = w / 5, s2 = 9000 / w;
+      wl.setAttribute('d', `M${400 - w / 2} 180V400`); wr.setAttribute('d', `M${400 + w / 2} 180V400`);
+      let a = '', b = '';
+      for (let x = 400 - w / 2; x <= 400 + w / 2; x += 3) a += (a ? 'L' : 'M') + x.toFixed(1) + ' ' + (400 - 190 * Math.cos(Math.PI * (x - 400) / w) ** 2).toFixed(1);
+      const h2 = Math.min(190, 190 * 60 / s2 * 1.4);
+      for (let x = 860; x <= 1500; x += 4) b += (b ? 'L' : 'M') + x + ' ' + (400 - h2 * Math.exp(-((x - 1180) ** 2) / (2 * s2 * s2))).toFixed(1);
+      psi.setAttribute('d', a + 'Z'); mom.setAttribute('d', b);
+      dx.textContent = 'Δx ' + (w > 250 ? 'большое' : w > 150 ? 'меньше' : 'маленькое');
+      dp.textContent = 'Δp ' + (w > 250 ? 'маленькое' : w > 150 ? 'больше' : 'большое');
+    }, 0, D, lin);
+    txt(p, 'Δx · Δp ≥ ħ / 2', 800, 520, tb + 3, { size: 44, anchor: 'middle', fill: COL.chalk, font: MATH, weight: 600 });
+    const ta = m('atom');
+    txt(p, 'электрон у ядра → Δx мал → Δp и энергия велики → атом не сжимается', 800, 590, ta + .5, { size: 26, anchor: 'middle', fill: COL.task });
+    txt(p, 'атом ≈ 10⁻⁸ см · ядро ≈ 10⁻¹³ см: атом с комнату — ядро как пылинка', 800, 640, m('nucleus', .5), { size: 26, anchor: 'middle', fill: COL.whole });
+  }],
+
+  ['predict', 'Только вероятности', (m, D) => {
+    const p = panel(0);
+    head(p, 'Что можно предсказать?', .2);
+    const tf = m('flash'), R = rng(31), N = 16, tau = 3.2;
+    const atoms = Array.from({ length: N }, (_, k) => {
+      const x = 170 + (k % 4) * 120, y = 170 + Math.floor(k / 4) * 60;
+      const g = G(p, { x, y, o: 0 }); show(g, .3 + k * .03);
+      const glow = mk('circle', { r: 24, fill: COL.int, opacity: .35 }, g);
+      mk('circle', { r: 14, fill: COL.int }, g);
+      const ph = photon(p, 90, COL.int, { x, y, r: -30 - R() * 120, o: 0 });
+      return { g, glow, ph, t: tf + .3 - tau * Math.log(1 - R() * .97) };
+    });
+    prog(u => {
+      const t = u * D;
+      atoms.forEach(a => {
+        const s = t - a.t;
+        put(a.glow, { o: s < 0 ? 1 : 0 });
+        put(a.ph, { o: s < 0 ? 0 : clamp01(1 - s / 1.2), s: s < 0 ? 1 : 1 + s * .8 });
+      });
+    }, 0, D, lin);
+    // counting: the fraction still excited follows e^(−t/τ) on average
+    const ta = m('average');
+    const pl = G(p, { o: 0 }); show(pl, ta);
+    path(pl, 'M140 470V690H660', { stroke: COL.dim, 'stroke-width': 2 });
+    T(pl, 'ещё не излучили', { x: 150, y: 455, size: 22, fill: COL.dim });
+    T(pl, 'время', { x: 660, y: 720, size: 22, fill: COL.dim, anchor: 'end' });
+    const X_ = t => 140 + (t - tf) * 520 / 13, Y_ = n => 690 - n / N * 210;
+    let d = '';
+    for (let t = tf; t <= tf + 13; t += .2) d += (d ? 'L' : 'M') + X_(t).toFixed(1) + ' ' + Y_(N * Math.exp(-(t - tf - .3) / tau) * (t < tf + .3 ? 1 : 1)).toFixed(1);
+    draw(path(pl, d, { stroke: COL.whole, 'stroke-width': 3 }, { d: 0 }), ta, 1.5);
+    const sorted = atoms.map(a => a.t).sort((a, b) => a - b);
+    let st = `M${X_(tf)} ${Y_(N)}`;
+    sorted.forEach((t, k) => { if (t < tf + 13) st += `H${X_(t).toFixed(1)}V${Y_(N - k - 1).toFixed(1)}`; });
+    draw(path(pl, st, { stroke: COL.int, 'stroke-width': 2.5 }, { d: 0 }), ta + .5, 1.5);
+    txt(pl, 'каждый атом — случайно; в среднем — закон', 660, 420, ta + 1.5, { size: 22, fill: COL.whole, anchor: 'end' });
+    // Foucault's pendulum: Stockholm and Quito
+    const tp = m('pendulum');
+    const gl = G(p, { o: 0 }); show(gl, tp);
+    mk('circle', { cx: 1150, cy: 430, r: 190, fill: 'rgba(63,127,181,.25)', stroke: '#86c9e8', 'stroke-width': 3 }, gl);
+    path(gl, 'M960 430H1340', { stroke: '#86c9e8', 'stroke-width': 1.5, 'stroke-dasharray': '6 6' });
+    T(gl, 'экватор', { x: 1330, y: 420, size: 20, fill: COL.dim, anchor: 'end' });
+    const city = (x, y, name, rate) => {
+      mk('circle', { cx: x, cy: y, r: 7, fill: COL.task }, gl);
+      T(gl, name, { x: x + 14, y: y + 8, size: 24, fill: COL.task });
+      const dial = G(gl, { x: x + 260, y });
+      mk('circle', { r: 46, fill: 'rgba(10,16,14,.5)', stroke: COL.dim, 'stroke-width': 2 }, dial);
+      const sw = path(dial, 'M-40 0H40', { stroke: COL.chalk, 'stroke-width': 4 });
+      prog(u => put(sw, { r: u * (D - tp) * rate }), tp, D - tp, lin);
+      return dial;
+    };
+    city(1110, 290, 'Стокгольм', 12);
+    city(1150, 434, 'Кито', 0);
+    T(gl, 'плоскость качаний (ускорено)', { x: 1400, y: 660, size: 22, fill: COL.dim, anchor: 'middle' });
+  }],
+
+  ['q4', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 220, y: 110, w: 1160, cls: 'side' }, [{
+    id: 'c-quantum', prompt: ['Верно или неверно?'],
+    build: grid([
+      { parts: ['Можно одновременно точно знать положение и импульс электрона.'], ans: ['f'], why: 'Неверно: Δx·Δp ≥ ħ/2.' },
+      { parts: ['Квантовая механика предсказывает лишь вероятности событий.'], ans: ['t'], why: 'Верно: какой атом излучит следующим, предсказать нельзя в принципе.' },
+      { parts: ['Электрон не падает на ядро, потому что ядро его отталкивает.'], ans: ['f'], why: 'Неверно: ядро притягивает электрон; падению мешает неопределённость — сжатый электрон имел бы огромную энергию.' },
+      { parts: ['На экваторе плоскость качаний маятника Фуко не поворачивается.'], ans: ['t'], why: 'Верно: скорость поворота пропорциональна синусу широты.' },
+    ], [['t', 'Верно', COL.good, '1'], ['f', 'Неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['qed', 'Квантовая электродинамика', (m, D) => {
+    const p = panel(0);
+    head(p, 'Квантовая электродинамика', .2);
+    const tp = m('photon');
+    const src = atom(p, 'He', { x: 200, y: 260, o: 0 }); show(src, .3);
+    const ph = photon(p, 160, COL.int, { x: 230, y: 260, o: 0 }); show(ph, tp);
+    tw(ph, { x: 1100 }, tp, 4, lin); hide(ph, tp + 3.5, .5);
+    txt(p, 'свет — поток фотонов', 200, 200, tp, { size: 28, fill: COL.int });
+    const tq = m('positron'), ta = m('annihilate');
+    const em = G(p, { x: 380, y: 520, o: 0 }), ep = G(p, { x: 1220, y: 520, o: 0 });
+    mk('circle', { r: 26, fill: MINUS }, em); T(em, 'e⁻', { y: 9, size: 26, fill: COL.board, anchor: 'middle', weight: 700, font: MATH });
+    mk('circle', { r: 26, fill: PLUS }, ep); T(ep, 'e⁺', { y: 9, size: 26, fill: COL.board, anchor: 'middle', weight: 700, font: MATH });
+    show(em, tq); show(ep, tq + .4);
+    txt(p, 'позитрон: масса электрона, заряд +', 1220, 450, tq + .8, { size: 26, fill: PLUS, anchor: 'middle' });
+    tw(em, { x: 770 }, ta, 1.6, lin); tw(ep, { x: 830 }, ta, 1.6, lin);
+    hide(em, ta + 1.6, .2); hide(ep, ta + 1.6, .2);
+    const fl = mk('circle', { cx: 800, cy: 520, r: 60, fill: COL.chalk }, p); put(fl, { o: 0, s: .2 });
+    tw(fl, { o: 1, s: 1 }, ta + 1.55, .2); tw(fl, { o: 0, s: 1.6 }, ta + 1.8, .5);
+    const g1 = photon(p, 200, COL.int, { x: 800, y: 520, r: -30, o: 0 }), g2 = photon(p, 200, COL.int, { x: 800, y: 520, r: 150, o: 0 });
+    show(g1, ta + 1.7, .2); show(g2, ta + 1.7, .2);
+    tw(g1, { x: 1120, y: 335 }, ta + 1.7, 2.5, lin); tw(g2, { x: 480, y: 705 }, ta + 1.7, 2.5, lin);
+    txt(p, 'e⁺ + e⁻ → γ + γ', 800, 680, ta + 2.4, { size: 40, anchor: 'middle', font: MATH, weight: 600 });
+  }],
+
+  ['particles', 'Частицы', (m) => {
+    const p = panel(0);
+    head(p, 'Элементарные частицы (по массе)', .2);
+    const ax = G(p, { o: 0 }); show(ax, .3);
+    path(ax, `M440 ${MY(0) + 10}V${MY(1700) - 10}`, { stroke: COL.dim, 'stroke-width': 2 });
+    for (let v = 0; v <= 1600; v += 200) { path(ax, `M432 ${MY(v)}H448`, { stroke: COL.dim, 'stroke-width': 2 }); T(ax, String(v), { x: 424, y: MY(v) + 8, size: 22, fill: COL.dim, anchor: 'end', font: MATH }); }
+    T(ax, 'масса, МэВ', { x: 430, y: MY(1700) - 26, size: 24, fill: COL.dim, anchor: 'end' });
+    [['лептоны', 'L'], ['−', '-1'], ['0', 0], ['+', 1]].forEach(([s, k]) => T(ax, s, { x: COLX[k], y: 150, size: 26, fill: COL.dim, anchor: 'middle', weight: 600 }));
+    const HUE = { lept: COL.whole, mes: COL.good, bar: COL.task };
+    const groups = { lept: [], mes: [], bar: [] };
+    PARTS.forEach(([s, mass, col, grp]) => {
+      const x = COLX[col], y = MY(mass), g = G(p, { o: 0, y: -40 });
+      path(g, `M${x - 40} ${y}H${x + 40}`, { stroke: HUE[grp], 'stroke-width': 4 });
+      const left = s === 'ν';
+      const dy = s === 'η' ? -4 : s === 'K⁰' ? 16 : 8;
+      T(g, `${s} ${String(mass).replace('.', ',')}`, { x: left ? x - 48 : x + 48, y: y + dy, size: 20, fill: HUE[grp], anchor: left ? 'end' : 'start', font: MATH });
+      groups[grp].push(g);
+    });
+    for (const grp in groups) groups[grp].forEach((g, k) => tw(g, { o: 1, y: 0 }, m(grp, k * .12), .5, out));
+    const br = (a, b, s, grp) => {
+      const g = G(p, { o: 0 }); show(g, m(grp, 1));
+      path(g, `M1330 ${MY(a)}H1345V${MY(b)}H1330`, { stroke: HUE[grp], 'stroke-width': 2.5 });
+      T(g, s, { x: 1360, y: (MY(a) + MY(b)) / 2 + 9, size: 26, fill: HUE[grp], weight: 600 });
+    };
+    br(0, 106, 'лептоны', 'lept'); br(135, 548, 'мезоны', 'mes'); br(938, 1673, 'барионы', 'bar');
+    const tq = m('quarks');
+    const qb = G(p, { o: 0 }); show(qb, tq);
+    mk('rect', { x: 96, y: 190, width: 262, height: 250, rx: 14, fill: 'rgba(10,16,14,.6)', stroke: COL.int, 'stroke-width': 2 }, qb);
+    [['1964: кварки', COL.int, 28], ['p = uud', COL.chalk, 26], ['n = udd', COL.chalk, 26], ['π⁺ = u d̄', COL.chalk, 26], ['мезон: кварк +', COL.dim, 22], ['антикварк', COL.dim, 22]]
+      .forEach(([s, c, z], i) => T(qb, s, { x: 116, y: 232 + i * 36, size: z, fill: c, font: i && i < 4 ? MATH : UI, weight: i ? 500 : 600 }));
+  }],
+
+  ['forces', 'Четыре взаимодействия', (m) => {
+    const p = panel(0);
+    head(p, 'Взаимодействия: относительная сила', .2);
+    const X_ = e => 420 + (e + 40) * 26;   // log scale: 10^e
+    const ax = G(p, { o: 0 }); show(ax, .2);
+    path(ax, `M${X_(-40)} 600H${X_(1)}`, { stroke: COL.dim, 'stroke-width': 2 });
+    for (let e = -40; e <= 0; e += 10) { path(ax, `M${X_(e)} 592V608`, { stroke: COL.dim, 'stroke-width': 2 }); T(ax, e ? '10' + String(e).replace('-', '⁻').replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]) : '1', { x: X_(e), y: 642, size: 24, fill: COL.dim, anchor: 'middle', font: MATH }); }
+    T(ax, 'логарифмическая шкала: деление — ×10¹⁰', { x: X_(-20), y: 690, size: 22, fill: COL.faint, anchor: 'middle' });
+    [['сильное (ядерное)', 0, '≈ 1', 'strong', COL.task], ['электромагнитное', -2.14, '≈ 1/137', 'em', COL.whole], ['слабое (β-распад)', -5, '≈ 10⁻⁵', 'weak', COL.good], ['тяготение', -40, '≈ 10⁻⁴⁰', 'grav', COL.rat]]
+      .forEach(([s, e, v, mk_, c], i) => {
+        const y = 200 + i * 95, g = G(p, { o: 0 }); show(g, m(mk_));
+        T(g, s, { x: 400, y: y + 10, size: 28, fill: c, anchor: 'end', weight: 600 });
+        const bar = mk('rect', { x: X_(-40), y: y - 18, width: 0, height: 36, rx: 6, fill: c, opacity: .8 }, g);
+        tw(bar, { a_width: Math.max(4, X_(e) - X_(-40)) }, m(mk_, .2), 1.4, out);
+        T(g, v, { x: Math.max(X_(e), X_(-40) + 4) + 16, y: y + 10, size: 28, fill: c, font: MATH });
+      });
+  }],
+
+  ['q5', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 420, y: 520, w: 760, cls: 'side' }, [{
+    id: 'c-weakest', prompt: ['Какое из взаимодействий между двумя протонами самое слабое?'],
+    build: choice([['тяготение'], ['слабое'], ['электромагнитное'], ['сильное']], 0,
+      'Тяготение примерно в 10³⁵ раз слабее даже «слабого» взаимодействия; заметным его делает лишь то, что массы огромных тел складываются.',
+      [null, 'Слабое ≈ 10⁻⁵ — оно в 10³⁵ раз сильнее тяготения.', 'Электромагнитное ≈ 1/137 — одно из самых сильных.', 'Сильное — самое мощное: оно держит ядра.']),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Правила природы угадывают, наблюдая; проверяет их опыт.', 'w1'],
+      ['Электрические силы огромны, но заряды почти уравновешены.', 'w2'],
+      ['Малые частицы: только вероятности и Δx·Δp ≥ ħ/2.', 'w3'],
+      ['Частиц много, а взаимодействий — четыре.', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-ratio', prompt: ['Во сколько раз атом больше ядра, если размер атома 10⁻⁸ см, а ядра 10⁻¹³ см?'],
+    build: blanks([{ parts: ['в ', { box: '100000' }, ' раз'], why: '10⁻⁸ / 10⁻¹³ = 10⁵ = 100 000.', hint: 'Разделите степени: 10⁻⁸ / 10⁻¹³ = 10⁻⁸⁺¹³.' }]),
+  }, {
+    id: 'p-sand', prompt: ['Песчинки раздвинули с 30 до 60 м. Во сколько раз уменьшилась бы сила между ними?'],
+    build: blanks([{ parts: ['в ', { box: '4' }, ' раза'], why: 'Сила обратно пропорциональна квадрату расстояния: (60/30)² = 4.', hint: 'Электрическая сила ∝ 1/r².' }]),
+  }, {
+    id: 'p-waves', prompt: ['Свет, радиоволны и рентгеновские лучи отличаются друг от друга…'],
+    build: choice([['только частотой'], ['скоростью в пустоте'], ['тем, что лишь свет — электромагнитная волна']], 0,
+      'Это всё электромагнитные волны; в пустоте они бегут с одной скоростью, а отличаются частотой.',
+      [null, 'В пустоте все электромагнитные волны распространяются со скоростью света.', 'Радиоволны и рентген — тоже электромагнитные волны.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-classes', prompt: ['К какому классу относится частица?'],
+    build: grid([
+      { parts: ['электрон'], ans: ['l'], why: 'Лептон: с ядрами сильно не взаимодействует.' },
+      { parts: ['мюон'], ans: ['l'], why: 'Лептон: «тяжёлый электрон», в 207 раз массивнее.' },
+      { parts: ['пион π⁺'], ans: ['m'], why: 'Мезон: кварк и антикварк.' },
+      { parts: ['каон K⁰'], ans: ['m'], why: 'Мезон.' },
+      { parts: ['протон'], ans: ['b'], why: 'Барион: три кварка uud.' },
+      { parts: ['лямбда Λ'], ans: ['b'], why: 'Барион, масса 1116 МэВ.' },
+    ], [['l', 'лептон', COL.whole, '1'], ['m', 'мезон', COL.good, '2'], ['b', 'барион', COL.task, '3']], { text: true }),
+  }, {
+    id: 'p-annihilation', prompt: ['Электрон встречает позитрон. Что получается?'],
+    build: choice([['гамма-кванты (фотоны)'], ['протон'], ['атом водорода'], ['ничего: они отталкиваются']], 0,
+      'Частица и античастица аннигилируют: e⁺ + e⁻ → γ + γ.',
+      [null, 'Протону неоткуда взяться: масса протона почти в 2000 раз больше.', 'Атом водорода — это протон и электрон, а не позитрон и электрон.', 'Заряды у них разные — они притягиваются.']),
+  }, {
+    id: 'p-balance', prompt: ['Почему мы обычно не замечаем огромных электрических сил между телами?'],
+    build: choice([['заряды в телах почти точно уравновешены'], ['электрические силы действуют только внутри атомов'], ['их компенсирует тяготение']], 0,
+      'Плюсов и минусов почти поровну; заметен лишь крошечный избыток.',
+      [null, 'Наэлектризованная расчёска притягивает бумажки на расстоянии — силы действуют и снаружи.', 'Тяготение в 10³⁶ раз слабее — оно ничего не может скомпенсировать.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

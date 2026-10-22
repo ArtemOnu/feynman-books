@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Принципы статистической механики</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 40, title: 'Принципы статистической механики', minutes: 11, language: 'ru', audio: false, next: '../ch41/' };
+
+/* ---------- chapter drawing helpers ---------- */
+// Dots in a vertical column, heights drawn from an exponential with scale H (px); returns wobble items.
+function column(p, x1, x2, yb, top, H, n, seed, el = 'N') {
+  const R = rng(seed), it = [];
+  for (let i = 0; i < n; i++) {
+    const h = -H * Math.log(1 - R() * (1 - Math.exp(-(yb - top - 14) / H)));
+    const x0 = x1 + 14 + R() * (x2 - x1 - 28), y0 = yb - 10 - h;
+    it.push({ el: atom(p, el, { x: x0, y: y0, s: .45 }), x0, y0, ph: R() * 6.28, w: 6 + R() * 4 });
+  }
+  return it;
+}
+const potU = x => (1 - Math.exp(-((x - .5) ** 2) / .03)) * 1.2 + .25 * Math.sin(9 * x) + .25;   // a smooth well, 0 ≤ x ≤ 1
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Статистическая механика', (m, D) => introCard(m, D, 'Молекулы в движении', 40, 'Принципы статистической механики', 'Как распределяются молекулы под действием сил')],
+
+  ['atmo', 'Атмосфера', (m, D) => {
+    const p = panel(0);
+    head(p, 'Изотермическая атмосфера', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M200 160V680H420V160', { stroke: COL.chalk, 'stroke-width': 3, fill: 'none' });
+    path(g, 'M170 680H460', { stroke: COL.dim, 'stroke-width': 4 });
+    T(g, 'h', { x: 180, y: 170, size: 28, fill: COL.dim, font: MATH });
+    const it = column(g, 200, 420, 680, 160, 140, 70, 4);
+    motion(it, (a, t) => wobble(a, t, 4), 0, D);
+    const sl = mk('rect', { x: 200, y: 450, width: 220, height: 34, fill: COL.task, 'fill-opacity': .22, stroke: COL.task, 'stroke-width': 2 }, p);
+    put(sl, { o: 0 }); show(sl, m('col'));
+    txt(p, 'dh', 432, 474, m('col', .3), { size: 24, fill: COL.task, font: MATH });
+    const ar = G(p, { o: 0 }); show(ar, m('bal'));
+    vec(ar, 170, 545, 170, 490, COL.good); vec(ar, 170, 390, 170, 445, COL.bad);
+    T(ar, 'P(h)', { x: 160, y: 575, anchor: 'end', size: 22, fill: COL.good, font: MATH }); T(ar, 'P(h+dh)', { x: 160, y: 380, anchor: 'end', size: 22, fill: COL.bad, font: MATH });
+    eq(p, 'dP = −n m g dh', 700, 260, m('bal', .5), { size: 38 });
+    eq(p, 'P = nkT  ⇒  kT dn = −n m g dh', 700, 350, m('pnkt'), { size: 38 });
+    eq(p, 'n = n₀ e^{−mgh/kT}', 700, 470, m('sol'), { size: 52, fill: COL.task });
+    draw(path(p, (() => { let d = ''; for (let k = 0; k <= 100; k++) { const y = 680 - k * 5.2; d += (d ? 'L' : 'M') + (480 + 150 * Math.exp(-(k * 5.2) / 140)).toFixed(1) + ' ' + y; } return d; })(),
+      { stroke: COL.task, 'stroke-width': 3.5 }, { d: 0 }), m('sol', .5), 1.5);
+    txt(p, 'n(h)', 560, 640, m('sol', 1), { size: 24, fill: COL.task, font: MATH });
+  }],
+
+  ['mix', 'Лёгкие и тяжёлые', (m) => {
+    const p = panel(0);
+    head(p, 'У каждого газа своя экспонента', .2);
+    axesP(p, 200, 600, 1100, 420, .2, 'n', 'h');
+    const light = path(p, curve(h => Math.exp(-h / 4), 200, 600, 100, 380, 11), { stroke: '#f3c95c', 'stroke-width': 3.5 }, { d: 0 });
+    draw(light, m('two'), 1.4);
+    txt(p, 'лёгкий газ (He)', 760, 480, m('two', .5), { size: 26, fill: '#f3c95c' });
+    const heavy = path(p, curve(h => Math.exp(-h / 1.5), 200, 600, 100, 380, 11), { stroke: '#f07a6a', 'stroke-width': 3.5 }, { d: 0 });
+    draw(heavy, .3, 1.2);
+    txt(p, 'воздух', 360, 330, .6, { size: 26, fill: '#f07a6a' });
+    const mk1 = G(p, { o: 0 }); show(mk1, m('scale'));
+    path(mk1, `M200 ${600 - 380 / Math.E}H350V600`, { stroke: COL.dim, 'stroke-width': 2, 'stroke-dasharray': '6 6' });
+    T(mk1, 'n₀/e', { x: 190, y: 600 - 380 / Math.E + 8, size: 22, fill: COL.dim, anchor: 'end', font: MATH });
+    T(mk1, 'kT/mg ≈ 8 км', { x: 350, y: 640, size: 24, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'показатель = П / kT', 420, 230, m('scale', -1.5), { size: 36, fill: COL.task });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz(TOPR, [{
+    id: 'c-atmo', prompt: ['Высота kT/mg = 8 км. Во сколько раз плотность на высоте 16 км меньше, чем у земли?'],
+    build: choice([['в 2 раза'], ['в e² ≈ 7,4 раза'], ['в 16 раз']], 1, 'exp(−16/8) = e⁻²: каждые 8 км — ещё раз в e.', ['Экспонента, а не прямая: за 8 км — в e раз, а не вдвое.', null, 'Плотность убывает экспоненциально, а не пропорционально высоте.']),
+  }], done) }],
+
+  ['boltz', 'Закон Больцмана', (m, D) => {
+    const p = panel(0);
+    head(p, 'Закон Больцмана', .2);
+    const X = x => 220 + x * 1160;
+    path(p, 'M200 380H1400', { stroke: COL.faint, 'stroke-width': 2 });
+    draw(path(p, curve(potU, 220, 380, 1160, 160, 1, 200), { stroke: COL.chalk, 'stroke-width': 3.5 }, { d: 0 }), .2, 1);
+    txt(p, 'П(x)', 1410, 200, .5, { size: 28, fill: COL.dim, font: MATH });
+    const N = 40, bars = Array.from({ length: N }, (_, i) => {
+      const x = (i + .5) / N, b = mk('rect', { x: X(x) - 12, width: 24, y: 680, height: 0, rx: 3, fill: COL.task }, p);
+      return { b, u: potU(x) };
+    });
+    const t1 = m('law'), t2 = m('where', 4);
+    prog(q => {
+      const t = q * D, kT = 2.5 - 2.2 * smooth(t2, t2 + 3, t), grow = smooth(t1, t1 + 1, t);
+      const z = bars.reduce((s, r) => s + Math.exp(-r.u / kT), 0);
+      for (const r of bars) { const h = grow * 230 * N / 8 * Math.exp(-r.u / kT) / z; r.b.setAttribute('y', 680 - h); r.b.setAttribute('height', h); }
+    }, 0, D, lin);
+    eq(p, 'n ∝ e^{−П/kT}', 800, 140, m('law'), { size: 46, anchor: 'middle', fill: COL.task });
+    txt(p, 'горячо: почти ровно', 1150, 470, m('where', 1), { size: 26, fill: COL.dim });
+    txt(p, 'холодно: все на дне ямы', 1150, 470, t2 + 3, { size: 26, fill: COL.good });
+    hide(p.lastChild.previousSibling, t2);
+    txt(p, 'плотность', 200, 720, t1, { size: 22, fill: COL.task });
+  }],
+
+  ['evap', 'Испарение', (m) => {
+    const p = panel(0);
+    head(p, 'Испарение', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    path(g, 'M140 300H360V600H640V300H760', { stroke: COL.chalk, 'stroke-width': 3.5, fill: 'none' });
+    T(g, 'жидкость', { x: 500, y: 640, size: 24, fill: COL.dim, anchor: 'middle' });
+    T(g, 'пар', { x: 250, y: 280, size: 24, fill: COL.dim, anchor: 'middle' });
+    const R = rng(8);
+    for (let i = 0; i < 30; i++) atom(g, 'O', { x: 380 + R() * 240, y: 470 + R() * 110, s: .45 });
+    for (let i = 0; i < 4; i++) atom(g, 'O', { x: 160 + R() * 580, y: 140 + R() * 130, s: .45 });
+    const w = G(p, { o: 0 }); show(w, m('well'));
+    path(w, 'M680 300V600', { stroke: COL.task, 'stroke-width': 3 }); vec(w, 680, 450, 680, 305, COL.task, { w: 3, head: 12 }); vec(w, 680, 450, 680, 595, COL.task, { w: 3, head: 12 });
+    T(w, 'W', { x: 700, y: 460, size: 34, fill: COL.task, font: MATH });
+    eq(p, 'n(пар) ∝ e^{−W/kT}', 880, 280, m('ratio'), { size: 44, fill: COL.task });
+    axesP(p, 900, 640, 520, 240, m('hot'), 'n(пар)', 'T');
+    draw(path(p, curve(T => Math.exp(-8 / T), 900, 640, 130, 900, 4, 120, .5), { stroke: COL.good, 'stroke-width': 3.5 }, { d: 0 }), m('hot', .3), 1.5);
+  }],
+
+  ['q2', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 200, y: 150, w: 1200, cls: 'side' }, [{
+    id: 'c-boltz', prompt: ['Закон Больцмана: n ∝ exp(−П/kT). Верно или нет?'],
+    build: grid([
+      { parts: ['Где потенциальная энергия меньше, молекул больше'], ans: ['y'], why: 'exp(−П/kT) больше при меньшем П.' },
+      { parts: ['При очень высокой температуре молекулы распределены почти равномерно'], ans: ['y'], why: 'П/kT → 0, экспонента ≈ 1 везде.' },
+      { parts: ['Закон верен только для силы тяжести'], ans: ['n'], why: 'Для любой силы с потенциальной энергией.' },
+    ], [['y', 'верно', COL.good, '1'], ['n', 'неверно', COL.bad, '2']], { text: true }),
+  }], done) }],
+
+  ['maxwell', 'Распределение скоростей', (m, D) => {
+    const p = panel(0);
+    head(p, 'Скорости из атмосферы', .2);
+    path(p, 'M120 640H700', { stroke: COL.dim, 'stroke-width': 4 });
+    const hl = path(p, 'M120 380H700', { stroke: COL.task, 'stroke-width': 2, 'stroke-dasharray': '10 8' }); put(hl, { o: 0 }); show(hl, .2);
+    txt(p, 'h', 710, 388, .2, { size: 28, fill: COL.task, font: MATH });
+    const v0 = [240, 300, 380, 420, 330, 450, 260, 400], g = 220, t0 = m('up');
+    const balls = v0.map((v, i) => ({ el: atom(p, 'N', { x: 170 + i * 68, y: 630, s: .6 }), v, x: 170 + i * 68 }));
+    motion(balls, (b, t) => {
+      const tt = (Math.max(0, t - t0) + b.x * .01) % (2 * b.v / g) ;
+      return { y: 630 - (b.v * tt - g * tt * tt / 2) * (t < t0 ? 0 : 1) };
+    }, 0, D);
+    balls.forEach(b => { if (b.v * b.v / (2 * g) > 250) { const c = mk('circle', { cx: b.x, cy: 380, r: 22, fill: 'none', stroke: COL.good, 'stroke-width': 3 }, p); put(c, { o: 0 }); show(c, m('up', 2)); } });
+    eq(p, '½ m u² > m g h', 120, 200, m('up', 1), { size: 34 });
+    eq(p, 'доля с vᵤ > u  ∝ e^{−mu²/2kT}', 800, 260, m('count'), { size: 34 });
+    path(p, 'M820 640H1480M1150 640V400', { stroke: COL.dim, 'stroke-width': 2 });
+    draw(path(p, curve(v => Math.exp(-v * v), 1150, 640, 110, 220, 3, 200, -3), { stroke: COL.task, 'stroke-width': 3.5 }, { d: 0 }), m('gauss'), 1.5);
+    T(p, 'v', { x: 1490, y: 648, size: 26, fill: COL.dim, font: MATH });
+    eq(p, 'f(v) ∝ e^{−mv²/2kT}', 1150, 380, m('gauss', 1), { size: 36, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['heat', 'Теплоёмкости', (m) => {
+    const p = panel(0);
+    head(p, 'Отношение теплоёмкостей γ', .2);
+    eq(p, 'U = f/2 · NkT,   γ = 1 + 2/f', 800, 160, m('f'), { size: 40, anchor: 'middle', fill: COL.task });
+    const Y = g => 650 - (g - 1) * 600;
+    path(p, 'M220 650H1400', { stroke: COL.dim, 'stroke-width': 2 });
+    [[5 / 3, '5/3', COL.good, m('mono')], [7 / 5, '7/5', COL.whole, m('exp')], [9 / 7, '9/7 (классика)', COL.bad, m('di', 3)]].forEach(([g, s, c, t]) => {
+      const l = G(p, { o: 0 }); show(l, t);
+      path(l, `M220 ${Y(g)}H1400`, { stroke: c, 'stroke-width': 2, 'stroke-dasharray': '8 8' });
+      T(l, s, { x: 1410, y: Y(g) + 8, size: 24, fill: c, font: MATH });
+    });
+    [['He', 1.66, 'mono'], ['Ar', 1.67, 'mono'], ['H₂', 1.41, 'exp'], ['O₂', 1.40, 'exp'], ['I₂', 1.30, 'exp']].forEach(([s, g, mark], i) => {
+      const x = 300 + i * 220, b = mk('rect', { x: x - 40, y: Y(g), width: 80, height: 650 - Y(g), rx: 6, fill: i < 2 ? COL.good : COL.whole, 'fill-opacity': .75 }, p);
+      put(b, { o: 0 }); show(b, m(mark, i * .3));
+      txt(p, s, x, 690, m(mark, i * .3), { size: 26, anchor: 'middle' });
+      txt(p, ru(g, 2), x, Y(g) - 12, m(mark, i * .3), { size: 22, anchor: 'middle', fill: COL.dim });
+    });
+  }],
+
+  ['q3', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-gamma', prompt: ['Жёсткая двухатомная молекула: 3 поступательные и 2 вращательные степени свободы. Найдите γ.'],
+    build: blanks([{ parts: ['γ = ', { box: '1.4' }], why: 'f = 5: γ = 1 + 2/5 = 1,4 — как у H₂ и O₂ на опыте.', hint: 'γ = 1 + 2/f.' }]),
+  }], done) }],
+
+  ['fail', 'Провал классики', (m) => {
+    const p = panel(0);
+    head(p, 'γ водорода зависит от температуры', .2);
+    const X = lt => 200 + (lt - 1) * 380, Y = g => 640 - (g - 1.2) * 900;
+    const gT = lt => 5 / 3 - (5 / 3 - 7 / 5) / (1 + Math.exp(-(lt - 1.9) * 8)) - (7 / 5 - 1.31) / (1 + Math.exp(-(lt - 3.2) * 6));
+    path(p, 'M200 640H1380M200 640V180', { stroke: COL.dim, 'stroke-width': 2 });
+    [[1, '10 К'], [2, '100 К'], [3, '1000 К']].forEach(([lt, s]) => T(p, s, { x: X(lt), y: 675, size: 22, fill: COL.dim, anchor: 'middle' }));
+    T(p, 'γ', { x: 180, y: 190, size: 28, fill: COL.dim, font: MATH });
+    let dG = ''; for (let k = 0; k <= 200; k++) { const lt = 1 + 3.1 * k / 200; dG += (dG ? 'L' : 'M') + X(lt).toFixed(1) + ' ' + Y(gT(lt)).toFixed(1); }
+    draw(path(p, dG,
+      { stroke: COL.task, 'stroke-width': 4 }, { d: 0 }), m('graph'), 2.5);
+    txt(p, '5/3: вращения нет', X(1.05), Y(5 / 3) - 20, m('graph', 1), { size: 24, fill: COL.good });
+    txt(p, '7/5: вращение есть', X(2.2), Y(1.4) - 20, m('graph', 4), { size: 24, fill: COL.whole });
+    txt(p, 'колебания просыпаются', X(3.1), Y(1.31) + 50, m('graph', 7), { size: 24, fill: COL.bad });
+    const lad = G(p, { x: 1440, o: 0 }); show(lad, m('q'));
+    [620, 470, 320].forEach(y => path(lad, `M-40 ${y}H40`, { stroke: COL.chalk, 'stroke-width': 3 }));
+    T(lad, 'уровни', { x: 0, y: 250, size: 22, fill: COL.dim, anchor: 'middle' });
+    const kt = G(p, { x: 1440, o: 0 }); show(kt, m('frozen'));
+    mk('rect', { x: 50, y: 590, width: 16, height: 30, fill: COL.task }, kt);
+    T(kt, 'kT', { x: 58, y: 580, size: 22, fill: COL.task, anchor: 'middle', font: MATH });
+  }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['n ∝ e^{−П/kT} — закон Больцмана.', 'w1'], ['Атмосфера: n = n₀e^{−mgh/kT}.', 'w2'],
+      ['f(v) ∝ e^{−mv²/2kT} — Максвелл.', 'w3'], ['γ = 1 + 2/f; кванты замораживают степени свободы.', 'w4']]);
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-scale', prompt: ['Во сколько раз высота kT/mg для гелия (масса 4) больше, чем для кислорода O₂ (масса 32), при одной температуре?'],
+    build: blanks([{ parts: ['в ', { box: '8' }, ' раз'], why: 'kT/mg ∝ 1/m: 32/4 = 8.', hint: 'Высота обратно пропорциональна массе молекулы.' }]),
+  }, {
+    id: 'p-evap', prompt: ['Энергия отрыва W = 10 kT. Жидкость нагрели так, что W/kT стало 9. Как изменилась плотность пара?'],
+    build: choice([['выросла в e ≈ 2,7 раза'], ['выросла на 10 %'], ['не изменилась']], 0, 'e⁻⁹ / e⁻¹⁰ = e.', ['Показатель изменился на 1 — множитель e.', null, 'Плотность пара ∝ exp(−W/kT), она чувствительна к T.']),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-f6', prompt: ['Жёсткая нелинейная молекула (например, H₂O как целое): 3 поступательные и 3 вращательные степени свободы. Найдите γ.'],
+    build: blanks([{ parts: ['γ = ', { box: '4/3' }], why: '1 + 2/6 = 4/3.', hint: 'γ = 1 + 2/f, f = 6.' }]),
+  }, {
+    id: 'p-frozen', prompt: ['Почему у водорода при 30 К γ ≈ 5/3, как у одноатомного газа?'],
+    build: choice([['ступенька энергии вращения много больше kT — вращение заморожено'], ['молекулы H₂ распадаются на атомы'], ['при низкой T закон Больцмана неверен']], 0, 'Квантовые уровни: вращение не получает своей доли kT.', [null, 'Распадаются они как раз при высокой температуре.', 'Закон Больцмана верен; дело в дискретных уровнях.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

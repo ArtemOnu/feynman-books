@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Звук. Волновое уравнение</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 47, title: 'Звук. Волновое уравнение', minutes: 8, language: 'ru', audio: false, next: '../ch48/' };
+
+/* ---------- chapter drawing helpers ---------- */
+// Air as thin vertical layers; chi(x0, t) gives each layer's displacement. Returns an updater.
+function layers(p, x1, x2, y1, y2, step = 22) {
+  const L = [];
+  for (let x = x1; x <= x2; x += step) L.push({ x0: x, el: path(p, `M0 ${y1}V${y2}`, { stroke: COL.chalk, 'stroke-width': 2.5, 'stroke-opacity': .75 }) });
+  L.forEach(l => put(l.el, { x: l.x0 }));
+  return L;
+}
+const bump = u => Math.exp(-u * u);
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Звук', (m, D) => introCard(m, D, 'Звук', 47, 'Звук. Волновое уравнение', 'Как из законов Ньютона следует звук')],
+
+  ['waves', 'Слои воздуха', (m, D) => {
+    const p = panel(0);
+    head(p, 'Звук — бегущее сгущение', .2);
+    const g = G(p, { o: 0 }); show(g, .2);
+    mk('rect', { x: 100, y: 260, width: 40, height: 200, rx: 6, fill: '#3a5047', stroke: COL.task, 'stroke-width': 3 }, g);
+    const L = layers(g, 180, 1460, 260, 460);
+    const tr = L[12]; tr.el.setAttribute('stroke', COL.task); tr.el.setAttribute('stroke-opacity', 1); tr.el.setAttribute('stroke-width', 5);
+    const t0 = m('pulse', -2), c = 140, k = 2 * Math.PI / 260;
+    prog(q => {
+      const t = q * D, s = Math.max(0, t - t0), front = 180 + c * s;
+      for (const l of L) { const ch = l.x0 < front ? 14 * Math.sin(k * (l.x0 - 180 - c * s)) * -1 : 0; put(l.el, { x: l.x0 + ch }); }
+    }, 0, D, lin);
+    txt(p, 'сгущения и разрежения бегут →', 800, 540, m('pulse'), { size: 30, fill: COL.task, anchor: 'middle' });
+    txt(p, 'отмеченный слой лишь качается', 800, 600, m('move'), { size: 28, fill: COL.dim, anchor: 'middle' });
+    eq(p, 'χ(x, t) — смещение слоя', 800, 680, m('move', 3), { size: 32, anchor: 'middle' });
+  }],
+
+  ['steps', 'Три шага', (m) => {
+    const p = panel(0);
+    head(p, 'Уравнение звука в три шага', .2);
+    eq(p, '1)  ρₑ = −ρ₀ ∂χ/∂x', 300, 260, m('s1'), { size: 42 });
+    eq(p, '2)  Pₑ = κ ρₑ,   κ = dP/dρ', 300, 380, m('s2'), { size: 42 });
+    eq(p, '3)  ρ₀ ∂²χ/∂t² = −∂Pₑ/∂x', 300, 500, m('s3'), { size: 42 });
+    txt(p, 'сжатие → давление → ускорение', 300, 600, m('s3', 4), { size: 28, fill: COL.dim });
+  }],
+
+  ['waveeq', 'Волновое уравнение', (m) => {
+    const p = panel(0);
+    head(p, 'Волновое уравнение', .2);
+    eq(p, '∂²χ/∂x² = (1/c²) ∂²χ/∂t²', 800, 360, m('eq'), { size: 60, anchor: 'middle', fill: COL.task });
+    eq(p, 'c² = κ = dP/dρ', 800, 470, m('c'), { size: 44, anchor: 'middle' });
+    txt(p, 'звук, свет, струна — одно уравнение', 800, 560, m('c', 3), { size: 30, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['q1', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 200, w: 1000, cls: 'side' }, [{
+    id: 'c-dir', prompt: ['Решение χ = g(x + ct). Куда движется его форма?'],
+    build: choice([['влево, со скоростью c'], ['вправо, со скоростью c'], ['стоит на месте']], 0, 'Значение g сохраняется при x + ct = const, то есть x = const − ct.', [null, 'Вправо движется f(x − ct).', 'Форма бежит, x + ct = const.']),
+  }], done) }],
+
+  ['solution', 'Решения', (m, D) => {
+    const p = panel(0);
+    head(p, 'Решения: бегущие формы', .2);
+    path(p, 'M140 420H1460', { stroke: COL.dim, 'stroke-width': 2 });
+    T(p, 'x', { x: 1475, y: 428, size: 26, fill: COL.dim, font: MATH });
+    const fe = path(p, '', { stroke: COL.task, 'stroke-width': 4, fill: 'none' }), ge = path(p, '', { stroke: COL.good, 'stroke-width': 4, fill: 'none' });
+    const se = path(p, '', { stroke: COL.chalk, 'stroke-width': 2.5, fill: 'none', 'stroke-dasharray': '8 6' });
+    const tf = m('f'), tg = m('g'), ts = m('sum'), tm = ts + 2, cf = 550 / (tm - tf), cg = 550 / (tm - tg);
+    prog(q => {
+      const t = q * D, xf = 800 + cf * (t - tm), xg = 800 - cg * (t - tm);
+      const F = x => t >= tf ? 140 * bump((x - xf) / 60) : 0, Gg = x => t >= tg ? 90 * bump((x - xg) / 90) : 0;
+      let a = '', b = '', s = '';
+      for (let x = 140; x <= 1460; x += 6) { a += (a ? 'L' : 'M') + x + ' ' + (420 - F(x)).toFixed(1); b += (b ? 'L' : 'M') + x + ' ' + (420 - Gg(x)).toFixed(1); s += (s ? 'L' : 'M') + x + ' ' + (420 - F(x) - Gg(x)).toFixed(1); }
+      fe.setAttribute('d', a); ge.setAttribute('d', b); se.setAttribute('d', t >= ts ? s : '');
+    }, 0, D, lin);
+    eq(p, 'f(x − ct) →', 300, 220, m('f'), { size: 36, fill: COL.task });
+    eq(p, '← g(x + ct)', 1300, 220, m('g'), { size: 36, fill: COL.good, anchor: 'end' });
+    txt(p, 'сумма — тоже решение: волны проходят друг сквозь друга', 800, 640, m('sum'), { size: 28, fill: COL.chalk, anchor: 'middle' });
+  }],
+
+  ['speed', 'Скорость звука', (m) => {
+    const p = panel(0);
+    head(p, 'Скорость звука', .2);
+    eq(p, 'Ньютон (изотерма):  c = √(P/ρ) ≈ 280 м/с', 200, 250, m('newton'), { size: 36, fill: COL.bad });
+    eq(p, 'Лаплас (адиабата):  c = √(γP/ρ)', 200, 360, m('lap'), { size: 40, fill: COL.task });
+    eq(p, 'воздух: γ = 1,4  ⇒  c ≈ 330 м/с', 200, 450, m('val'), { size: 36, fill: COL.good });
+    eq(p, 'P/ρ ∝ T  ⇒  c ∝ √T', 200, 560, m('temp'), { size: 40 });
+    const x = path(p, 'M190 262L900 236', { stroke: COL.bad, 'stroke-width': 4 }, { d: 0 }); draw(x, m('lap', 1), .5);
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 1000, y: 520, w: 560, cls: 'side' }, [{
+    id: 'c-temp', prompt: ['Абсолютную температуру газа увеличили в 4 раза. Во сколько раз выросла скорость звука?'],
+    build: blanks([{ parts: ['в ', { box: '2' }, ' раза'], why: 'c ∝ √T: √4 = 2.', hint: 'c² = γP/ρ ∝ T.' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    wrapList(p, m, [['Звук — бегущее сгущение воздуха.', 'w1'], ['∂²χ/∂x² = (1/c²) ∂²χ/∂t².', 'w2'],
+      ['f(x − ct) и g(x + ct) — решения.', 'w3'], ['c = √(γP/ρ) ≈ 330 м/с.', 'w4']]);
+  }],
+
+  ['final1', 'Практика', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-echo', prompt: ['Эхо от скалы вернулось через 2 с. Скорость звука 340 м/с. Далеко ли скала?'],
+    build: blanks([{ parts: [{ box: '340' }, ' м'], why: 'Туда и обратно 680 м — до скалы 340 м.', hint: 'Звук прошёл путь дважды.' }]),
+  }, {
+    id: 'p-he', prompt: ['Гелий (γ = 5/3, масса 4) и азот (γ = 7/5, масса 28) при одной T. Скорость звука в гелии…'],
+    build: choice([['≈ в 2,9 раза больше'], ['≈ в 7 раз больше'], ['такая же']], 0, 'c ∝ √(γ/m): √((5/3)/4 : (7/5)/28) = √(0,417/0,05) ≈ 2,9.', [null, 'Под корнем: c ∝ √(γ/m), а не γ/m.', 'Лёгкий газ — звук быстрее.']),
+  }], done, 'Практика по главе   1 из 1') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>

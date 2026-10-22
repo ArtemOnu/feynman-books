@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Пространство-время</title>
+<link rel="stylesheet" href="../lib/engine.css">
+<link rel="expect" href="#bar" blocking="render"><!-- hold the first frame until the player exists, so the page transition can run -->
+</head>
+<body>
+<script src="../lib/engine.js"></script>
+<script src="../lib/atoms.js"></script>
+<script src="audio/ru/timings.js"></script>
+<script>
+'use strict';
+const CHAPTER = { number: 17, title: 'Пространство-время', minutes: 12, language: 'ru', audio: false, next: '../ch18/' };
+
+/* ---------- chapter drawing helpers ---------- */
+const LIGHT = COL.int, MICK = COL.task;
+const eq = (p, str, x, y, t0, { size = 34, fill = COL.chalk, anchor = 'start' } = {}) => subify(txt(p, str, x, y, t0, { size, fill, anchor, font: MATH }));
+// Spacetime diagram centred at O, half-size R: x right, ct up; returns screen mapper.
+function stDiagram(p, O, R, t0, { cone = true } = {}) {
+  const g = G(p, { o: 0 }); show(g, t0);
+  vec(g, O[0] - R, O[1], O[0] + R, O[1], COL.dim, { w: 2, head: 12 }); vec(g, O[0], O[1] + R, O[0], O[1] - R, COL.dim, { w: 2, head: 12 });
+  T(g, 'x', { x: O[0] + R + 8, y: O[1] + 8, size: 26, fill: COL.dim, font: MATH }); T(g, 'ct', { x: O[0] + 10, y: O[1] - R - 6, size: 26, fill: COL.dim, font: MATH });
+  if (cone) path(g, `M${O[0] - R} ${O[1] + R}L${O[0] + R} ${O[1] - R}M${O[0] - R} ${O[1] - R}L${O[0] + R} ${O[1] + R}`, { stroke: LIGHT, 'stroke-width': 2, 'stroke-dasharray': '7 7' });
+  return (x, t) => [O[0] + x, O[1] - t];
+}
+const lorentz = (x, t, b) => { const g = 1 / Math.sqrt(1 - b * b); return [g * (x - b * t), g * (t - b * x)]; };
+
+/* ---------- beats ---------- */
+const BEATS = [
+  ['intro', 'Пространство-время', (m, D) => {
+    const g = G(scene, { o: 0, y: 24 });
+    T(g, 'Относительность · Глава 17', { x: 800, y: 330, size: 30, fill: COL.dim, anchor: 'middle' });
+    T(g, 'Пространство-время', { x: 800, y: 440, size: 92, weight: 600, anchor: 'middle' });
+    tw(g, { o: 1, y: 0 }, .2, 1.1, out);
+    const r = txt(scene, 'Пространство и время — две стороны одного целого', 800, 560, m('sub'), { size: 34, fill: COL.task, anchor: 'middle' });
+    tw(g, { o: 0, y: -24 }, D - .9, .8); hide(r, D - .9, .8);
+  }],
+
+  ['width', 'Ширина и толщина', (m, D) => {
+    const p = panel(0);
+    head(p, 'Видимая ширина зависит от угла зрения', .2);
+    const C = [400, 430], w = 260, h = 90;
+    const box = G(p, { x: C[0], y: C[1], o: 0 }); show(box, m('object'));
+    mk('rect', { x: -w / 2, y: -h / 2, width: w, height: h, rx: 6, fill: 'rgba(240,180,90,.3)', stroke: COL.task, 'stroke-width': 3 }, box);
+    const eye = G(p, { o: 0 }); show(eye, m('object'));
+    mk('circle', { r: 16, fill: COL.chalk }, eye); mk('circle', { r: 6, fill: COL.board }, eye);
+    const wl = T(p, '', { x: 400, y: 680, size: 28, fill: COL.task, anchor: 'middle', font: MATH });
+    const proj = path(p, '', { stroke: COL.whole, 'stroke-width': 6 });
+    const tt = m('turn');
+    prog(q => {
+      const t = q * D, a = 70 * smooth(tt, tt + 4, t) * Math.PI / 180;
+      put(box, { r: a * 180 / Math.PI });
+      put(eye, { x: C[0] - 200, y: C[1] + 160 });
+      const W = w * Math.cos(a) + h * Math.sin(a);
+      proj.setAttribute('d', `M${C[0] - W / 2} ${C[1] + 160}H${C[0] + W / 2}`);
+      wl.textContent = `видимая ширина: ${Math.round(W / 26 * 10) / 10}`.replace('.', ',');
+    }, 0, D, lin);
+    eq(p, 'поворот: x′ = x cos θ + y sin θ', 820, 300, tt + 1, { size: 32 });
+    eq(p, 'Лоренц: x′ = (x − ut)/√(1 − u²/c²)', 820, 400, m('mix'), { size: 32, fill: MICK });
+    txt(p, 'новое x′ — смесь старых x и t', 820, 460, m('mix', 1.5), { size: 26, fill: COL.good });
+  }],
+
+  ['diagram', 'Мировые линии', (m) => {
+    const p = panel(0);
+    head(p, 'Диаграмма пространства-времени', .2);
+    const O = [520, 700];
+    const ax = G(p, { o: 0 }); show(ax, .3);
+    vec(ax, 160, O[1], 900, O[1], COL.dim, { w: 2, head: 12 }); vec(ax, 200, O[1] + 10, 200, 150, COL.dim, { w: 2, head: 12 });
+    T(ax, 'x', { x: 910, y: O[1] + 8, size: 26, fill: COL.dim, font: MATH }); T(ax, 'ct', { x: 210, y: 150, size: 26, fill: COL.dim, font: MATH });
+    const X0 = 380;
+    const lines = [['rest', `M${X0} ${O[1]}V180`, COL.whole, 'a — покоится'], ['move', `M${X0} ${O[1]}L${X0 + 180} 180`, COL.good, 'b — движется'],
+      ['slow', `M${X0} ${O[1]}Q${X0 + 400} ${O[1] - 60} ${X0 + 440} 180`, COL.rat, 'c — тормозит'], ['light', `M${X0} ${O[1]}L${X0 + 520} 180`, LIGHT, 'd — свет (45°)']];
+    lines.forEach(([mk_, d, c, s], i) => { draw(path(p, d, { stroke: c, 'stroke-width': 4 }, { d: 0 }), m(mk_), 1.2); txt(p, s, 1000, 260 + i * 60, m(mk_), { size: 28, fill: c }); });
+    const td = m('decay');
+    const fk = G(p, { o: 0 }); show(fk, td);
+    path(fk, `M${300} ${O[1]}V450L240 180M300 450L380 180`, { stroke: COL.task, 'stroke-width': 4 });
+    txt(p, 'распад — вилка', 1000, 520, td, { size: 28, fill: COL.task });
+  }],
+
+  ['q1', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 960, y: 580, w: 600, cls: 'side' }, [{
+    id: 'c-world', prompt: ['Какая мировая линия невозможна для частицы с массой?'],
+    build: choice([['наклонённая к оси x сильнее 45°'], ['вертикальная'], ['наклонённая к оси ct на 30°']], 0,
+      'Наклон положе световой линии означает скорость больше c.',
+      [null, 'Вертикаль — частица покоится.', 'Это движение медленнее света — возможно.']),
+  }], done) }],
+
+  ['units', 'Метр времени', (m) => {
+    const p = panel(0);
+    head(p, 'Единицы: c = 1', .2);
+    const tm = m('metre');
+    const r = G(p, { o: 0 }); show(r, tm);
+    path(r, 'M300 380H1300', { stroke: COL.dim, 'stroke-width': 3 }); path(r, 'M300 365v30M1300 365v30', { stroke: COL.dim, 'stroke-width': 3 });
+    T(r, '1 м', { x: 800, y: 430, size: 30, fill: COL.dim, anchor: 'middle' });
+    const ph = mk('circle', { cx: 300, cy: 380, r: 12, fill: LIGHT }, p); put(ph, { o: 0 }); show(ph, tm);
+    tw(ph, { 'a_cx': 1300 }, tm + .5, 2.5, lin);
+    eq(p, '1 м времени = 1/(3·10⁸) с ≈ 3,3 нс', 800, 280, tm + 1, { size: 38, fill: LIGHT, anchor: 'middle' });
+    eq(p, "x′ = (x − ut)/√(1 − u²),  t′ = (t − ux)/√(1 − u²)", 800, 560, m('c1'), { size: 34, anchor: 'middle', fill: MICK });
+  }],
+
+  ['interval', 'Интервал', (m, D) => {
+    const p = panel(0);
+    head(p, 'Что не меняется', .2);
+    eq(p, 'поворот: x² + y² — не меняется', 120, 200, m('dist'), { size: 30, fill: COL.dim });
+    eq(p, 's² = t² − x² − y² − z²', 120, 270, m('int'), { size: 40, fill: COL.task });
+    const O = [1100, 470], R = 280;
+    const map = stDiagram(p, O, R, m('signs'));
+    const ax = G(p, { o: 0 }); show(ax, m('signs'));
+    const xp = path(ax, '', { stroke: MICK, 'stroke-width': 3 }), tp = path(ax, '', { stroke: MICK, 'stroke-width': 3 });
+    const E = [80, 200];   // event: x = 80, t = 200 (px, c = 1)
+    const ev = mk('circle', { cx: O[0] + E[0], cy: O[1] - E[1], r: 9, fill: COL.good }, p); put(ev, { o: 0 }); show(ev, m('check'));
+    const hyp = (() => { const s = Math.sqrt(E[1] ** 2 - E[0] ** 2); let d = ''; for (let a = -1.1; a <= 1.1; a += .02) d += (d ? 'L' : 'M') + (O[0] + s * Math.sinh(a)).toFixed(1) + ' ' + (O[1] - s * Math.cosh(a)).toFixed(1); return d; })();
+    const hp = path(p, hyp, { stroke: COL.good, 'stroke-width': 2, 'stroke-dasharray': '4 6' }); put(hp, { o: 0 }); show(hp, m('check', 1));
+    const rd = T(p, '', { x: 120, y: 420, size: 30, fill: COL.chalk, font: MATH });
+    const rd2 = T(p, '', { x: 120, y: 480, size: 30, fill: COL.good, font: MATH });
+    prog(q => {
+      const t = q * D, b = t < m('check') ? .45 * smooth(m('signs'), m('signs') + 2, t) : .45 * Math.cos(.8 * (t - m('check')));
+      const a = Math.atan(b);
+      xp.setAttribute('d', `M${O[0] - 250 * Math.cos(a)} ${O[1] + 250 * Math.sin(a)}L${O[0] + 250 * Math.cos(a)} ${O[1] - 250 * Math.sin(a)}`);
+      tp.setAttribute('d', `M${O[0] - 250 * Math.sin(a)} ${O[1] + 250 * Math.cos(a)}L${O[0] + 250 * Math.sin(a)} ${O[1] - 250 * Math.cos(a)}`);
+      const [x1, t1] = lorentz(E[0] / 100, E[1] / 100, b);
+      if (t > m('check')) { rd.textContent = `u = ${b.toFixed(2).replace('.', ',')}:  t′ = ${t1.toFixed(2).replace('.', ',')},  x′ = ${x1.toFixed(2).replace('.', ',')}`; rd2.textContent = `t′² − x′² = ${(t1 * t1 - x1 * x1).toFixed(2).replace('.', ',')}`; } else { rd.textContent = ''; rd2.textContent = ''; }
+    }, 0, D, lin);
+    txt(p, 'оси x′, ct′ «складываются» к лучу света', 120, 340, m('signs', 1), { size: 26, fill: MICK });
+  }],
+
+  ['q2', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 96, y: 560, w: 700, cls: 'side' }, [{
+    id: 'c-int', prompt: ['Событие: t = 5, x = 3 (c = 1). В другой системе x′ = 0. Чему там равно t′?'],
+    build: blanks([{ parts: ['t′ = ', { box: '4' }], why: 't′² − 0 = 25 − 9 = 16 ⇒ t′ = 4.', hint: 'Интервал t² − x² одинаков во всех системах.' }]),
+  }], done) }],
+
+  ['kinds', 'Виды интервалов', (m) => {
+    const p = panel(0);
+    head(p, 'Три вида интервалов', .2);
+    const O = [480, 470], R = 280;
+    const map = stDiagram(p, O, R, .3);
+    const P = (x, t, c, s, mk_) => { const g = G(p, { o: 0 }); show(g, m(mk_)); mk('circle', { cx: O[0] + x, cy: O[1] - t, r: 10, fill: c }, g); path(g, `M${O[0]} ${O[1]}L${O[0] + x} ${O[1] - t}`, { stroke: c, 'stroke-width': 3 }); txt(p, s, 900, 300 + ['time', 'space', 'null'].indexOf(mk_) * 110, m(mk_), { size: 28, fill: c }); };
+    P(80, 220, COL.good, 's² > 0 — времениподобный', 'time');
+    P(230, 90, COL.bad, 's² < 0 — пространственноподобный', 'space');
+    P(170, 170, LIGHT, 's² = 0 — световой', 'null');
+    txt(p, 'можно доехать медленнее света', 900, 340, m('time', .5), { size: 22, fill: COL.dim });
+    txt(p, 'никакой сигнал не успеет', 900, 450, m('space', .5), { size: 22, fill: COL.dim });
+  }],
+
+  ['cone', 'Световой конус', (m) => {
+    const p = panel(0);
+    head(p, 'Прошлое, будущее и «где-то»', .2);
+    const O = [520, 450], R = 300;
+    const g = G(p, { o: 0 }); show(g, .3);
+    path(g, `M${O[0] - R} ${O[1] - R}L${O[0]} ${O[1]}L${O[0] + R} ${O[1] - R}`, { stroke: LIGHT, 'stroke-width': 3 });
+    path(g, `M${O[0] - R} ${O[1] + R}L${O[0]} ${O[1]}L${O[0] + R} ${O[1] + R}`, { stroke: LIGHT, 'stroke-width': 3 });
+    mk('circle', { cx: O[0], cy: O[1], r: 9, fill: COL.chalk }, g); T(g, 'O', { x: O[0] + 14, y: O[1] + 8, size: 26, fill: COL.chalk, font: MATH });
+    const fill = (d, c, mk_) => { const e = mk('path', { d, fill: c, opacity: 0 }, p); tw(e, { o: .25 }, m(mk_), .6); };
+    fill(`M${O[0] - R} ${O[1] + R}L${O[0]} ${O[1]}L${O[0] + R} ${O[1] + R}Z`, COL.whole, 'past');
+    fill(`M${O[0] - R} ${O[1] - R}L${O[0]} ${O[1]}L${O[0] + R} ${O[1] - R}Z`, COL.task, 'future');
+    fill(`M${O[0] - R} ${O[1] - R}L${O[0]} ${O[1]}L${O[0] - R} ${O[1] + R}ZM${O[0] + R} ${O[1] - R}L${O[0]} ${O[1]}L${O[0] + R} ${O[1] + R}Z`, COL.faint, 'else');
+    txt(p, 'прошлое: влияет на O', O[0], O[1] + 200, m('past'), { size: 26, fill: COL.whole, anchor: 'middle' });
+    txt(p, 'будущее: O на него влияет', O[0], O[1] - 200, m('future'), { size: 26, fill: COL.task, anchor: 'middle' });
+    txt(p, 'недоступно', O[0] + 230, O[1] + 10, m('else'), { size: 24, fill: COL.dim, anchor: 'middle' });
+    txt(p, 'взрыв Солнца «сейчас» — узнаем через 8 мин', 900, 300, m('sun'), { size: 26 });
+    txt(p, 'Альфа Центавра «сейчас» — не определено', 900, 380, m('alpha'), { size: 26 });
+    txt(p, 'видим её такой, какой она была 4 года назад', 900, 420, m('alpha', 1), { size: 22, fill: COL.dim });
+  }],
+
+  ['q3', 'Быстрая проверка', () => {}, { ask: done => quiz({ x: 900, y: 500, w: 660, cls: 'side' }, [{
+    id: 'c-cone', prompt: ['Событие в 5 световых годах от нас случилось 2 года назад. Может ли оно уже повлиять на нас?'],
+    build: choice([['нет — оно вне нашего светового конуса'], ['да — прошло достаточно времени'], ['да, если сигнал — свет']], 0,
+      'Даже свету нужно 5 лет, а прошло 2: интервал пространственноподобный.',
+      [null, 'Нужно не меньше 5 лет.', 'Свету нужно 5 лет — а прошло 2.']),
+  }], done) }],
+
+  ['fourp', 'Четырёхвектор импульса', (m) => {
+    const p = panel(0);
+    head(p, 'Энергия и импульс — четырёхвектор', .2);
+    eq(p, 'E = m₀/√(1 − v²),   p = m₀v/√(1 − v²)', 800, 220, m('p'), { size: 34, anchor: 'middle' });
+    const tt = m('transform');
+    eq(p, "p′ₓ = (pₓ − uE)/√(1 − u²)", 480, 330, tt, { size: 34, anchor: 'middle', fill: MICK });
+    eq(p, "E′ = (E − u pₓ)/√(1 − u²)", 480, 400, tt + .8, { size: 34, anchor: 'middle', fill: MICK });
+    eq(p, "x′ = (x − ut)/√(1 − u²)", 1150, 330, tt + 1.6, { size: 34, anchor: 'middle', fill: COL.dim });
+    eq(p, "t′ = (t − ux)/√(1 − u²)", 1150, 400, tt + 2.2, { size: 34, anchor: 'middle', fill: COL.dim });
+    txt(p, 'E ↔ t,  p ↔ x', 800, 480, tt + 3, { size: 32, anchor: 'middle', fill: COL.good });
+    eq(p, 'E² − p² = m₀²', 800, 600, m('len'), { size: 46, anchor: 'middle', fill: COL.task });
+  }],
+
+  ['conserve', 'Сохранение четырёхимпульса', (m, D) => {
+    const p = panel(0);
+    head(p, 'Сохраняются все четыре составляющие', .2);
+    eq(p, 'Σ pμ (до) = Σ pμ (после),   μ = t, x, y, z', 800, 220, .4, { size: 36, anchor: 'middle' });
+    const C = [800, 470];
+    const a = mk('circle', { r: 18, fill: COL.whole }, p), b = mk('circle', { r: 18, fill: COL.task }, p), c1 = mk('circle', { r: 14, fill: COL.good }, p), c2 = mk('circle', { r: 14, fill: COL.rat }, p);
+    prog(q => { const t = q * D, s = (t % 6) - 3;
+      if (s < 0) { put(a, { x: C[0] + 100 * s, y: C[1] + 20 * s, o: 1 }); put(b, { x: C[0] - 100 * s, y: C[1] - 20 * s, o: 1 }); put(c1, { o: 0 }); put(c2, { o: 0 }); }
+      else { put(a, { o: 0 }); put(b, { o: 0 }); put(c1, { x: C[0] + 60 * s, y: C[1] - 80 * s, o: 1 }); put(c2, { x: C[0] - 60 * s, y: C[1] + 80 * s, o: 1 }); } }, 0, D, lin);
+    txt(p, 'иначе при смене системы составляющие перемешаются', 800, 690, m('sum'), { size: 26, anchor: 'middle', fill: COL.dim });
+    txt(p, 'временная составляющая — энергия', 800, 735, m('energy'), { size: 28, anchor: 'middle', fill: COL.good });
+  }],
+
+  ['photon', 'Фотон', (m, D) => {
+    const p = panel(0);
+    head(p, 'Фотон', .2);
+    eq(p, 'm₀ = 0:  E = pc,   E = hν,   p = h/λ', 800, 220, m('ep'), { size: 36, anchor: 'middle', fill: LIGHT });
+    const w = path(p, '', { stroke: LIGHT, 'stroke-width': 4 });
+    const td = m('doppler');
+    prog(q => { const t = q * D, k = t < td ? 1 : 1 + .8 * smooth(td, td + 2, t); let d = ''; for (let x = 0; x <= 1000; x += 3) d += (d ? 'L' : 'M') + (300 + x) + ' ' + (400 + 40 * Math.sin(x / 22 * k - t * 6)).toFixed(1); w.setAttribute('d', d); }, 0, D, lin);
+    txt(p, 'никогда не останавливается', 800, 500, m('never'), { size: 28, anchor: 'middle' });
+    txt(p, 'другая система → другая частота: эффект Доплера', 800, 560, td + .5, { size: 28, anchor: 'middle', fill: MICK });
+    txt(p, '«Пространство само по себе и время само по себе уходят в тень»', 800, 670, m('mink'), { size: 26, anchor: 'middle', fill: COL.good });
+    txt(p, '— Г. Минковский', 800, 710, m('mink', 1), { size: 22, anchor: 'middle', fill: COL.dim });
+  }],
+
+  ['q4', 'Быстрая проверка', () => { panel(0); }, { ask: done => quiz({ x: 300, y: 160, w: 1000, cls: 'side' }, [{
+    id: 'c-fourp', prompt: ['Частица: E = 13, pc = 12 (в МэВ). Найдите m₀c².'],
+    build: blanks([{ parts: ['m₀c² = ', { box: '5' }, ' МэВ'], why: '√(169 − 144) = 5 МэВ.', hint: 'E² − (pc)² = (m₀c²)².' }]),
+  }], done) }],
+
+  ['wrap', 'Итоги', (m) => {
+    const p = panel(0);
+    head(p, 'Итоги главы', .2);
+    [['Событие — точка; движение — мировая линия.', 'w1'],
+      ['Инвариант: s² = t² − x² − y² − z².', 'w2'],
+      ['Световой конус: прошлое, будущее, «где-то».', 'w3'],
+      ['(E, p) — четырёхвектор; E² − p² = m₀².', 'w4']].forEach(([str, mark], i) => {
+      const g = G(p, { x: -16, y: 230 + i * 120, o: 0 });
+      mk('circle', { cx: 200, cy: -12, r: 26, fill: COL.task }, g);
+      T(g, String(i + 1), { x: 200, y: -1, size: 30, fill: COL.board, weight: 700, anchor: 'middle' });
+      T(g, str, { x: 260, size: 36, weight: 600 });
+      tw(g, { o: 1, x: 0 }, m(mark), .6);
+    });
+  }],
+
+  ['final1', 'Практика 1', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-kind', prompt: ['Какой это интервал (c = 1)?'],
+    build: grid([
+      { parts: ['t = 3, x = 1'], ans: ['t'], why: '9 − 1 > 0 — времениподобный.' },
+      { parts: ['t = 1, x = 3'], ans: ['s'], why: '1 − 9 < 0 — пространственноподобный.' },
+      { parts: ['t = 2, x = 2'], ans: ['l'], why: '4 − 4 = 0 — световой.' },
+    ], [['t', 'времени-', COL.good, '1'], ['s', 'пространств.', COL.bad, '2'], ['l', 'световой', LIGHT, '3']], { text: true }),
+  }, {
+    id: 'p-tau', prompt: ['Космонавт пролетел 6 световых лет за 10 лет по часам Земли. Сколько прошло по его часам?'],
+    build: blanks([{ parts: [{ box: '8' }, ' лет'], why: 'τ = √(t² − x²) = √(100 − 36) = 8 лет.', hint: 'Собственное время — интервал.' }]),
+  }], done, 'Практика по главе   1 из 2') }],
+
+  ['final2', 'Практика 2', () => { panel(0); }, { ask: done => quiz(SCREEN, [{
+    id: 'p-ev', prompt: ['Масса покоя электрона 0,511 МэВ. Чему равна его масса в электронвольтах-«единицах» при c = 1?'],
+    build: choice([['0,511·10⁶ эВ'], ['0,511 эВ'], ['511·10⁶ эВ']], 0, 'При c = 1 масса измеряется в эВ: 0,511 МэВ = 0,511·10⁶ эВ.', [null, 'Приставка «М» — миллион.', 'Это 511 МэВ, в тысячу раз больше.']),
+  }, {
+    id: 'p-conserve', prompt: ['Почему в теории относительности сохранение импульса без сохранения энергии невозможно?'],
+    build: choice([['при смене системы энергия и импульс смешиваются'], ['энергия равна импульсу'], ['так проще считать']], 0, 'p′ₓ содержит E: если E не сохранялась бы, в другой системе не сохранился бы импульс.', [null, 'Это верно только для фотона.', 'Дело в законах преобразования, а не в удобстве.']),
+  }], done, 'Практика по главе   2 из 2') }],
+
+  ['finish', 'Готово', () => { panel(0); }, { ask: finishCard }],
+].map(([id, title, run, extra]) => ({ id, title, run, ...extra }));
+
+boot();
+</script>
+</body>
+</html>
