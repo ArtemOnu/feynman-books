@@ -93,3 +93,9 @@ main.task { min-width: 0; }
   .top .bar { width: 70px; } .top .sec { display: none; }
   .card { padding: 16px 14px; } .field .lab { min-width: 0; width: 100%; }
 }
+/* Olympiad-level problems. */
+.card.hard { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad) inset; }
+.card.hard .num { color: var(--bad); }
+.hardtag { font: 600 12px var(--ui); letter-spacing: .1em; text-transform: uppercase; color: #1a1a1a; background: var(--bad); border-radius: 8px; padding: 3px 8px; }
+nav.list a.hard { color: var(--bad); }
+nav.list a.hard:not(.solved):not(.helped):not(.tried) { border-color: var(--bad); background: #3a2420; }

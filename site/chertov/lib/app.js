@@ -1,7 +1,7 @@
 // Interactive problem book: one section per page. A section page defines SECTION and calls P(id, problem) for each problem,
 // then boot(). Problem fields: topic, text (HTML with $TeX$), fig (() => svg body | {w, h, body}), ans (fields), self (reference
 // answer for problems checked by the student), hints [], sol [] (strings or {fig, w, h}), traps [{i, v, m}], note, example.
-// Numeric field: {l, v, u, tol = 0.02 relative, abs}. Choice field: {l, choices: [...], c}.
+// hard: true marks an olympiad-level problem (red highlight). Numeric field: {l, v, u, tol = 0.02 relative, abs}. Choice field: {l, choices: [...], c}.
 'use strict';
 const PROBLEMS = [];
 const P = (id, o) => PROBLEMS.push({ id, ...o });
@@ -37,8 +37,8 @@ function render(i) {
     ? `<div class="field" data-k="${k}"><span class="lab">${f.l}</span><span class="opts">${f.choices.map((c, j) => `<button type="button" data-j="${j}">${c}</button>`).join('')}</span><span class="mark"></span></div>`
     : `<div class="field" data-k="${k}"><label class="lab" for="in${k}">${f.l} =</label><input id="in${k}" inputmode="decimal" autocomplete="off"><span class="unit">${f.u || ''}</span><span class="mark"></span></div>`).join('');
   const badge = { solved: 'решено', helped: 'решено с подсказкой', tried: 'есть ошибки' }[s.status] || (p.example ? 'пример с решением' : 'не решено');
-  $('#task').innerHTML = `<div class="card">
-    <div class="head"><span class="num">${p.example ? p.id : 'Задача ' + p.id}</span><span class="topic">${p.topic || ''}</span><span class="badge ${s.status}">${badge}</span></div>
+  $('#task').innerHTML = `<div class="card${p.hard ? ' hard' : ''}">
+    <div class="head"><span class="num">${p.example ? p.id : 'Задача ' + p.id}</span>${p.hard ? '<span class="hardtag">олимпиадная</span>' : ''}<span class="topic">${p.topic || ''}</span><span class="badge ${s.status}">${badge}</span></div>
     ${p.fig ? `<div class="fig">${figSvg(p.fig)}</div>` : ''}
     <div class="text">${p.text}</div>
     <div class="form">
@@ -154,7 +154,7 @@ function nav() {
   PROBLEMS.forEach((p, i) => { const g = p.example ? 'Примеры решения' : p.topic; if (!groups.length || groups.at(-1)[0] !== g) groups.push([g, []]); groups.at(-1)[1].push(i); });
   $('#list').innerHTML = groups.map(([g, ids]) => `<h3>${g}</h3><div class="grid">${ids.map(i => {
     const p = PROBLEMS[i], s = STATE[p.id]?.status || '';
-    return `<a href="#${p.id}" class="${p.example ? 'ex ' : ''}${s}${i === cur ? ' cur' : ''}" data-i="${i}">${p.example ? p.id : p.id.split('-')[1]}</a>`;
+    return `<a href="#${p.id}" class="${p.example ? 'ex ' : ''}${p.hard ? 'hard ' : ''}${s}${i === cur ? ' cur' : ''}" data-i="${i}">${p.example ? p.id : p.id.split('-')[1]}</a>`;
   }).join('')}</div>`).join('') +
     '<div class="legend"><i style="border-color:var(--good);background:#24453a"></i>решено<br><i style="border-color:#c9b25a;background:#3b3a28"></i>с подсказкой или решением<br><i style="border-color:var(--bad)"></i>были ошибки</div>';
   $('#mob').innerHTML = PROBLEMS.map((p, i) => `<option value="${i}"${i === cur ? ' selected' : ''}>${p.example ? p.id : 'Задача ' + p.id} · ${p.topic || ''}</option>`).join('');
