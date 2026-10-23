@@ -3,22 +3,43 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Фейнмановские лекции</title>
+<title>Учебные книги</title>
 <style>
   body { margin: 0; min-height: 100vh; background: #1d2b27; color: #ece8dc; font: 18px/1.5 "Segoe UI", Arial, sans-serif;
-         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; }
-  h1 { font: 500 40px Georgia, serif; margin: 0 0 12px; }
-  a { display: block; width: min(420px, 100%); padding: 16px 20px; border-radius: 14px; background: #22322d;
-      border: 1.5px solid #3a5047; color: inherit; text-decoration: none; }
+         display: flex; flex-direction: column; align-items: center; padding: 48px 16px; gap: 14px; }
+  h1 { font: 500 40px Georgia, serif; margin: 0 0 8px; }
+  details { width: min(460px, 100%); }
+  summary { cursor: pointer; list-style: none; padding: 14px 20px; border-radius: 14px; background: #2a3d36; font: 600 20px Georgia, serif; }
+  summary::before { content: "📁 "; }
+  details[open] summary::before { content: "📂 "; }
+  summary small { font: 400 14px "Segoe UI", Arial, sans-serif; }
+  .in { display: flex; flex-direction: column; gap: 10px; padding: 10px 0 4px 18px; }
+  a { display: block; padding: 14px 18px; border-radius: 14px; background: #22322d; border: 1.5px solid #3a5047; color: inherit; text-decoration: none; }
   a:hover { border-color: #f0b45a; }
+  a.test { border-left: 6px solid #f0b45a; }
   small { color: #9aaba3; }
+  .empty { color: #9aaba3; padding: 6px 18px; font-size: 15px; }
 </style>
 </head>
 <body>
-  <h1>Фейнмановские лекции</h1>
-  <a href="feynman1/">Том 1 <small>· главы 1–14</small></a>
-  <a href="feynman2/">Том 2 <small>· пространство, время, движение · главы 15–25</small></a>
-  <a href="feynman4/">Том 4 <small>· кинетика, теплота, звук · главы 39–52</small></a>
-  <a href="chertov/">Задачник Чертова <small>· интерактивные задачи · § 1 Кинематика</small></a>
+  <h1>Учебные книги</h1>
+  <details open>
+    <summary>Физика</summary>
+    <div class="in">
+      <a href="feynman1/">Фейнмановские лекции, том 1 <small>· главы 1–14</small></a>
+      <a href="feynman2/">Фейнмановские лекции, том 2 <small>· пространство, время, движение · главы 15–25</small></a>
+      <a href="feynman4/">Фейнмановские лекции, том 4 <small>· кинетика, теплота, звук · главы 39–52</small></a>
+      <a href="chertov/">Задачник Чертова–Воробьёва <small>· интерактивные задачи · гл. 1, §§ 1–7</small></a>
+      <a class="test" href="chertov/k01/">Контрольная № 1 <small>· механика · 20 вариантов</small></a>
+    </div>
+  </details>
+  <details>
+    <summary>Матанализ <small>· скоро</small></summary>
+    <div class="in"><div class="empty">Пока пусто.</div></div>
+  </details>
+  <details>
+    <summary>Химия <small>· скоро</small></summary>
+    <div class="in"><div class="empty">Пока пусто.</div></div>
+  </details>
 </body>
 </html>
